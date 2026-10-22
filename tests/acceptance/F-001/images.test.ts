@@ -9,6 +9,7 @@ import {
   validateZones,
   LIMITS,
   PROTOCOL_VERSION,
+  type Panel,
 } from "../../../contract/src/index.ts";
 import { PANEL, indexDoc, view, zone, zonesDoc, j, hasCode, makePng } from "./helpers.ts";
 
@@ -53,7 +54,7 @@ describe("CA13 CRC32", () => {
   });
   it("índice sin crc32 → schema", () => {
     const v = view("todo");
-    delete v["crc32"];
+    delete v.crc32;
     expect(hasCode(validateIndex(j(indexDoc({ views: [v] }))), "schema")).toBe(true);
   });
   it('crc32 "XYZ" → schema', () => {
@@ -63,7 +64,7 @@ describe("CA13 CRC32", () => {
 });
 
 describe("CA17 otros paneles", () => {
-  const p648 = { w: 648, h: 480, dpi: 166, depth: 1 };
+  const p648: Panel = { w: 648, h: 480, dpi: 166, depth: 1 };
   it("raw1Bytes", () => {
     expect(raw1Bytes(PANEL)).toBe(48000);
     expect(raw1Bytes(p648)).toBe(38880);

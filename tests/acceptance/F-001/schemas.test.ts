@@ -311,7 +311,7 @@ describe("CA9 compatibilidad hacia adelante", () => {
     validateZones(inject(j(zonesDoc())), PANEL);
     validateActionsRequest(inject(j({ actions: [action("a7f3c9e2b1")] })));
     validateLogRequest(inject(j({ entries: [logEntry()] })));
-    expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
     expect(Object.prototype).not.toHaveProperty("polluted");
   });
 });

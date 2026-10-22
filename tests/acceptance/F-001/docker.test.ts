@@ -14,7 +14,11 @@ async function stop(): Promise<void> {
   const p = proc;
   proc = undefined;
   if (!p?.pid) return;
-  const exited = new Promise<void>((r) => p.once("exit", () => r()));
+  const exited = new Promise<void>((r) =>
+    p.once("exit", () => {
+      r();
+    }),
+  );
   try {
     process.kill(-p.pid, "SIGINT");
   } catch {
