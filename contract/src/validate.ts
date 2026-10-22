@@ -61,6 +61,10 @@ function validateBody<T>(
   maxBytes: number | undefined,
   extra: (value: T) => ContractError[],
 ): Validation<T> {
+  // Size is checked before parsing so an oversized body is never parsed.
+  if (maxBytes !== undefined && Buffer.byteLength(raw, "utf8") > maxBytes) {
+    return fail({ path: "", code: "too_large" });
+  }
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -68,9 +72,6 @@ function validateBody<T>(
     return fail({ path: "", code: "invalid_json" });
   }
   const errors: ContractError[] = [];
-  if (maxBytes !== undefined && Buffer.byteLength(raw, "utf8") > maxBytes) {
-    errors.push({ path: "", code: "too_large" });
-  }
   if (!Value.Check(schema, parsed)) {
     for (const issue of Value.Errors(schema, parsed)) {
       errors.push({ path: issue.instancePath, code: "schema" });

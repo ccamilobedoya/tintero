@@ -65,6 +65,11 @@ describe("validateIndex", () => {
     expect(codes(validateIndex(text(big)))).toEqual(["too_large"]);
   });
 
+  it("rejects an oversize body before parsing it", () => {
+    const raw = "x".repeat(LIMITS.maxIndexBytes + 1);
+    expect(codes(validateIndex(raw))).toEqual(["too_large"]);
+  });
+
   it("checks raw1 size against the declared panel (CA17)", () => {
     const base = { ...indexOk(), panel: P648, current: "todo" };
     expect(validateIndex(text({ ...base, views: [view({ bytes: 38880 })] })).ok).toBe(true);
