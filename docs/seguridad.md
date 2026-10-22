@@ -49,3 +49,6 @@
 - `.claude/settings.json` niega `Read` sobre `.env*` y `~/.config/**` (Claude Code lo aplica también a Grep y Glob, en la medida de lo posible).
 - Los agentes lanzados con `tools/lanzar-agente` solo tienen una **lista cerrada de comandos** de Bash: no pueden correr `cat`, `less` ni similares. Este es el control real.
 - El hook `tools/hooks/block-secrets.ts` bloquea comandos de Bash que nombren `.env` o `.config`. Compara texto, así que es una **barrera contra descuidos** en sesiones interactivas, no un control de seguridad (se puede saltar con comodines o comillas partidas). Falla cerrado.
+
+## Excepción: HTTP sin TLS hacia 127.0.0.1 en pruebas
+Las pruebas que llaman a servicios locales del repo (simulador, visor) pueden usar `http://127.0.0.1:<puerto>`. Se usa **una sola constante** por archivo, marcada con `// nosemgrep: <regla> -- loopback de prueba (docs/seguridad.md)`. Fuera de pruebas, o hacia cualquier otra dirección, la comunicación es HTTPS (ADR-0004).
