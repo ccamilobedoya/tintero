@@ -1,0 +1,6 @@
+{
+  "//": "Pruebas de aceptación: se escriben antes del código (P1), así que solo compilan en la fase de verificación. tools/revisar las compila con este archivo.",
+  "extends": "../../tsconfig.json",
+  "include": ["../../contract", "../../server", "../../emulator", "../../tools", "."],
+  "exclude": ["../../node_modules"]
+}

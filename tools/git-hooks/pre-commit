@@ -27,7 +27,8 @@ fi
 node tools/lib/private-terms.ts --staged || exit 1
 
 # 3. Tipos y lint sobre el TypeScript del commit.
-mapfile -t TS < <(printf '%s\n' "${STAGED[@]}" | grep -E '\.(ts|js|mjs)$' || true)
+# Las pruebas de aceptación se escriben antes del código (P1): aquí no se compilan; tools/revisar sí, en la verificación.
+mapfile -t TS < <(printf '%s\n' "${STAGED[@]}" | grep -E '\.(ts|js|mjs)$' | grep -v '^tests/acceptance/' || true)
 if [ "${#TS[@]}" -gt 0 ]; then
   npx --no-install tsc --noEmit --pretty false >&2 || { echo "❌ tsc: errores de tipos." >&2; exit 1; }
   npx --no-install eslint --max-warnings 0 "${TS[@]}" >&2 || { echo "❌ eslint: hay problemas." >&2; exit 1; }

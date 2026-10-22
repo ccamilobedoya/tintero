@@ -51,7 +51,11 @@ if [ -f "$TERMS" ] && grep -qv -e '^#' -e '^[[:space:]]*$' "$TERMS"; then
 else
   skip privacidad "sin lista privada"
 fi
-run tsc tsc.txt npx --no-install tsc --noEmit --pretty false
+if git ls-files --cached --others --exclude-standard tests/acceptance | grep -q '\.ts$'; then
+  run tsc tsc.txt sh -c 'npx --no-install tsc --noEmit --pretty false; a=$?; npx --no-install tsc --noEmit --pretty false -p tests/acceptance; b=$?; exit $((a|b))'
+else
+  run tsc tsc.txt npx --no-install tsc --noEmit --pretty false
+fi
 run eslint eslint.json npx --no-install eslint . -f json
 run prettier prettier.txt sh -c 'npx --no-install prettier --check . 2>&1'
 run_to_file vitest npx --no-install vitest run --passWithNoTests --reporter=json --outputFile="$OUT/vitest.json"
