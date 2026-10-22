@@ -13,9 +13,12 @@ LOG="$OUT/$STAMP-$ROLE.json"
 READ_TOOLS=(Read Grep Glob "Bash(git status:*)" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" "Bash(ls:*)")
 WRITE_TOOLS=(Edit Write "Bash(npm run:*)" "Bash(npm test:*)" "Bash(npx vitest:*)" "Bash(npx tsc:*)" \
   "Bash(tools/check-scope:*)" "Bash(mkdir:*)")
+# Servicios locales del propio repo (simulador, visor): solo 127.0.0.1 y Docker para mirar o detener.
+LOCAL_TOOLS=("Bash(curl -s http://127.0.0.1:*)" "Bash(curl -sS http://127.0.0.1:*)" "Bash(docker ps:*)" "Bash(docker logs:*)" "Bash(docker stop:*)")
 case "$ROLE" in
-  programador) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "Bash(npx eslint:*)" "Bash(npx prettier:*)") ;;
-  verificador) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "Bash(tools/revisar:*)" "Bash(rm:*)") ;;
+  programador) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "${LOCAL_TOOLS[@]}" "Bash(npx eslint:*)" "Bash(npx prettier:*)" \
+    "Bash(npm install --save-exact:*)" "Bash(npm install --save-dev --save-exact:*)" "Bash(rm:*)") ;;
+  verificador) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "${LOCAL_TOOLS[@]}" "Bash(tools/revisar:*)" "Bash(rm:*)") ;;
   revisor) TOOLS=("${READ_TOOLS[@]}" "Bash(cat .revisar/:*)") ;;
   integrador) TOOLS=(Read "${READ_TOOLS[@]:3}" "Bash(git add:*)" "Bash(git commit:*)" "Bash(git merge:*)" "Bash(git push -u origin:*)" "Bash(git push origin:*)" "Bash(git branch:*)" "Bash(git switch:*)" "Bash(tools/check-scope:*)") ;;
   *) echo "Rol desconocido: $ROLE" >&2; exit 2 ;;
@@ -46,6 +49,8 @@ claude -p --agent "$ROLE" --model "$MODEL" --permission-mode default \
 node -e '
 const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
 const u = d.usage ?? {};
+if (d.is_error) console.log("⚠️ EL AGENTE TERMINÓ CON ERROR (p. ej. límite de uso de la cuenta): su trabajo puede estar incompleto.\n");
 console.log(d.result ?? "(sin resultado)");
+if (d.is_error) process.exitCode = 1;
 console.log(`\n--- ${process.argv[2]} · costo USD ${(d.total_cost_usd ?? 0).toFixed(3)} · turnos ${d.num_turns ?? "?"} · tokens entrada ${u.input_tokens ?? "?"} (+caché ${u.cache_read_input_tokens ?? 0}) salida ${u.output_tokens ?? "?"} · ${d.subtype ?? ""}`);
 ' "$LOG" "$ROLE"
