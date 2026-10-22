@@ -28,14 +28,14 @@ Carpetas de trabajo (*worktrees*), fuera del repo: `../tintero-wt/F-NNN-{acc,dev
 ## 3 · Verificar
 1. `git worktree add ../tintero-wt/F-NNN-ver -b ver/F-NNN dev/F-NNN`; el **integrador** une `acc/F-NNN` (`merge --no-ff`).
 2. **Verificador nuevo**, fase «verificación». No recibe nada del programador.
-3. **Integrador** en `ver/F-NNN`, fase `verificación` (informe), con push.
+3. **Integrador** en `ver/F-NNN`, fase `verificación`, rol `verificador` con **`--base HEAD`** (la rama ya trae el código del programador: solo se revisa lo que cambió el verificador), con push.
 4. **NO CUMPLE** → informe al programador (vuelta +1) → volver a 2; luego el integrador vuelve a unir `dev/F-NNN` en `ver/F-NNN`.
 5. **3 vueltas sin cumplir → se detiene.** El arquitecto revisa si la ficha está mal.
 
 ## 4 · Revisar (herramientas primero)
 En la carpeta `ver`: `tools/revisar --base main`.
 - Salida **0** (limpio) → sin modelo, sigue a 5.
-- Salida **1** (bloqueante) → **revisor** modo «hallazgos» con **Haiku** → informe al programador → volver a 2 (y luego a 3: el código cambió).
+- Salida **1** (bloqueante) → **revisor** modo «hallazgos» con **Haiku**, separando por dueño → lo de `tests/acceptance/` vuelve al **verificador** (en la rama `ver`) y lo demás al **programador** (en `dev`, luego el integrador une `dev` en `ver` y se vuelve a 3: el código cambió).
 - Salida **3** (zona sensible o dependencia nueva) → **revisor** modo «juicio» con **Sonnet**.
 - **Integrador** en `ver/F-NNN`, fase `revisión` (informe), con push.
 
