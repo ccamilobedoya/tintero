@@ -41,13 +41,17 @@ describe("CA12 fixtures", () => {
     expect(validators.some((v) => v(raw).ok)).toBe(true);
   });
   it.each(list("invalid"))("invalid/%s falla con el código de su nombre", (f) => {
-    const m = /^invalid-([a-z_0-9]+?)-.+\.json$/.exec(f);
-    expect(m, "nombre invalid-<code>-<detalle>.json").not.toBeNull();
-    const code = m?.[1];
-    const raw = readFileSync(join(dir("invalid"), f), "utf8");
-    const results = validators.map((v) => v(raw));
-    expect(results.some((r) => r.ok)).toBe(false);
-    expect(results.some((r) => !r.ok && r.errors.some((e) => e.code === code))).toBe(true);
+    // R3: invalid/<mensaje>-<code>-<detalle>.json
+    const m =
+      /^(index|zones|actions-request|actions-response|log-request|error)-([a-z_0-9]+)-.+\.json$/.exec(
+        f,
+      );
+    expect(m, "nombre <mensaje>-<code>-<detalle>.json").not.toBeNull();
+    const order = ["index", "zones", "actions-request", "actions-response", "log-request", "error"];
+    const validate = validators[order.indexOf(m?.[1] ?? "")];
+    const r = validate?.(readFileSync(join(dir("invalid"), f), "utf8"));
+    expect(r?.ok).toBe(false);
+    expect(r !== undefined && !r.ok && r.errors.some((e) => e.code === m?.[2])).toBe(true);
   });
 });
 
