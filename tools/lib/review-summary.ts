@@ -154,7 +154,7 @@ function list(items: readonly string[]): string {
 function groupFindings(findings: readonly Finding[]): string[] {
   const groups = new Map<string, Finding[]>();
   for (const finding of findings) {
-    const key = `${finding.tool}|${finding.rule}`;
+    const key = `${finding.tool}|${finding.rule}|${finding.file}`;
     groups.set(key, [...(groups.get(key) ?? []), finding]);
   }
   const ordered = [...groups.values()].sort(
