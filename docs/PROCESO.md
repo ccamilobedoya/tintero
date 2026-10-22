@@ -6,7 +6,7 @@ Carpetas de trabajo (*worktrees*), fuera del repo: `../tintero-wt/F-NNN-{acc,dev
 
 **Lanzar un agente:** `tools/lanzar-agente <rol> <modelo> <carpeta> <encargo.md> [tope-usd]` (contexto limpio, tope de gasto, costo y tokens en `.agentes/`).
 
-**Al final de cada fase** el arquitecto guarda los informes en `docs/informes/F-NNN/` (en la rama de la fase) y lanza al **integrador** (Haiku) con un encargo de 4–6 líneas: carpeta, rama, fase, rol a comprobar, resumen, si se sube. El integrador hace *commit* y `git push -u origin <rama>`.
+**Al final de cada fase** el arquitecto lanza al **integrador** (Haiku) con un encargo de 4–6 líneas: carpeta, rama, fase, rol a comprobar, resumen, si se sube. El integrador hace *commit* y `git push -u origin <rama>`. Los informes de los agentes quedan en `.agentes/` durante el ciclo y el arquitecto los consolida en `docs/informes/F-NNN/` **al cierre** (así no rompen el control de alcance de cada rol).
 
 ## 0 · Ficha
 1. Escribir `docs/fichas/F-NNN-<nombre>.md` desde `PLANTILLA.md` y marcar **Listo para programar**.
