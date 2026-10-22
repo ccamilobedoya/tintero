@@ -80,37 +80,21 @@ describe("CA15 simulador (Prism)", () => {
 });
 
 describe("CA16 visor (Swagger UI)", () => {
-  it("GET / responde 200 y v1.json se puede pedir por HTTP", async () => {
+  it("GET / responde 200; la especificación responde en /v1.json y el visor apunta a esa URL", async () => {
     start("contract:docs");
     const base = "http://127.0.0.1:8099";
     const r = await waitFor(base + "/", {}, 60_000);
     expect(r.status).toBe(200);
 
-    const candidates = [
-      "/v1.json",
-      "/openapi/v1.json",
-      "/openapi.json",
-      "/contract/openapi/v1.json",
-    ];
     const init = await fetch(base + "/swagger-initializer.js");
     const initJs = init.ok ? await init.text() : "";
     const m = /["']([^"']*v1\.json)["']/.exec(initJs);
-    if (m?.[1]) candidates.unshift(new URL(m[1], base + "/").pathname);
+    expect(m?.[1], "el visor debe apuntar a v1.json").toBeTruthy();
+    expect(new URL(m?.[1] ?? "", base + "/").href).toBe(base + "/v1.json");
 
-    let found: { openapi?: string } | undefined;
-    for (const c of candidates) {
-      const res = await fetch(base + c);
-      if (!res.ok) continue;
-      try {
-        const body = (await res.json()) as { openapi?: string };
-        if (body.openapi) {
-          found = body;
-          break;
-        }
-      } catch {
-        /* no es JSON */
-      }
-    }
-    expect(found?.openapi).toMatch(/^3\.1/);
+    const spec = await fetch(base + "/v1.json");
+    expect(spec.status).toBe(200);
+    const body = (await spec.json()) as { openapi?: string };
+    expect(body.openapi).toMatch(/^3\.1/);
   }, 120_000);
 });
