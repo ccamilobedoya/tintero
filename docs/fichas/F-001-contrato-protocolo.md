@@ -2,7 +2,7 @@
 
 **Estado:** **aprobada** por el dueño el 2026-10-22 (puerta 1, con D1–D5)
 **Modelo del programador:** sonnet
-**Dependencias nuevas permitidas:** `typebox` (D2): define los esquemas como JSON Schema y da los tipos de TypeScript; sin dependencias propias. El CRC32 sale de `node:zlib` (sin dependencia). Swagger UI y Prism corren por Docker (imágenes fijadas en `tools/images.env`).
+**Dependencias nuevas permitidas:** `typebox` (D2): define los esquemas como JSON Schema y da los tipos de TypeScript; sin dependencias propias. El CRC32 sale de `node:zlib` (sin dependencia). Swagger UI y Prism corren por Docker (imágenes fijadas en `tools/images.conf`).
 
 ## Decisiones que pide esta ficha (puerta 1)
 
@@ -196,7 +196,7 @@ export const openApiDocument: object;                  // OpenAPI 3.1 de v1 (lo 
 - R3. `contract/fixtures/v1/valid/*.json` e `invalid/*.json` (con el código esperado en el nombre: `invalid-<code>-<detalle>.json`), probados por pruebas unitarias.
 - R4. `contract/README.md` (primera línea descriptiva, para el mapa) con cómo usar el contrato desde otro lenguaje (JSON Schema), cómo abrir el visor y cómo usar el simulador.
 - R5. **OpenAPI 3.1** en `contract/openapi/v1.json`, generado desde los mismos esquemas por `npm run contract:schema` y comprobado por `contract:check`. Describe las 5 rutas, las cabeceras, las respuestas (incluidas las binarias y los errores), los ejemplos de esta ficha y la seguridad como `mutualTLS` (L1).
-- R6. **Visor:** `npm run contract:docs` levanta Swagger UI (imagen `SWAGGER_UI_IMAGE` de `tools/images.env`) en `127.0.0.1:8099` sirviendo `contract/openapi/v1.json`. **Simulador:** `npm run contract:mock` levanta Prism (`PRISM_IMAGE`) en `127.0.0.1:4010`. Los dos se detienen con Ctrl+C y no publican nada fuera de `127.0.0.1`.
+- R6. **Visor:** `npm run contract:docs` levanta Swagger UI (imagen `SWAGGER_UI_IMAGE` de `tools/images.conf`) en `127.0.0.1:8099` sirviendo `contract/openapi/v1.json`. **Simulador:** `npm run contract:mock` levanta Prism (`PRISM_IMAGE`) en `127.0.0.1:4010`. Los dos se detienen con Ctrl+C y no publican nada fuera de `127.0.0.1`.
 
 ## Criterios de aceptación
 - **CA1.** El ejemplo de `IndexResponse` de esta ficha **valida** (`ok: true`).
@@ -230,7 +230,7 @@ export const openApiDocument: object;                  // OpenAPI 3.1 de v1 (lo 
 - `contract/**` pasa a ser **zona sensible** (lo agrega el arquitecto a `tools/sensitive-paths.txt` antes de programar).
 
 ## Archivos
-- A crear: `contract/README.md`, `contract/src/*.ts` (esquemas, límites, validadores, imágenes, CRC, OpenAPI, `index.ts`), `contract/src/*.test.ts`, `contract/schema/v1/*.schema.json` y `contract/openapi/v1.json` (generados), `contract/fixtures/v1/{valid,invalid}/*.json`, `contract/scripts/` (generar/comprobar esquemas; levantar visor y simulador leyendo `tools/images.env`).
+- A crear: `contract/README.md`, `contract/src/*.ts` (esquemas, límites, validadores, imágenes, CRC, OpenAPI, `index.ts`), `contract/src/*.test.ts`, `contract/schema/v1/*.schema.json` y `contract/openapi/v1.json` (generados), `contract/fixtures/v1/{valid,invalid}/*.json`, `contract/scripts/` (generar/comprobar esquemas; levantar visor y simulador leyendo `tools/images.conf`).
 - A tocar: `package.json` (dependencia y scripts `contract:schema`, `contract:check`), `tsconfig.json` (incluir `contract`), `knip.json` (entradas).
 
 ## Resultado esperado

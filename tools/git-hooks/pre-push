@@ -6,7 +6,7 @@ cd "$ROOT"
 # Nada personal ni de infraestructura en ninguna parte de la historia.
 node tools/lib/private-terms.ts --history || { echo "❌ No se sube nada: hay términos privados en la historia." >&2; exit 1; }
 # shellcheck source=/dev/null
-source tools/images.env
+source tools/images.conf
 COMMON="$(git rev-parse --git-common-dir)"; COMMON="$(cd "$COMMON" && pwd)"
 if ! docker run --rm --user "$(id -u):$(id -g)" -v "$ROOT:/src:ro" -v "$COMMON:$COMMON:ro" \
   -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
