@@ -1,6 +1,6 @@
 # F-001 · Contrato del protocolo v1
 
-**Estado:** **aprobada** por el dueño el 2026-10-22 (puerta 1, con D1–D5)
+**Estado:** **aprobada** por el dueño el 2026-10-22 (puerta 1, con D1–D5) · en curso
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** `typebox` (D2): define los esquemas como JSON Schema y da los tipos de TypeScript; sin dependencias propias. El CRC32 sale de `node:zlib` (sin dependencia). Swagger UI y Prism corren por Docker (imágenes fijadas en `tools/images.conf`).
 
@@ -193,7 +193,7 @@ export const openApiDocument: object;                  // OpenAPI 3.1 de v1 (lo 
 ## Requisitos
 - R1. Esquemas en `contract/src/` con TypeBox; los tipos se derivan de ellos (no se escriben dos veces).
 - R2. `npm run contract:schema` genera `contract/schema/v1/*.schema.json` (index, zones, actions-request, actions-response, log-request, error); `npm run contract:check` falla si están desactualizados.
-- R3. `contract/fixtures/v1/valid/*.json` e `invalid/*.json` (con el código esperado en el nombre: `invalid-<code>-<detalle>.json`), probados por pruebas unitarias.
+- R3. `contract/fixtures/v1/valid/<mensaje>-<detalle>.json` e `invalid/<mensaje>-<code>-<detalle>.json`, donde `<mensaje>` es `index`, `zones`, `actions-request`, `actions-response`, `log-request` o `error` (dice qué validador aplica) y `<code>` es el código esperado. Las zonas se validan con el panel 800 × 480. Probados por pruebas unitarias. *(Aclaración del 2026-10-22, pedida por el verificador.)*
 - R4. `contract/README.md` (primera línea descriptiva, para el mapa) con cómo usar el contrato desde otro lenguaje (JSON Schema), cómo abrir el visor y cómo usar el simulador.
 - R5. **OpenAPI 3.1** en `contract/openapi/v1.json`, generado desde los mismos esquemas por `npm run contract:schema` y comprobado por `contract:check`. Describe las 5 rutas, las cabeceras, las respuestas (incluidas las binarias y los errores), los ejemplos de esta ficha y la seguridad como `mutualTLS` (L1).
 - R6. **Visor:** `npm run contract:docs` levanta Swagger UI (imagen `SWAGGER_UI_IMAGE` de `tools/images.conf`) en `127.0.0.1:8099` sirviendo `contract/openapi/v1.json`. **Simulador:** `npm run contract:mock` levanta Prism (`PRISM_IMAGE`) en `127.0.0.1:4010`. Los dos se detienen con Ctrl+C y no publican nada fuera de `127.0.0.1`.
@@ -216,7 +216,7 @@ export const openApiDocument: object;                  // OpenAPI 3.1 de v1 (lo 
 - **CA13.** `crc32Hex` de los bytes ASCII de `"123456789"` es `"cbf43926"`. `checkImage("raw1", bytes, crc)` acepta el CRC correcto y rechaza uno distinto con `crc_mismatch`. `validateIndex` rechaza una vista sin `crc32` y una con `crc32: "XYZ"` (`schema`).
 - **CA14.** `validateDeviceHeaders` acepta `Tintero-Formats: raw1` y `raw1,png1`; rechaza la falta de `Tintero-Formats`, una lista vacía y `bmp` (`schema`).
 - **CA15.** Con `npm run contract:mock` corriendo: `GET http://127.0.0.1:4010/api/v1/index` **con** las cabeceras obligatorias devuelve un cuerpo que pasa `validateIndex`; **sin** `Tintero-Power` el simulador rechaza la petición (código 4xx). `GET …/views/todo/zones?h=9f2c1a7b` devuelve un cuerpo que pasa `validateZones`.
-- **CA16.** Con `npm run contract:docs` corriendo, `GET http://127.0.0.1:8099/` responde 200 y el visor carga `v1.json` (el archivo se puede pedir por HTTP desde el visor).
+- **CA16.** Con `npm run contract:docs` corriendo, `GET http://127.0.0.1:8099/` responde 200, la especificación responde 200 en **`http://127.0.0.1:8099/v1.json`** y el visor apunta a esa URL. *(URL aclarada el 2026-10-22.)*
 
 ## Presupuestos
 - `validateIndex` sobre un índice de 2048 bytes: **< 5 ms** de promedio en 1000 corridas.
