@@ -48,6 +48,8 @@ describe("forbiddenGit", () => {
     "git push --no-verify",
     "git filter-branch --all",
     "cd x && git update-ref refs/heads/main abc",
+    'git push origin main:main; echo "ok"',
+    "git push origin dev/F-001 --force 2>&1",
   ])("blocks %s", (command) => {
     expect(forbiddenGit(command)).toBeDefined();
   });
@@ -59,6 +61,10 @@ describe("forbiddenGit", () => {
     "git merge --no-ff acc/F-001 -m x",
     "npm run test",
     "git push -u https://github.com/a/b.git main",
+    'git push origin main 2>&1; echo "EXIT: $?"',
+    "git push origin main # nota: subir",
+    "cd /x && git push -u origin dev/F-001 2>&1 | tail -3",
+    "echo 'core.hooksPath' is mentioned in docs",
   ])("allows %s", (command) => {
     expect(forbiddenGit(command)).toBeUndefined();
   });

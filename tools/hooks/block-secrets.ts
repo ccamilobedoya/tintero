@@ -43,16 +43,32 @@ const PUSH_FORBIDDEN = [
   "--prune",
 ];
 
+/** Splits a shell line into simple commands (by ; && || | and newlines) and drops # comments. */
+function segments(command: string): string[][] {
+  return command
+    .split(/;|&&|\|\||\||\n/)
+    .map((part) => part.replace(/(^|\s)#.*$/, "").trim())
+    .filter((part) => part !== "")
+    .map((part) =>
+      part
+        .split(/\s+/)
+        .map((word) => word.replace(/^["']|["']$/g, ""))
+        .filter((word) => word !== "" && !/^\d*>/.test(word) && !word.startsWith("<")),
+    );
+}
+
 export function forbiddenGit(command: string): string | undefined {
   const lower = command.toLowerCase();
-  if (!/(^|[\s;&|(])git(\s|$)/.test(lower)) return undefined;
   const found = GIT_FORBIDDEN_ANYWHERE.find((flag) => lower.includes(flag));
-  if (found !== undefined) return found;
-  const words = lower.split(/[\s;&|()]+/).filter((word) => word !== "");
-  if (words.includes("commit") && words.includes("-n")) return "-n";
-  const pushAt = words.indexOf("push");
-  if (pushAt >= 0) {
-    const args = words.slice(pushAt + 1);
+  for (const words of segments(lower)) {
+    const gitAt = words.indexOf("git");
+    if (gitAt < 0) continue;
+    if (found !== undefined) return found;
+    const rest = words.slice(gitAt + 1);
+    if (rest.includes("commit") && rest.includes("-n")) return "-n";
+    const pushAt = rest.indexOf("push");
+    if (pushAt < 0) continue;
+    const args = rest.slice(pushAt + 1);
     const flag = args.find((arg) => PUSH_FORBIDDEN.includes(arg));
     if (flag !== undefined) return flag;
     if (args.some((arg) => arg.startsWith("+") || (arg.includes(":") && !arg.includes("://")))) {
