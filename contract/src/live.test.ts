@@ -3,7 +3,6 @@
 import { describe, expect, it } from "vitest";
 import { validateIndex, validateZones } from "./index.ts";
 
-// nosemgrep: react-insecure-request -- loopback de prueba (docs/seguridad.md)
 const LOOPBACK = "http://127.0.0.1";
 const MOCK = `${LOOPBACK}:4010`;
 const DOCS = `${LOOPBACK}:8099`;
@@ -15,9 +14,18 @@ const headers = {
   "Tintero-Panel": "w=800,h=480,dpi=124,depth=1",
 };
 
-async function listening(url: string): Promise<boolean> {
+// Única llamada a fetch de este archivo; solo acepta loopback (docs/seguridad.md).
+async function getLocal(base: string, path: string, init?: RequestInit): Promise<Response> {
+  if (!base.startsWith("http://127.0.0.1:")) {
+    throw new Error(`base no permitida en pruebas: ${base}`);
+  }
+  // nosemgrep: react-insecure-request -- loopback de prueba (docs/seguridad.md)
+  return fetch(`${base}${path}`, init);
+}
+
+async function listening(base: string): Promise<boolean> {
   try {
-    await fetch(url, { signal: AbortSignal.timeout(500) });
+    await getLocal(base, "/", { signal: AbortSignal.timeout(500) });
     return true;
   } catch {
     return false;
@@ -27,11 +35,11 @@ const live = (await listening(MOCK)) && (await listening(DOCS));
 
 describe.skipIf(!live)("live simulator and viewer", () => {
   it("mock serves a valid index and zones, and rejects a missing header", async () => {
-    const index = await fetch(`${MOCK}/api/v1/index`, { headers });
+    const index = await getLocal(MOCK, "/api/v1/index", { headers });
     expect(index.status).toBe(200);
     expect(validateIndex(await index.text()).ok).toBe(true);
 
-    const zones = await fetch(`${MOCK}/api/v1/views/todo/zones?h=9f2c1a7b`, { headers });
+    const zones = await getLocal(MOCK, "/api/v1/views/todo/zones?h=9f2c1a7b", { headers });
     expect(zones.status).toBe(200);
     const panel = { w: 800, h: 480, dpi: 124, depth: 1 as const };
     expect(validateZones(await zones.text(), panel).ok).toBe(true);
@@ -39,17 +47,17 @@ describe.skipIf(!live)("live simulator and viewer", () => {
     const incomplete = Object.fromEntries(
       Object.entries(headers).filter(([name]) => name !== "Tintero-Power"),
     );
-    const rejected = await fetch(`${MOCK}/api/v1/index`, { headers: incomplete });
+    const rejected = await getLocal(MOCK, "/api/v1/index", { headers: incomplete });
     expect(rejected.status).toBeGreaterThanOrEqual(400);
     expect(rejected.status).toBeLessThan(500);
   });
 
   it("viewer serves the page and the specification", async () => {
-    const page = await fetch(`${DOCS}/`);
+    const page = await getLocal(DOCS, "/");
     expect(page.status).toBe(200);
-    const spec = await fetch(`${DOCS}/v1.json`);
+    const spec = await getLocal(DOCS, "/v1.json");
     expect(spec.status).toBe(200);
-    const initializer = await fetch(`${DOCS}/swagger-initializer.js`);
+    const initializer = await getLocal(DOCS, "/swagger-initializer.js");
     expect(await initializer.text()).toContain("v1.json");
   });
 });
