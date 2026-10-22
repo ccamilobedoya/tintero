@@ -16,6 +16,10 @@
     "unused": "knip",
     "review": "tools/revisar",
     "map": "tools/mapa",
+    "contract:schema": "node contract/scripts/schema.ts",
+    "contract:check": "node contract/scripts/schema.ts --check",
+    "contract:docs": "node contract/scripts/serve.ts docs",
+    "contract:mock": "node contract/scripts/serve.ts mock",
     "test:acceptance": "vitest run --config vitest.acceptance.config.ts --passWithNoTests",
     "setup": "git config core.hooksPath tools/git-hooks"
   },
@@ -29,5 +33,8 @@
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.0",
     "vitest": "5.0.5"
+  },
+  "dependencies": {
+    "typebox": "1.4.3"
   }
 }

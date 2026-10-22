@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tintero.example/contract/v1/index.schema.json",
+  "type": "object",
+  "required": [
+    "protocol",
+    "server_time",
+    "next_wake_s",
+    "full_refresh",
+    "panel",
+    "current",
+    "views"
+  ],
+  "properties": {
+    "protocol": { "type": "number", "const": 1 },
+    "server_time": { "type": "integer", "minimum": 0 },
+    "next_wake_s": { "type": "integer", "minimum": 30, "maximum": 86400 },
+    "full_refresh": { "type": "boolean" },
+    "panel": {
+      "type": "object",
+      "required": ["w", "h", "dpi", "depth"],
+      "properties": {
+        "w": { "type": "integer", "minimum": 8, "maximum": 2048 },
+        "h": { "type": "integer", "minimum": 8, "maximum": 2048 },
+        "dpi": { "type": "integer", "minimum": 50, "maximum": 400 },
+        "depth": { "type": "number", "const": 1 }
+      }
+    },
+    "current": { "type": "string", "pattern": "^[a-z0-9_-]{1,16}$" },
+    "views": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "hash", "format", "bytes", "crc32"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9_-]{1,16}$" },
+          "hash": { "type": "string", "pattern": "^[0-9a-f]{8,16}$" },
+          "format": {
+            "anyOf": [
+              { "type": "string", "const": "raw1" },
+              { "type": "string", "const": "png1" }
+            ]
+          },
+          "bytes": { "type": "integer", "minimum": 1, "maximum": 1048576 },
+          "crc32": { "type": "string", "pattern": "^[0-9a-f]{8}$" }
+        }
+      },
+      "minItems": 1,
+      "maxItems": 16
+    }
+  }
+}
