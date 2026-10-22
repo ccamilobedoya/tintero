@@ -27,13 +27,16 @@ export function defaultBase(): string {
   return currentBranch() === "main" ? "HEAD" : "main";
 }
 
-/** Files that differ from `base`, including uncommitted and untracked files. */
+/** Files this branch changed since it left `base`, including uncommitted and untracked files. */
 export function changedFiles(base: string): string[] {
   const untracked = lines(git(["ls-files", "--others", "--exclude-standard"]));
   if (!hasCommits()) {
     return [...new Set([...lines(git(["ls-files"])), ...untracked])].sort();
   }
-  const changed = lines(git(["diff", "--name-only", base]));
+  // Compare against the point where this branch left `base`, not against base's tip: if base moved on
+  // (e.g. main got a new commit), those changes are not this branch's.
+  const forkPoint = git(["merge-base", base, "HEAD"]).trim();
+  const changed = lines(git(["diff", "--name-only", forkPoint]));
   return [...new Set([...changed, ...untracked])].sort();
 }
 
