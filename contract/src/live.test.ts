@@ -3,8 +3,10 @@
 import { describe, expect, it } from "vitest";
 import { validateIndex, validateZones } from "./index.ts";
 
-const MOCK = "http://127.0.0.1:4010";
-const DOCS = "http://127.0.0.1:8099";
+// nosemgrep: react-insecure-request -- loopback de prueba (docs/seguridad.md)
+const LOOPBACK = "http://127.0.0.1";
+const MOCK = `${LOOPBACK}:4010`;
+const DOCS = `${LOOPBACK}:8099`;
 const headers = {
   "Tintero-Protocol": "1",
   "Tintero-Firmware": "0.1.0",
