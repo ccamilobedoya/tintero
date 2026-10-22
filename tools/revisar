@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Revisión con herramientas existentes (F-000, P2/P5). Corre todo sobre el repo,
+# deja las salidas en .revisar/ y un resumen corto en .revisar/resumen.md.
+# Uso: tools/revisar [--base <ref>]
+# Salida: 0 limpio · 1 bloqueante (o una herramienta no corrió) · 3 requiere revisor con modelo.
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)"
+# shellcheck source=/dev/null
+source tools/images.env
+
+OUT=.revisar
+rm -rf "$OUT" && mkdir -p "$OUT"
+UIDGID="$(id -u):$(id -g)"
+
+# run <nombre> <archivo de salida> <comando...>: guarda la salida y el código de salida.
+run() {
+  local name="$1" output="$2"; shift 2
+  "$@" >"$OUT/$output" 2>"$OUT/$name.err"
+  echo $? >"$OUT/$name.exit"
+}
+# run_to_file <nombre> <comando...>: para herramientas que escriben su propio archivo.
+run_to_file() {
+  local name="$1"; shift
+  "$@" >"$OUT/$name.log" 2>&1
+  echo $? >"$OUT/$name.exit"
+}
+skip() { echo "$2" >"$OUT/$1.skip"; }
+
+# Herramientas de red (registro de npm, imágenes de Docker) en paralelo con las locales.
+DOCKER=(docker run --rm --user "$UIDGID" -e HOME=/tmp -v "$PWD:/src" -w /src)
+run npm-audit npm-audit.json npm audit --json --fetch-timeout=45000 --fetch-retries=1 &
+run npm-signatures npm-signatures.txt sh -c 'npm audit signatures --fetch-timeout=45000 2>&1' &
+run_to_file semgrep "${DOCKER[@]}" "$SEMGREP_IMAGE" semgrep scan --metrics=off --quiet \
+  --config p/typescript --config p/javascript --config p/nodejs --config p/secrets \
+  --exclude node_modules --exclude .revisar --json --output "$OUT/semgrep.json" &
+run osv-scanner osv.json "${DOCKER[@]}" "$OSV_IMAGE" scan source --lockfile /src/package-lock.json --format json &
+run_to_file gitleaks "${DOCKER[@]}" "$GITLEAKS_IMAGE" dir /src --no-banner --redact \
+  --config /src/.gitleaks.toml --exit-code 0 -f json -r "/src/$OUT/gitleaks.json" &
+if git rev-parse --verify -q HEAD >/dev/null; then
+  run_to_file gitleaks-history "${DOCKER[@]}" -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory \
+    -e GIT_CONFIG_VALUE_0='*' "$GITLEAKS_IMAGE" git /src --no-banner --redact \
+    --config /src/.gitleaks.toml --exit-code 0 -f json -r "/src/$OUT/gitleaks-history.json" &
+else
+  skip gitleaks-history "sin commits"
+fi
+
+# Herramientas locales (CPU), en secuencia.
+TERMS="${TINTERO_PRIVATE_TERMS:-$HOME/.config/tintero/private-terms.txt}"
+if [ -f "$TERMS" ] && grep -qv -e '^#' -e '^[[:space:]]*$' "$TERMS"; then
+  run_to_file privacidad node tools/lib/private-terms.ts --tree --json "$OUT/privacidad.json"
+else
+  skip privacidad "sin lista privada"
+fi
+run tsc tsc.txt npx --no-install tsc --noEmit --pretty false
+run eslint eslint.json npx --no-install eslint . -f json
+run prettier prettier.txt sh -c 'npx --no-install prettier --check . 2>&1'
+run_to_file vitest npx --no-install vitest run --passWithNoTests --reporter=json --outputFile="$OUT/vitest.json"
+run knip knip.json npx --no-install knip --reporter json --no-progress
+
+mapfile -t DOCKERFILES < <(git ls-files --cached --others --exclude-standard | grep -E '(^|/)(Dockerfile|[^/]*\.Dockerfile)$' || true)
+if [ "${#DOCKERFILES[@]}" -gt 0 ]; then
+  run hadolint hadolint.json "${DOCKER[@]}" "$HADOLINT_IMAGE" hadolint -f json "${DOCKERFILES[@]}"
+  run_to_file trivy "${DOCKER[@]}" "$TRIVY_IMAGE" config --quiet -f json -o "/src/$OUT/trivy.json" /src
+else
+  skip hadolint "sin Dockerfile"
+  skip trivy "sin Dockerfile"
+fi
+
+wait
+node tools/lib/review-summary.ts "$@"

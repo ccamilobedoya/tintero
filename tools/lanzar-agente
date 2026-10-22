@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Lanza un agente del repo en una carpeta de trabajo, con contexto limpio y tope de gasto (P3, P7).
+# Uso: tools/lanzar-agente <programador|verificador|revisor|integrador> <sonnet|haiku> <carpeta> <archivo-con-el-encargo> [tope-usd]
+# Deja la salida completa (JSON, con costo y tokens) en .agentes/ del repo principal e imprime el informe.
+set -euo pipefail
+ROLE="${1:?rol}"; MODEL="${2:?modelo}"; WORKDIR="${3:?carpeta}"; BRIEF="${4:?encargo}"; BUDGET="${5:-2}"
+BRIEF="$(realpath "$BRIEF")"; WORKDIR="$(realpath "$WORKDIR")"
+REPO="$(git rev-parse --show-toplevel)"
+OUT="$REPO/.agentes"; mkdir -p "$OUT"
+STAMP="$(date +%Y%m%d-%H%M%S)"
+LOG="$OUT/$STAMP-$ROLE.json"
+
+READ_TOOLS=(Read Grep Glob "Bash(git status:*)" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" "Bash(ls:*)")
+WRITE_TOOLS=(Edit Write "Bash(npm run:*)" "Bash(npm test:*)" "Bash(npx vitest:*)" "Bash(npx tsc:*)" \
+  "Bash(tools/check-scope:*)" "Bash(mkdir:*)")
+case "$ROLE" in
+  programador) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "Bash(npx eslint:*)" "Bash(npx prettier:*)") ;;
+  verificador) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "Bash(tools/revisar:*)" "Bash(rm:*)") ;;
+  revisor) TOOLS=("${READ_TOOLS[@]}" "Bash(cat .revisar/:*)") ;;
+  integrador) TOOLS=(Read "${READ_TOOLS[@]:3}" "Bash(git add:*)" "Bash(git commit:*)" "Bash(git merge:*)" "Bash(git push -u origin:*)" "Bash(git push origin:*)" "Bash(git branch:*)" "Bash(git switch:*)" "Bash(tools/check-scope:*)") ;;
+  *) echo "Rol desconocido: $ROLE" >&2; exit 2 ;;
+esac
+
+# Herramientas extra, SOLO para una operación que el dueño aprobó explícitamente (p. ej. reescribir
+# la historia local antes del primer push). Separadas por ";". Se anotan en el informe.
+if [ -n "${LANZAR_EXTRA_TOOLS:-}" ]; then
+  [ "$ROLE" = integrador ] || { echo "LANZAR_EXTRA_TOOLS solo se permite con el integrador." >&2; exit 2; }
+  IFS=';' read -r -a EXTRA <<<"$LANZAR_EXTRA_TOOLS"
+  for tool in "${EXTRA[@]}"; do
+    case "$tool" in "Bash(git "*) ;; *) echo "LANZAR_EXTRA_TOOLS solo acepta patrones Bash(git …): $tool" >&2; exit 2 ;; esac
+  done
+  echo "⚠️ Herramientas extra (aprobadas por el dueño): ${LANZAR_EXTRA_TOOLS}" >&2
+  echo "$STAMP $ROLE extra: $LANZAR_EXTRA_TOOLS" >>"$OUT/extra-tools.log"
+  TOOLS+=("${EXTRA[@]}")
+fi
+
+# Nadie reescribe historia; solo el integrador sube a GitHub.
+DENY=("Bash(git push --force:*)" "Bash(git push -f:*)" "Bash(git push --no-verify:*)" "Bash(git commit --no-verify:*)" "Bash(git commit -n:*)" "Bash(git reset:*)" "Bash(git rebase:*)")
+[ "$ROLE" = integrador ] || DENY+=("Bash(git push:*)" "Bash(git commit:*)")
+
+cd "$WORKDIR"
+claude -p --agent "$ROLE" --model "$MODEL" --permission-mode default \
+  --allowedTools "${TOOLS[@]}" --disallowedTools "${DENY[@]}" \
+  --max-budget-usd "$BUDGET" --output-format json "$(cat "$BRIEF")" </dev/null >"$LOG"
+
+node -e '
+const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+const u = d.usage ?? {};
+console.log(d.result ?? "(sin resultado)");
+console.log(`\n--- ${process.argv[2]} · costo USD ${(d.total_cost_usd ?? 0).toFixed(3)} · turnos ${d.num_turns ?? "?"} · tokens entrada ${u.input_tokens ?? "?"} (+caché ${u.cache_read_input_tokens ?? 0}) salida ${u.output_tokens ?? "?"} · ${d.subtype ?? ""}`);
+' "$LOG" "$ROLE"

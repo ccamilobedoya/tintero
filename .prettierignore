@@ -1,0 +1,6 @@
+node_modules/
+coverage/
+.revisar/
+reports/
+package-lock.json
+*.md

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Hook de git: los merges pasan por los mismos controles que un commit (secretos, privacidad, tipos, lint).
+exec "$(git rev-parse --show-toplevel)/tools/git-hooks/pre-commit"

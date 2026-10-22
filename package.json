@@ -1,0 +1,33 @@
+{
+  "name": "tintero",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Servidor de pantallas e-ink para ESP32",
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run --passWithNoTests",
+    "unused": "knip",
+    "review": "tools/revisar",
+    "map": "tools/mapa",
+    "test:acceptance": "vitest run --config vitest.acceptance.config.ts --passWithNoTests",
+    "setup": "git config core.hooksPath tools/git-hooks"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "eslint": "10.13.0",
+    "eslint-plugin-security": "4.2.0",
+    "knip": "6.42.1",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.0",
+    "vitest": "5.0.5"
+  }
+}

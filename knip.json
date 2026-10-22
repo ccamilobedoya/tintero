@@ -1,0 +1,9 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "tools/lib/{check-scope,map,publish-spec,review-summary,private-terms}.ts",
+    "tools/hooks/*.ts",
+    "tests/agents/toy/*.ts"
+  ],
+  "project": ["**/*.ts"]
+}

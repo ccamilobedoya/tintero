@@ -1,0 +1,25 @@
+# Zonas sensibles: un cambio aquí pide revisión con modelo (Sonnet), aunque las herramientas salgan limpias.
+# Un patrón por línea; ** = cualquier profundidad, * = dentro de una carpeta.
+
+# Herramientas y configuración que protegen el repo (cambiarlas puede apagar controles)
+tools/**
+.claude/**
+CLAUDE.md
+eslint.config.js
+tsconfig.json
+.npmrc
+.gitleaks.toml
+package.json
+
+# Seguridad del servidor (rutas previstas; se ajustan cuando existan)
+server/src/auth/**
+server/src/vault/**
+server/src/integrations/http/**
+server/src/protocol/**
+server/src/gateway/**
+
+# Seguridad del emulador
+emulator/src/tls/**
+
+# Contrato del protocolo (F-001)
+contract/**

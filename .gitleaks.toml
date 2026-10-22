@@ -1,0 +1,7 @@
+# Reglas por defecto de gitleaks + rutas que no se revisan.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Dependencias y salidas generadas"
+paths = ['''node_modules/''', '''package-lock\.json''', '''\.revisar/''']

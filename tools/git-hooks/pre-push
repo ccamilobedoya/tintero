@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Hook de git: nada sale a GitHub con secretos en la historia (gitleaks sobre todo el historial).
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+# Nada personal ni de infraestructura en ninguna parte de la historia.
+node tools/lib/private-terms.ts --history || { echo "❌ No se sube nada: hay términos privados en la historia." >&2; exit 1; }
+# shellcheck source=/dev/null
+source tools/images.env
+COMMON="$(git rev-parse --git-common-dir)"; COMMON="$(cd "$COMMON" && pwd)"
+if ! docker run --rm --user "$(id -u):$(id -g)" -v "$ROOT:/src:ro" -v "$COMMON:$COMMON:ro" \
+  -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
+  "$GITLEAKS_IMAGE" git /src --no-banner --redact --config /src/.gitleaks.toml --exit-code 1 >/dev/null 2>&1; then
+  echo "❌ gitleaks encontró un posible secreto en la historia: no se sube nada. Ver: tools/revisar" >&2
+  exit 1
+fi

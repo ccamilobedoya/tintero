@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Hook de git: el mensaje del commit no puede llevar términos privados.
+set -euo pipefail
+exec node "$(git rev-parse --show-toplevel)/tools/lib/private-terms.ts" --message "$1"

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Envoltorio: ver tools/lib/publish-spec.ts
+exec node "$(git rev-parse --show-toplevel)/tools/lib/publish-spec.ts" "$@"

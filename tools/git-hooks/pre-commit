@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Hook de git (P5): no se guarda un commit con secretos, errores de tipos o de lint.
+# Se activa con: npm run setup
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+# shellcheck source=/dev/null
+source tools/images.env
+
+mapfile -t STAGED < <(git diff --cached --name-only --diff-filter=ACMR)
+[ "${#STAGED[@]}" -eq 0 ] && exit 0
+
+# 1. Secretos: se copian los archivos tal como quedarán en el commit y se revisan con gitleaks.
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+for file in "${STAGED[@]}"; do
+  mkdir -p "$TMP/$(dirname "$file")"
+  git show ":$file" >"$TMP/$file"
+done
+if ! docker run --rm --user "$(id -u):$(id -g)" -v "$TMP:/scan:ro" -v "$ROOT/.gitleaks.toml:/gitleaks.toml:ro" \
+  "$GITLEAKS_IMAGE" dir /scan --no-banner --redact --config /gitleaks.toml --exit-code 1 >/dev/null 2>&1; then
+  echo "❌ gitleaks encontró un posible secreto en los archivos del commit. Ver: tools/revisar" >&2
+  exit 1
+fi
+
+# 2. Nada personal ni de infraestructura (lista privada fuera del repo).
+node tools/lib/private-terms.ts --staged || exit 1
+
+# 3. Tipos y lint sobre el TypeScript del commit.
+mapfile -t TS < <(printf '%s\n' "${STAGED[@]}" | grep -E '\.(ts|js|mjs)$' || true)
+if [ "${#TS[@]}" -gt 0 ]; then
+  npx --no-install tsc --noEmit --pretty false >&2 || { echo "❌ tsc: errores de tipos." >&2; exit 1; }
+  npx --no-install eslint --max-warnings 0 "${TS[@]}" >&2 || { echo "❌ eslint: hay problemas." >&2; exit 1; }
+fi

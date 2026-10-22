@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Envoltorio: ver tools/lib/check-scope.ts
+exec node "$(git rev-parse --show-toplevel)/tools/lib/check-scope.ts" "$@"
