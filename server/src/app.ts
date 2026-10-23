@@ -1,6 +1,8 @@
 // The Fastify app: the 5 routes of contract v1 over the demonstration views (F-003).
 import { createHash } from "node:crypto";
 import http from "node:http";
+import https from "node:https";
+import type { TLSSocket } from "node:tls";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import {
   crc32Hex,
@@ -15,13 +17,20 @@ import {
   type Zone,
   type ZonesResponse,
 } from "../../contract/src/index.ts";
+import { DeviceList } from "./devices.ts";
 import { logDevice, logRequest } from "./log.ts";
 import { DemoState } from "./state.ts";
+import { fingerprint, tlsOptions, type TlsConfig } from "./tls.ts";
 import { contentKey, makeViews, type DemoView } from "./views.ts";
 
 export interface ServerConfig {
   nextWakeS: number;
   headersTimeoutMs: number;
+  requestTimeoutMs?: number; // 15000
+  handshakeTimeoutMs?: number; // 10000
+  maxConnections?: number; // 32
+  maxPanelsPerDevice?: number; // 2
+  tls?: TlsConfig;
 }
 
 type ErrorCode = "invalid_request" | "unknown_view" | "stale_view" | "too_large";
@@ -61,21 +70,58 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
   const cache = new Map<string, Rendered>();
   let renderCount = 0;
 
+  const requestTimeoutMs = config.requestTimeoutMs ?? 15_000;
+  const maxPanels = config.maxPanelsPerDevice ?? 2;
+  const devices = config.tls ? new DeviceList(config.tls.devicesFile) : undefined;
+  const tlsServerOptions = config.tls
+    ? tlsOptions(config.tls, config.handshakeTimeoutMs ?? 10_000)
+    : undefined;
+  const headersTimeoutMs = Math.min(config.headersTimeoutMs, requestTimeoutMs);
+
   const app = Fastify({
     logger: false,
     bodyLimit: BODY_LIMIT,
     exposeHeadRoutes: false,
     serverFactory: (handler) => {
-      const server = http.createServer(
-        {
-          maxHeaderSize: MAX_HEADER_SIZE,
-          connectionsCheckingInterval: Math.max(50, Math.floor(config.headersTimeoutMs / 4)),
-        },
-        handler,
-      );
-      server.headersTimeout = config.headersTimeoutMs;
+      const options = {
+        maxHeaderSize: MAX_HEADER_SIZE,
+        connectionsCheckingInterval: Math.max(50, Math.floor(headersTimeoutMs / 4)),
+      };
+      const server = tlsServerOptions
+        ? https.createServer({ ...tlsServerOptions, ...options }, handler)
+        : http.createServer(options, handler);
+      server.headersTimeout = headersTimeoutMs;
+      server.requestTimeout = requestTimeoutMs;
+      server.maxConnections = config.maxConnections ?? 32;
+      // A failed handshake is just a closed connection: nothing to log, nothing to answer.
+      server.on("tlsClientError", () => undefined);
       return server;
     },
+  });
+
+  // Who is asking: the id from the device list (TLS) or `local` (no TLS); null when not listed.
+  const identity = new WeakMap<object, string | null>();
+  const prints = new WeakMap<object, string>();
+  const panelsOf = new Map<string, Set<string>>();
+
+  function identify(request: FastifyRequest): string | null {
+    if (!devices) return "local";
+    const socket = request.raw.socket as TLSSocket;
+    let print = prints.get(socket);
+    if (print === undefined) {
+      const raw = socket.getPeerCertificate().raw as Uint8Array | undefined;
+      if (raw === undefined) return null;
+      print = fingerprint(raw);
+      prints.set(socket, print);
+    }
+    return devices.lookup(print) ?? null;
+  }
+
+  app.addHook("onRequest", (request, reply, done) => {
+    const device = identify(request);
+    identity.set(request, device);
+    if (device === null) void reply.code(404).send();
+    else done();
   });
 
   // Bodies are read as text (any content type) with the size cap enforced by Fastify while reading.
@@ -111,6 +157,7 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
       ms: reply.elapsedTime,
       firmware: header(request, "tintero-firmware") ?? null,
       power: power === "battery" || power === "usb" ? power : null,
+      ...(devices ? { device: identity.get(request) ?? null } : {}),
     });
     done();
   });
@@ -133,13 +180,28 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
       void sendError(reply, 400, "invalid_request", "invalid device headers");
       return undefined;
     }
-    return result.value.panel;
+    // Panels per device are counted since the server started; a new one over the limit draws nothing.
+    const panel = result.value.panel;
+    const id = identity.get(request) ?? "local";
+    const known = panelsOf.get(id) ?? new Set<string>();
+    const key = `${panel.w},${panel.h},${panel.dpi},${panel.depth}`;
+    if (!known.has(key) && known.size >= maxPanels) {
+      void sendError(reply, 400, "invalid_request", "too many panels");
+      return undefined;
+    }
+    known.add(key);
+    panelsOf.set(id, known);
+    return panel;
   }
 
   function render(panel: Panel, view: DemoView): Rendered {
     const key = `${panel.w}x${panel.h}@${panel.dpi}|${view.id}|${contentKey(view.id, state)}`;
     const hit = cache.get(key);
-    if (hit) return hit;
+    if (hit) {
+      cache.delete(key); // re-insert: the Map keeps the least recently used first
+      cache.set(key, hit);
+      return hit;
+    }
     renderCount++;
     const image = Buffer.from(view.raw1(panel));
     const zones = view.zones(panel);
@@ -149,7 +211,10 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
       .digest("hex")
       .slice(0, 16);
     const entry: Rendered = { image, zones, hash, crc32: crc32Hex(image) };
-    if (cache.size >= CACHE_LIMIT) cache.clear();
+    if (cache.size >= CACHE_LIMIT) {
+      const oldest = cache.keys().next();
+      if (!oldest.done) cache.delete(oldest.value);
+    }
     cache.set(key, entry);
     return entry;
   }

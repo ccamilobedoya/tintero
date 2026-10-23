@@ -11,6 +11,8 @@ npm run emulator -- --server http://127.0.0.1:4010 --store /tmp/emu --wakes 1 --
 
 Opciones: `--server <url>` (http o https, obligatoria), `--store <carpeta>` (por defecto, una carpeta en el directorio temporal del sistema; que quede fuera del repo), `--panel w=800,h=480,dpi=124,depth=1`, `--formats raw1`, `--power battery|usb`, `--battery-mv N`, `--rssi N`, `--firmware txt`, `--extra-views N`, `--flash-bytes N`, `--timeout-ms N`, `--wakes N` (1) y `--keys tab,long-tab,ok,long-ok`.
 
+Con un servidor que exige certificado de cliente (F-004): `--ca <ca.crt> --cert <pantalla.crt> --key <pantalla.key>`, las tres juntas y solo con una URL `https://` (si no, sale con 2). El emulador confía **solo** en esa CA (reemplaza las raíces públicas). Cómo crearlos: `server/README.md`. El nombre de la URL debe estar en el certificado del servidor (p. ej. `localhost`).
+
 Corre las despertadas seguidas (sin dormir), luego los toques, e imprime un JSON por línea (`WakeReport` o `PressReport`). Salida 0 si terminó (aunque reporte errores); 2 con opciones inválidas.
 
 ## Desde código

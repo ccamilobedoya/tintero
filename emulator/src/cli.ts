@@ -10,7 +10,8 @@ import { runWake } from "./wake.ts";
 
 const USAGE = `usage: emulator --server <url> [--store <folder>] [--panel w=800,h=480,dpi=124,depth=1]
   [--formats raw1] [--power battery|usb] [--battery-mv N] [--rssi N] [--firmware txt]
-  [--extra-views N] [--flash-bytes N] [--timeout-ms N] [--wakes N] [--keys tab,long-tab,ok,long-ok]`;
+  [--extra-views N] [--flash-bytes N] [--timeout-ms N] [--wakes N] [--keys tab,long-tab,ok,long-ok]
+  [--ca F --cert F --key F]   (https only; the three together)`;
 
 const KEYS: readonly string[] = ["tab", "long-tab", "ok", "long-ok"];
 
@@ -44,6 +45,9 @@ function parse(argv: string[]): { config: EmulatorConfig; wakes: number; keys: K
         "timeout-ms": { type: "string" },
         wakes: { type: "string" },
         keys: { type: "string" },
+        ca: { type: "string" },
+        cert: { type: "string" },
+        key: { type: "string" },
       },
     }));
   } catch (error) {
@@ -62,7 +66,14 @@ function parse(argv: string[]): { config: EmulatorConfig; wakes: number; keys: K
     throw new UsageError("--server must be http or https");
   }
 
+  const tlsGiven = [values.ca, values.cert, values.key].filter((v) => v !== undefined).length;
+  if (tlsGiven !== 0 && tlsGiven !== 3) throw new UsageError("--ca, --cert and --key go together");
+  if (tlsGiven === 3 && protocol !== "https:") throw new UsageError("--ca/--cert/--key need https");
+
   const config = defaultConfig(values.server, values.store ?? join(tmpdir(), "tintero-emulator"));
+  if (values.ca !== undefined && values.cert !== undefined && values.key !== undefined) {
+    config.tls = { caFile: values.ca, certFile: values.cert, keyFile: values.key };
+  }
   if (values.panel !== undefined) {
     const panel = parsePanelHeader(values.panel);
     if (!panel.ok) throw new UsageError("--panel must look like w=800,h=480,dpi=124,depth=1");
