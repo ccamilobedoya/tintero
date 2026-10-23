@@ -16,6 +16,7 @@ export interface RequestLine {
   ms: number;
   firmware: string | null;
   power: "battery" | "usb" | null;
+  device?: string | null; // only with TLS
 }
 
 export function logRequest(line: RequestLine): void {
@@ -28,7 +29,16 @@ export function logRequest(line: RequestLine): void {
     ms: Math.round(line.ms * 100) / 100,
     firmware: line.firmware === null ? null : clean(line.firmware, 64),
     power: line.power,
+    // Without TLS the line keeps the exact fields of F-003.
+    ...(line.device === undefined
+      ? {}
+      : { device: line.device === null ? null : clean(line.device, 32) }),
   });
+}
+
+/** The reason is a short fixed phrase, never the content of the file. */
+export function logDevicesError(reason: string): void {
+  write({ ts: new Date().toISOString(), devices_error: clean(reason, 40) });
 }
 
 export function logDevice(level: string, msg: string): void {

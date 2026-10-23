@@ -1,4 +1,5 @@
 // HTTP client of the emulator (R2): one request at a time, one keep-alive socket, capped reads.
+import { readFileSync } from "node:fs";
 import http from "node:http";
 import https from "node:https";
 import type { Socket } from "node:net";
@@ -40,8 +41,16 @@ export class HttpClient {
   private readonly agent: http.Agent;
   private readonly secure: boolean;
 
-  /** `tls` is passed to the https agent (client certificate in F-004). */
-  constructor(config: EmulatorConfig, tls?: https.AgentOptions) {
+  constructor(config: EmulatorConfig) {
+    const files = config.tls;
+    /* eslint-disable security/detect-non-literal-fs-filename -- paths come from the command line of the owner */
+    // `ca` replaces the public roots: only the CA of Tintero is trusted.
+    const tls: https.AgentOptions | undefined = files && {
+      ca: readFileSync(files.caFile),
+      cert: readFileSync(files.certFile),
+      key: readFileSync(files.keyFile),
+    };
+    /* eslint-enable security/detect-non-literal-fs-filename */
     this.config = config;
     this.base = new URL(config.server);
     if (this.base.protocol !== "http:" && this.base.protocol !== "https:") {

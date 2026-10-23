@@ -14,6 +14,8 @@ export interface EmulatorConfig {
   flashBytes: number;
   timeoutMs: number;
   fallbackWakeS: number;
+  /** Trust only this CA and present this certificate (L1, F-004). */
+  tls?: { caFile: string; certFile: string; keyFile: string };
 }
 
 export interface RequestRecord {

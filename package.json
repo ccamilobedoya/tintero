@@ -23,6 +23,7 @@
     "test:acceptance": "vitest run --config vitest.acceptance.config.ts --passWithNoTests",
     "emulator": "node emulator/src/cli.ts",
     "server": "node server/src/main.ts",
+    "pki": "node server/scripts/pki.ts",
     "setup": "git config core.hooksPath tools/git-hooks"
   },
   "devDependencies": {
