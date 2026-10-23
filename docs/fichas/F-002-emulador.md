@@ -1,6 +1,6 @@
 # F-002 · Emulador de pantalla
 
-**Estado:** borrador · D1, D2 y D4 aprobadas (2026-10-22); falta D3
+**Estado:** **aprobada** por el dueño el 2026-10-22 (puerta 1, D1–D4)
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna (HTTP con `node:http`/`node:https`, PNG con `node:zlib`).
 
@@ -10,7 +10,7 @@
 |---|----------|-----------|---------|
 | **D1** ✅ | ¿Cómo sabe el aparato que está en un **detalle**, para que «Aceptar largo» vuelva (ADR-0005)? | **Aprobado (dueño, 2026-10-22):** campo **opcional** `parent` en cada vista del índice (id de la vista a la que se vuelve). Volver es **local, sin red**. Es un cambio **aditivo** de v1 (M2): los aparatos que no lo conocen lo ignoran | La alternativa (una acción `back` al servidor) gasta WiFi en cada vuelta atrás |
 | **D2** ✅ | ¿El emulador estima batería? | **Aprobado (dueño, 2026-10-22): no.** Reporta peticiones, bytes y conexiones por despertada; la energía se mide con la placa real | Un número inventado de consumo engañaría más de lo que ayuda |
-| **D3** | ¿Dibuja la marca ✓ optimista al aceptar una tarea? | **No en F-002:** manda la acción y muestra la vista que devuelva el servidor. La marca optimista queda para el firmware | Mantiene el emulador simple y fiel al contrato |
+| **D3** ✅ | ¿Dibuja la marca ✓ optimista al aceptar una tarea? | **Aprobado (dueño, 2026-10-22): no en F-002:** manda la acción y muestra la vista que devuelva el servidor. La marca optimista queda para el firmware | Mantiene el emulador simple y fiel al contrato |
 | **D4** ✅ | ¿Cómo se ve lo que «muestra» el emulador? | **Aprobado (dueño, 2026-10-22):** un archivo **`screen.png`** (y `screen.raw1`) en su carpeta de almacenamiento. **Pendiente para después:** que los puntos de foco de la navegación también se vean desde el emulador (una vista web, o una segunda imagen con todas las zonas disponibles marcadas) | Se abre con cualquier visor de imágenes, también desde el celular |
 
 ## Listo para programar
