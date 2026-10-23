@@ -43,7 +43,7 @@ DENY=("Bash(git push --force:*)" "Bash(git push -f:*)" "Bash(git push --no-verif
 
 cd "$WORKDIR"
 # Siempre la definición del agente de la copia principal del repo (no la de la rama de la carpeta).
-MAIN_REPO="$(cd "$(git -C "$REPO" rev-parse --git-common-dir)/.." && pwd)"
+MAIN_REPO="$(dirname "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)")"
 AGENTS_JSON="$(node "$MAIN_REPO/tools/lib/agent-json.ts" "$MAIN_REPO/.claude/agents/$ROLE.md")"
 
 claude -p --agents "$AGENTS_JSON" --agent "$ROLE" --model "$MODEL" --permission-mode default \
