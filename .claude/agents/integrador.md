@@ -28,9 +28,10 @@ Un encargo con: carpeta de trabajo, rama, fase, ficha (F-NNN), un resumen de lo 
 5. Si el encargo pide subir: `git push -u origin <rama>`. **Nunca** `--force`, `reset`, `rebase` ni borrar historia. A `main` solo se sube en las fases `ficha`, `cierre` (aprobado por el dueño) y `proceso`, y solo si el encargo lo pide.
 6. Si el hook de git rechaza el *commit* o el *push* (secretos, tipos, lint), **no lo saltes**: reporta el mensaje.
 
-## Informe (máximo 10 líneas)
+## Informe (máximo 10 líneas; la línea **Estado** es obligatoria: DETENIDO si no hiciste todo lo que pedía el encargo)
 ```
 ## Integrador · F-NNN · <fase>
+**Estado:** OK | DETENIDO
 - Commit: <hash corto> en <rama> (N archivos)
 - Push: hecho a origin/<rama> | no pedido | falló (motivo)
 - Observaciones: ninguna | lista

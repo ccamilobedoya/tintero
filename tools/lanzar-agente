@@ -52,5 +52,6 @@ const u = d.usage ?? {};
 if (d.is_error) console.log("⚠️ EL AGENTE TERMINÓ CON ERROR (p. ej. límite de uso de la cuenta): su trabajo puede estar incompleto.\n");
 console.log(d.result ?? "(sin resultado)");
 if (d.is_error) process.exitCode = 1;
+if (/\*\*Estado:\*\*\s*DETENIDO/.test(d.result ?? "")) { console.log("\n⛔ EL AGENTE SE DETUVO: no sigas la cadena sin revisar su informe."); process.exitCode = 3; }
 console.log(`\n--- ${process.argv[2]} · costo USD ${(d.total_cost_usd ?? 0).toFixed(3)} · turnos ${d.num_turns ?? "?"} · tokens entrada ${u.input_tokens ?? "?"} (+caché ${u.cache_read_input_tokens ?? 0}) salida ${u.output_tokens ?? "?"} · ${d.subtype ?? ""}`);
 ' "$LOG" "$ROLE"
