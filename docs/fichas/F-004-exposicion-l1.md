@@ -1,6 +1,6 @@
 # F-004 · Exposición con certificado por pantalla (L1)
 
-**Estado:** **aprobada** · el dueño aprobó D1–D5 el 2026-10-23 (D6 se decide en CA10)
+**Estado:** **cerrada** · el dueño aprobó integrar el 2026-10-23 (D6 se observa cuando Tintero quede en vivo)
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna (TLS con `node:https`/`node:tls`; certificados con la CLI `openssl` del sistema, llamada sin *shell*).
 
@@ -150,16 +150,45 @@ Las pruebas generan con `pkiInit`/`pkiServer`/`pkiDevice` dos CA en una carpeta 
 Con la CA y un certificado de pantalla creados con `npm run pki`, el servidor con TLS y el emulador con su certificado hacen el ciclo completo; sin certificado, o con uno no listado, no hay nada que ver. Y lo mismo desde internet por Funnel.
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto).
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Todos los CA pasan en la verificación (informes en `docs/informes/F-004/`); CA10 en vivo, salvo la observación de 24 h (ver abajo).
+- [x] `tools/revisar` limpio (salida 3 por `package.json`: revisor en modo juicio, aprobado con 4 mejoras).
+- [x] `tools/check-scope` limpio para cada rol.
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones se actualizan al integrar.
+- [x] El dueño aprobó integrar (2026-10-23).
 
 ---
 
-## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+## Resultado obtenido (2026-10-23)
+
+**Qué se hizo:** modo HTTPS del servidor con certificado de cliente obligatorio (`requestCert`, `rejectUnauthorized`, TLS ≥ 1.2, saludo ≤ 10 s, petición ≤ 15 s, 32 conexiones), identidad por huella SHA-256 y lista de aparatos que se relee sola y falla cerrado (no listado → 404 vacío; `device` en el registro). De F-003: caché que expulsa la menos usada y límite de paneles por aparato. `npm run pki` (`pkiInit`/`pkiServer`/`pkiDevice`, `openssl` por `execFile`, llaves creadas con 600 sin ventana abierta, se niega dentro del repo). Emulador con `--ca/--cert/--key` (solo confía en esa CA).
+
+| CA | Resultado |
+|----|-----------|
+| CA1–CA9, CA11, CA12 | ✅ PASAN (42 pruebas de aceptación de F-004, 60 de F-003, 196 unitarias) |
+| CA10 | ✅ **en vivo por Funnel `--tcp`** (2026-10-23): `p1` hizo una despertada completa contra la URL pública (7 peticiones en **una** conexión TLS, ~2 s, salida 0); sin certificado, el saludo falla (`certificate required`); `p2` (válido, no listado) → 404 vacío con `device: null`. El registro no lleva contenido. **Pendiente:** la observación de DNS de 24 h (D6) |
+
+**Vueltas:** pruebas 1 (una aclaración: `createApp` con TLS) · programación 2 (vuelta 2: el mensaje de `--host` debía seguir mencionando «F-004» para las pruebas de F-003) · verificación 2 · revisión 1 (juicio, aprobado).
+
+**D6 (nombre público):** en las pruebas, la primera publicación del nombre tardó ~24 min desde el primer Funnel (coincidió con abrir un Funnel HTTPS) y después **siguió publicado más de 3 h solo con el permiso de Funnel del puerto 8443**, sin reenvío ni HTTPS activos. Parece que la explicación es «la primera publicación es lenta», no «hace falta HTTPS», pero sin confirmar. **Decidido por el dueño (2026-10-23):** la observación se hace cuando Tintero quede **en vivo del todo** (servicio permanente), vigilando que el nombre siga publicado y que no pase nada raro; D6 se decide con eso.
+
+**Mejoras anotadas (revisor):**
+- `emulator/src/http.ts`: leer los PEM con tope de tamaño (`readCapped`).
+- `server/src/devices.ts`: la firma de recarga `mtimeMs:size` no ve una edición en el mismo milisegundo con el mismo tamaño; agregar `ino` o `ctimeMs`.
+- `server/scripts/pki.ts`: si `pkiDevice` falla entre la llave y el certificado, queda un `.key` suelto que bloquea el reintento; borrar lo instalado al fallar.
+- `server/src/app.ts`: el conteo de paneles por aparato no se poda (acotado por la lista); documentarlo.
+- Lección candidata: lecturas de archivos sin tope → regla de `semgrep` (ya se repite el tema de F-001).
+
+**Costo de agentes:** USD 2,14 en 13 corridas (programador 1,05 · verificador 0,94 · revisor 0,14 · integrador 0,01).
 
 ## Resumen para aprobar
-*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
+
+**Qué cambió:** el servidor ya puede salir a internet de forma segura: habla HTTPS, **solo** con pantallas que tengan un certificado de la CA de Tintero **y** estén en la lista de aparatos. Se probó en vivo por Funnel: la pantalla emulada despertó contra la URL pública; sin certificado, o con uno no listado, no hay nada que ver.
+
+**Criterios:** 12 de 12 (CA10 en vivo, sin la observación de 24 h) · vueltas: verificación 2, revisión 1
+
+**Revisión:** 4 mejoras anotadas · zonas sensibles: `package.json` (script `pki`)
+**Dependencias nuevas:** ninguna
+
+**Riesgos o pendientes:** D6 (que el nombre público siga publicado) se decide en la ficha del servicio permanente; el servidor aún no corre como servicio; la CA real no se ha creado (se crea con `npm run pki` cuando haya una pantalla, y su llave va al respaldo cifrado); queda un permiso de Funnel huérfano en 8443 (inofensivo).
+
+**Decisión que se pide:** integrar `ver/F-004` a `main`, y pasar D6 con su observación de 24 h a la ficha del servicio. **Aprobado (dueño, 2026-10-23)**; la observación, cuando Tintero quede en vivo del todo.
