@@ -1,5 +1,5 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- temp folders of the test */
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -59,6 +59,20 @@ describe("DeviceList", () => {
     expect(errors[0]).not.toContain("p2");
     writeFileSync(file, `${A} p1\n`);
     expect(list.lookup(A)).toBe("p1");
+  });
+
+  it("rereads an edit with the same size and the same mtime (CA3)", () => {
+    const file = join(dir, "devices.txt");
+    const B = "b".repeat(64);
+    writeFileSync(file, `${A} p1\n`);
+    const before = statSync(file);
+    const list = new DeviceList(file);
+    expect(list.lookup(A)).toBe("p1");
+    writeFileSync(file, `${B} p1\n`);
+    utimesSync(file, before.atime, before.mtime);
+    expect(statSync(file).size).toBe(before.size);
+    expect(list.lookup(A)).toBeUndefined();
+    expect(list.lookup(B)).toBe("p1");
   });
 
   it("treats a missing or oversized file as empty", () => {

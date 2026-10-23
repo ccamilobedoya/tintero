@@ -15,6 +15,7 @@ export function imageFrom(conf: string, variable: string): string {
 
 /** Docker arguments for one mode. `--mount` (unlike `-v`) accepts paths that contain ":". */
 export function dockerArgs(kind: "docs" | "mock", specPath: string, port: number): string[] {
+  // nosemgrep: tintero-lectura-sin-tope -- tools/images.conf is a file of this repo
   const conf = readFileSync(join(REPO, "tools", "images.conf"), "utf8");
   if (kind === "docs") {
     return [

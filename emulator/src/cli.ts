@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { parsePanelHeader } from "../../contract/src/index.ts";
+import { MAX_PEM_BYTES, readCapped } from "./capped.ts";
 import { defaultConfig } from "./config.ts";
 import { press } from "./press.ts";
 import type { EmulatorConfig, Key } from "./types.ts";
@@ -73,6 +74,18 @@ function parse(argv: string[]): { config: EmulatorConfig; wakes: number; keys: K
   const config = defaultConfig(values.server, values.store ?? join(tmpdir(), "tintero-emulator"));
   if (values.ca !== undefined && values.cert !== undefined && values.key !== undefined) {
     config.tls = { caFile: values.ca, certFile: values.cert, keyFile: values.key };
+    // Read now (capped), so a bad file stops the run before any request.
+    for (const [option, file] of [
+      ["--ca", values.ca],
+      ["--cert", values.cert],
+      ["--key", values.key],
+    ] as const) {
+      try {
+        readCapped(file, MAX_PEM_BYTES);
+      } catch {
+        throw new UsageError(`${option} cannot be read (missing, not a file, or over 64 KiB)`);
+      }
+    }
   }
   if (values.panel !== undefined) {
     const panel = parsePanelHeader(values.panel);

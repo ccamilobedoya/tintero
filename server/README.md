@@ -39,6 +39,7 @@ npm run server -- --port 8443 \
   --client-ca /ruta/privada/pki/ca.crt --devices /ruta/privada/devices.txt
 ```
 
+- El conteo de paneles por aparato empieza al arrancar el servidor y no se poda; está acotado por aparatos listados × `--max-panels`.
 - Las cuatro opciones TLS van juntas; si falta una o un archivo no se lee, sale con 2 sin escuchar. `--max-panels N` (2) limita los paneles distintos por aparato; `--max-connections N` (32).
 - Revocar una pantalla = quitar su línea de la lista; se relee sola (sin reiniciar). Si la lista es ilegible, pasa de 64 KiB o tiene una línea inválida, nadie está listado y se registra `devices_error`. Un certificado válido pero no listado recibe 404 vacío.
 - `pki` usa la CLI `openssl` (sin _shell_), ECDSA P-256, y se niega a escribir dentro del repo o sobre archivos existentes. Vigencias: CA 10 años, pantalla 5, servidor 2.

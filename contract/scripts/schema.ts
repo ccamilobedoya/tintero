@@ -48,8 +48,8 @@ for (const [file, content] of await outputs()) {
   if (check) {
     let current = "";
     try {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- fixed output paths
-      current = readFileSync(file, "utf8");
+      // nosemgrep: tintero-lectura-sin-tope -- fixed output files of this repo, written by this script
+      current = readFileSync(file, "utf8"); // eslint-disable-line security/detect-non-literal-fs-filename -- fixed output paths
     } catch {
       // missing counts as stale
     }
