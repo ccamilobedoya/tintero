@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "sources": {
+    "tareas": {
+      "type": "tasks",
+      "items": [
+        { "id": "t-001", "title": "Pagar la factura de la luz", "done": false, "category": "Casa", "due": "2026-10-25" },
+        { "id": "t-002", "title": "Cambiar el filtro del agua", "done": true, "category": "Casa" },
+        { "id": "t-003", "title": "Llamar al técnico de la nevera", "done": false, "category": "Casa" },
+        { "id": "t-004", "title": "Café y azúcar", "done": false, "category": "Compras" },
+        { "id": "t-005", "title": "Pilas AA para el control", "done": false, "category": "Compras" },
+        { "id": "t-006", "title": "Revisar las copias de seguridad", "done": false, "category": "Proyecto" },
+        { "id": "t-007", "title": "Soldar los pines de la pantalla", "done": false, "category": "Proyecto", "due": "2026-10-30" },
+        { "id": "t-008", "title": "Medir el consumo en reposo", "done": false, "category": "Proyecto" },
+        { "id": "t-009", "title": "Devolver el libro prestado", "done": false }
+      ]
+    },
+    "calendario": {
+      "type": "events",
+      "items": [
+        { "id": "e-001", "title": "Reunión que ya pasó", "start": "2026-10-22T15:00:00Z", "end": "2026-10-22T16:00:00Z" },
+        { "id": "e-002", "title": "Día sin reuniones", "start": "2026-10-23" },
+        { "id": "e-003", "title": "Reunión de equipo", "start": "2026-10-23T14:00:00Z", "end": "2026-10-23T14:30:00Z", "location": "Sala 2" },
+        { "id": "e-004", "title": "Recoger un paquete", "start": "2026-10-23T17:00:00Z", "location": "Portería" },
+        { "id": "e-005", "title": "Cita médica", "start": "2026-10-24T15:00:00Z", "end": "2026-10-24T16:00:00Z", "notes": "Llevar los exámenes de sangre y la orden." },
+        { "id": "e-006", "title": "Evento fuera de la ventana de 7 días", "start": "2026-11-05T15:00:00Z" }
+      ]
+    }
+  }
+}

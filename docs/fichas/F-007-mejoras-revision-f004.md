@@ -1,6 +1,6 @@
 # F-007 · Mejoras de la revisión de F-004
 
-**Estado:** aprobada · el dueño pidió estas mejoras el 2026-10-23 (sin decisiones nuevas: todo sale de la revisión de F-004)
+**Estado:** **cerrada** · el dueño aprobó integrar el 2026-10-23 · el dueño pidió estas mejoras el 2026-10-23 (sin decisiones nuevas: todo sale de la revisión de F-004)
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna.
 
@@ -90,16 +90,37 @@ Sin cambios.
 `tools/revisar` vuelve a estar limpio con la regla nueva activa, y las 4 mejoras de la revisión de F-004 quedan hechas.
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto).
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Todos los CA pasan en la verificación (informes en `docs/informes/F-007/`).
+- [x] `tools/revisar` limpio con la regla nueva (salida 3 por `contract/scripts/`: revisor en modo juicio, aprobado).
+- [x] `tools/check-scope` limpio para cada rol.
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones se actualizan al integrar.
+- [x] El dueño aprobó integrar (2026-10-23).
 
 ---
 
-## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+## Resultado obtenido (2026-10-23)
+
+**Qué se hizo:** lectura con tope propia del emulador (`emulator/src/capped.ts`, 64 KiB, con `fstat` sobre el descriptor abierto); la CLI lee los PEM al arrancar y sale con 2 nombrando la opción; la memoria *flash* del emulador lee con tope de verdad (antes: `stat` y luego leer). Firma de recarga de la lista `mtimeMs:ctimeMs:size:ino`. `installFiles` en `pki`: crea cada destino exclusivo **y con su modo en el mismo momento**, y al fallar borra lo instalado en la llamada y el destino a medias (nunca uno que ya existía). Conteo de paneles documentado. La regla `tintero-lectura-sin-tope` queda sin hallazgos: 4 lecturas resueltas con tope y 4 marcadas con motivo (archivos del repo o recién generados por el propio programa).
+
+| CA | Resultado |
+|----|-----------|
+| CA1–CA7 | ✅ PASAN (11 pruebas de aceptación de F-007; F-001 a F-004: 256; 205 unitarias) |
+
+**Vueltas:** pruebas 1 · programación 2 (la vuelta 2 hizo las 2 mejoras del revisor sobre llaves privadas: modo al crear y destino a medias; el arquitecto decidió no dejarlas para después) · verificación 2 (en la 1 el verificador corrigió su prueba de CA3: `utimesSync` pierde los submilisegundos) · revisión 2 (juicio aprobado con 2 mejoras; confirmación aprobada).
+
+**Mejoras anotadas:** ninguna pendiente.
+
+**Costo de agentes:** USD 1,22 en 14 corridas (programador 0,66 · verificador 0,41 · revisor 0,14 · integrador 0,02). Verificador de pruebas y programador corrieron **en paralelo** (carpetas separadas; ninguno ve lo del otro).
 
 ## Resumen para aprobar
-*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
+
+**Qué cambió:** quedan hechas las 4 mejoras de la revisión de F-004 (certificados del emulador leídos con tope, lista de aparatos que detecta cualquier edición, `pki` sin restos y con las llaves creadas ya con 600, límite de paneles documentado) y la lección de las lecturas sin tope es ahora una **regla de semgrep** que bloquea en `tools/revisar`.
+
+**Criterios:** 7 de 7 · vueltas: verificación 2, revisión 2
+
+**Revisión:** aprobada, sin mejoras pendientes · zonas sensibles: `contract/scripts/schema.ts` y `serve.ts` (solo marcadores `nosemgrep` con motivo)
+**Dependencias nuevas:** ninguna
+
+**Riesgos o pendientes:** la prueba de F-002 CA21 (simulador en Docker) sigue fallando a veces con todo el lote; pasa sola.
+
+**Decisión que se pide:** integrar `ver/F-007` a `main`. **Aprobado (dueño, 2026-10-23).**

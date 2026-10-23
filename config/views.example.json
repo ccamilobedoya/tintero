@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "timezone": "UTC",
+  "theme": "base",
+  "devices": {
+    "*": { "views": ["pendientes", "agenda", "resumen"] }
+  },
+  "views": [
+    {
+      "id": "pendientes",
+      "title": "Pendientes",
+      "layout": "full",
+      "slots": [{ "block": "task-list", "source": "tareas", "options": { "group_by": "category" } }]
+    },
+    {
+      "id": "agenda",
+      "title": "Agenda",
+      "layout": "full",
+      "slots": [{ "block": "agenda", "source": "calendario", "options": { "days": 7 } }]
+    },
+    {
+      "id": "resumen",
+      "title": "Resumen",
+      "layout": "columns-2",
+      "split": 60,
+      "slots": [
+        { "block": "task-list", "source": "tareas" },
+        { "block": "agenda", "source": "calendario" }
+      ]
+    }
+  ]
+}
