@@ -4,3 +4,4 @@
 |-------|--------------------|----------------------|------------------|--------------------------|--------------------|------------------------|-------|
 | F-000 | (arquitecto, excepción de arranque) | 1 (verificador final) | 1 (revisor juicio sobre `tools/`) | 0 bloq. / 3 mejoras | Sí (Sonnet) | USD 0,57 en 7 corridas (regresión ×5, verificador final, revisor) | Registro de npm lento → revisar en paralelo |
 | F-001 | sonnet (v1, v4) · haiku (v2, v3) | 5 (todas CUMPLE; reverificación por cambios de código) | 3 (hallazgos Haiku, juicio Sonnet con 1 bloqueante, confirmación) | 1 bloq. / 3 mejoras (+ 7 de forma en pruebas) | Sí | USD 2,86 en 50 corridas | Una corrida cortada por el límite de uso de la cuenta |
+| F-002 | sonnet | 1 (CUMPLE 21/21 a la primera) | 1 (juicio, aprobado) | 0 bloq. / 3 mejoras | Sí (Sonnet) | USD 2,51 en 14 corridas | Primera ficha con las reglas nuevas: sin tropiezos de proceso |

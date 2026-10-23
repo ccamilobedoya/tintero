@@ -1,6 +1,6 @@
 # F-002 · Emulador de pantalla
 
-**Estado:** **aprobada** por el dueño el 2026-10-22 (puerta 1, D1–D4)
+**Estado:** **cerrada** · el dueño aprobó integrar el 2026-10-22
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna (HTTP con `node:http`/`node:https`, PNG con `node:zlib`).
 
@@ -190,16 +190,46 @@ Las pruebas levantan su **propio servidor** de prueba en `127.0.0.1` (puerto ef�
 `npm run emulator -- --server http://127.0.0.1:4010 --store /tmp/emu --wakes 1` despierta como lo haría el ESP32 y deja en `/tmp/emu/screen.png` lo que mostraría el panel. El servidor de F-003 se podrá probar de punta a punta con `runWake` y `press`.
 
 ## Terminado
-- [ ] Todos los CA pasan en la verificación.
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados.
-- [ ] `check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Todos los CA pasan en la verificación (21/21 a la primera; informes en `docs/informes/F-002/`).
+- [x] `tools/revisar` limpio (solo avisos en pruebas; pide revisor por `contract/`: aprobado).
+- [x] `check-scope` limpio para cada rol.
+- [x] Resultado obtenido y resumen escritos; métricas y lecciones actualizadas.
+- [x] El dueño aprobó integrar (2026-10-22).
 
 ---
 
-## Resultado obtenido
-*(Se llena al cerrar.)*
+## Resultado obtenido (2026-10-22)
+
+**Qué se hizo:** emulador en `emulator/src/` con la interfaz exacta de la ficha (`runWake`, `press`, `renderScreen`, `encodePng1`, `defaultConfig`): cliente HTTP propio de un solo socket con `keep-alive`, topes antes de parsear y tiempo máximo; flash simulada con escritura atómica y tope; cola de acciones; foco con marco invertido de 3 px; PNG propio; CLI (`npm run emulator`). Contrato: `parent` opcional y `unknown_parent`, con 3 ejemplos nuevos (ninguno existente cambió). Sin dependencias nuevas.
+
+| CA | Resultado |
+|----|-----------|
+| CA1–CA21 | ✅ PASAN a la primera verificación (39 pruebas de aceptación + 149 unitarias) |
+
+**Vueltas:** pruebas 1 (aclaración: formato de `queue.json`) · programación 1 · verificación 1 · revisión 1 (juicio, aprobado).
+
+**Decisiones del programador dentro de la ficha** (revisadas por el arquitecto): `current` no cuenta contra `extraViewsPerWake`; la expulsión de la flash solo saca vistas más lejanas que la que se guarda; sin red no se intenta `POST /log`; respuestas distintas de 200/409 cuentan como `network`; `--store` es opcional (carpeta temporal del sistema).
+
+**Mejoras anotadas** (no bloquean)
+- `emulator/src/storage.ts`: validar con el patrón de ids también lo que se lee de `state.json` (hoy lo escribe el propio emulador).
+- Documentar en `emulator/README.md` que la carpeta de almacenamiento no se protege contra enlaces simbólicos (herramienta local).
+- Comparar `view` y `hash` de la respuesta de zonas con los del índice (la ficha no lo pedía).
+- Pendiente de D4: ver los puntos de foco desde el emulador (web o segunda imagen con todas las zonas).
+
+**Proceso:** primera ficha con las reglas nuevas: sin tropiezos de proceso ni pruebas desalineadas; el integrador usó encargos armados por `tools/encargo-integrador` en todas las fases.
+
+**Costo de agentes:** USD 2,51 en 14 corridas (programador 1,35 · verificador 0,97 · revisor 0,17 · integrador 0,02).
 
 ## Resumen para aprobar
-*(Se llena al cerrar.)*
+
+**Qué cambió:** existe el emulador de pantalla: se porta como el ESP32 (despierta, baja vistas con presupuesto y una sola conexión, verifica CRC, guarda en una flash simulada, simula los cuatro toques y la cola sin red) y deja lo que mostraría el panel en `screen.png`. El contrato suma `parent` (opcional) para las vistas de detalle.
+
+**Criterios:** 21 de 21 a la primera · revisión aprobada sin bloqueantes · 3 mejoras anotadas.
+
+**Dependencias nuevas:** ninguna.
+
+**Riesgos o pendientes:** ver los puntos de foco desde el emulador (D4, otra ficha).
+
+**Costo de agentes:** USD 2,51.
+
+**Decisión que se pide:** integrar `ver/F-002` a `main`.
