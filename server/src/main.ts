@@ -18,7 +18,9 @@ try {
 }
 
 if (options.host !== "127.0.0.1") {
-  console.error("the server only listens on 127.0.0.1 (Funnel --tcp forwards to it)");
+  console.error(
+    "the server only listens on 127.0.0.1 ; outside access goes through Funnel --tcp with TLS and client certificates (F-004)",
+  );
   process.exit(2);
 }
 
