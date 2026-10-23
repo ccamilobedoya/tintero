@@ -80,7 +80,9 @@ describe("CA13 cabeceras incompletas", () => {
       `GET ${API}/index HTTP/1.1\r\nHost: 127.0.0.1\r\nTintero-Prot`,
       5000,
     );
-    expect(r.closedByServer).toBe(true);
+    // Node responde 408 con «Connection: close» (el auxiliar da la respuesta por completa) o corta sin responder.
+    expect(r.closedByServer || r.status === 408).toBe(true);
+    expect(r.status === null || r.status === 408).toBe(true);
     expect(r.ms).toBeLessThan(2000);
   });
 

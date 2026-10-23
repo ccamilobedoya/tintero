@@ -75,7 +75,9 @@ describe("CA4 segunda despertada y caché", () => {
   });
 
   it("renders() no aumenta al pedir otra vez las mismas imágenes", async () => {
-    const { app, renders } = createApp(CFG);
+    const created = createApp(CFG);
+    const app = created.app;
+    const renders = (): number => created.renders();
     const idx = await getIndex(app);
     for (const v of idx.views) await getImage(app, v.id, v.hash);
     const before = renders();
@@ -89,7 +91,9 @@ describe("CA4 segunda despertada y caché", () => {
 
 describe("CA16 caché de la imagen de patron", () => {
   it("cinco pedidos con la misma huella dibujan una sola vez", async () => {
-    const { app, renders } = createApp(CFG);
+    const created = createApp(CFG);
+    const app = created.app;
+    const renders = (): number => created.renders();
     expect(renders()).toBe(0);
     const idx = await getIndex(app);
     const h = hashOf(idx, "patron");
@@ -106,7 +110,9 @@ describe("CA16 caché de la imagen de patron", () => {
   });
 
   it("al cambiar los datos de demo solo se vuelve a dibujar demo", async () => {
-    const { app, renders } = createApp(CFG);
+    const created = createApp(CFG);
+    const app = created.app;
+    const renders = (): number => created.renders();
     const idx = await getIndex(app);
     for (const v of idx.views) await getImage(app, v.id, v.hash);
     const before = renders();
