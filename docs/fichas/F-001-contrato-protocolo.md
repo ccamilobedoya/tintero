@@ -1,6 +1,6 @@
 # F-001 · Contrato del protocolo v1
 
-**Estado:** **aprobada** por el dueño el 2026-10-22 (puerta 1, con D1–D5) · en curso
+**Estado:** **cerrada** · el dueño aprobó integrar el 2026-10-22
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** `typebox` (D2): define los esquemas como JSON Schema y da los tipos de TypeScript; sin dependencias propias. El CRC32 sale de `node:zlib` (sin dependencia). Swagger UI y Prism corren por Docker (imágenes fijadas en `tools/images.conf`).
 
@@ -237,16 +237,47 @@ export const openApiDocument: object;                  // OpenAPI 3.1 de v1 (lo 
 `import { validateIndex } from "../contract/src/index.ts"` funciona en el servidor y en el emulador; el firmware del dueño puede validar sus mensajes con `contract/schema/v1/*.schema.json`; y cualquier cambio que rompa v1 hace fallar las pruebas de compatibilidad.
 
 ## Terminado
-- [ ] Todos los CA pasan en la verificación.
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados.
-- [ ] `check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Todos los CA pasan en la verificación (18/18; informes en `docs/informes/F-001/`).
+- [x] `tools/revisar` limpio (pide revisor solo por zona sensible y dependencia nueva: el revisor aprobó).
+- [x] `check-scope` limpio para cada rol.
+- [x] Resultado obtenido y resumen escritos; métricas y lecciones actualizadas.
+- [x] El dueño aprobó integrar (2026-10-22).
 
 ---
 
-## Resultado obtenido
-*(Se llena al cerrar.)*
+## Resultado obtenido (2026-10-22)
+
+**Qué se hizo:** módulo `contract/` con los esquemas TypeBox y tipos de v1; validadores con las reglas cruzadas (tamaños, ids, zonas dentro del panel declarado, `raw1` según el panel, CRC32); comprobación de imágenes `raw1`/`png1`; panel declarado (`Tintero-Panel`); OpenAPI 3.1 y 6 JSON Schema generados con control de desactualización; 24 ejemplos válidos e inválidos; visor Swagger UI (`127.0.0.1:8099`) y simulador Prism (`127.0.0.1:4010`) por Docker. Dependencia nueva: `typebox` 1.4.3 (MIT, sin dependencias ni scripts; última versión del 2026-10-17).
+
+| CA | Resultado |
+|----|-----------|
+| CA1–CA18 | ✅ PASAN (112 pruebas de aceptación escritas antes del código + 118 unitarias del programador) |
+
+**Vueltas**
+- Pruebas (fase 1): una vuelta; dos aclaraciones menores a la ficha (nombres de ejemplos, URL `/v1.json`).
+- Programación: 4 vueltas. 1: implementación completa. 2–3: `http://127.0.0.1` en pruebas vivas marcado por semgrep (la primera forma de la excepción no servía; se corrigió la excepción en `docs/seguridad.md`). 4: **bloqueante de seguridad del revisor** — se parseaba el JSON antes de revisar el tamaño (riesgo de denegación de servicio); ahora el tamaño se revisa primero.
+- Verificación: CUMPLE en cada vuelta; el verificador alineó dos pruebas suyas con las aclaraciones de la ficha (CA12, CA16), sin debilitarlas (CA16 quedó más estricta).
+- Revisión: hallazgos (Haiku) → juicio (Sonnet, 1 bloqueante) → juicio de confirmación (APROBADO).
+
+**Mejoras anotadas para F-003 (servidor)**
+- Tope de tamaño de cuerpo en la capa HTTP para acciones, registro y errores (o `maxBodyBytes` en `LIMITS`).
+- Tope de largo de cabeceras (`Tintero-Formats`, `Tintero-Firmware`) en el servidor.
+- `contract/scripts/serve.ts`: una ruta del repo con `:` rompería el montaje de Docker (bajo riesgo).
+
+**Proceso:** 8 lecciones nuevas en `docs/lecciones.md` (check-scope contra `merge-base`, pruebas de aceptación con su propio `tsconfig`, control de git por comando, `is_error` en el lanzador, excepción de loopback, agrupación del resumen, `--base HEAD` en la verificación, aclaraciones que tocan CA ya probados). Una corrida se cortó por el límite de uso de la cuenta.
+
+**Costo de agentes:** USD 2,86 en 50 corridas (programador 1,43 · verificador 0,99, con dos regresiones de agentes · revisor 0,36 · integrador 0,08).
 
 ## Resumen para aprobar
-*(Se llena al cerrar.)*
+
+**Qué cambió:** existe el contrato v1 de la API de pantallas (`contract/`): esquemas, validadores, imágenes con CRC32, panel declarado, OpenAPI con visor Swagger UI y simulador Prism. Ya se puede probar un firmware contra el simulador antes de que exista el servidor.
+
+**Criterios:** 18 de 18 pasan · programación 4 vueltas · revisión: 1 bloqueante de seguridad encontrado y corregido.
+
+**Revisión:** aprobada; 3 mejoras anotadas para F-003. **Dependencias nuevas:** `typebox` 1.4.3.
+
+**Riesgos o pendientes:** que la pantalla real (en la red de la casa) alcance el simulador necesita HTTPS: se decide al empezar el firmware.
+
+**Costo de agentes:** USD 2,86.
+
+**Decisión que se pide:** integrar `ver/F-001` a `main`.

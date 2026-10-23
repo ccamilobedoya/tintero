@@ -22,6 +22,7 @@ El arquitecto te dice la **fase**, la ficha y la carpeta de trabajo (*worktree*)
 3. **No modifiques código de producción.** No debilites una prueba para que pase. Si una prueba tuya contradice la ficha, corrígela y dilo explícitamente en el informe.
 4. Si un CA no tiene prueba, escríbela antes de dar el veredicto.
 5. Tus pruebas también pasan las herramientas: `npx tsc --noEmit -p tests/acceptance` y `npx eslint tests/acceptance` sin errores.
+6. `tools/check-scope verificador --base HEAD` (en esta fase la rama ya trae el código del programador: solo se revisa lo que cambiaste tú).
 
 ## Informe (formato fijo, máximo 30 líneas)
 Usa exactamente `docs/plantillas/informe-verificador.md`.

@@ -42,7 +42,7 @@ En la carpeta `ver`: `tools/revisar --base main`.
 ## 5 · Cierre
 1. El arquitecto lee los informes (no todo el código), llena **Resultado obtenido** y **Resumen para aprobar**, y publica la ficha.
 2. **Puerta 2:** el dueño aprueba integrar.
-3. **Integrador:** une `ver/F-NNN` en `main` (`merge --no-ff`, fase `cierre`) y sube `main`.
+3. Si la rama cambia `package-lock.json`, el arquitecto corre `npm ci` en `main` **antes** (el hook compila el resultado del merge). **Integrador:** une `ver/F-NNN` en `main` (`merge --no-ff`, fase `cierre`) y sube `main`.
 4. El arquitecto borra los *worktrees*; actualiza `docs/metricas.md`, `docs/lecciones.md` y la nota de estado (fuera del repo); `tools/mapa`; **integrador** fase `proceso` en `main`, con push.
 
 ## Regresión de los agentes (P8)

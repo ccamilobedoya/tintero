@@ -19,3 +19,4 @@ Hallazgos que se repitieron y en qué regla automática se convirtieron. Así el
 | 2026-10-22 | F-001 (revisor) | semgrep marca `http://127.0.0.1` en pruebas vivas | Excepción documentada: una constante por archivo con `nosemgrep` justificado | `docs/seguridad.md` |
 | 2026-10-22 | F-001 (revisor) | El resumen agrupaba hallazgos de archivos distintos bajo uno solo | Agrupar por herramienta, regla y archivo | `tools/lib/review-summary.ts` |
 | 2026-10-22 | F-001 (revisar) | La excepción de loopback con `nosemgrep` en la constante no funcionó: semgrep sigue la URL hasta cada `fetch` | Una función auxiliar por archivo con el único `fetch` marcado, que solo acepta `http://127.0.0.1:` | `docs/seguridad.md` |
+| 2026-10-22 | F-001 (cierre) | El merge a `main` falló en el hook: la rama traía una dependencia nueva sin instalar en la copia de `main` | Si la rama cambia `package-lock.json`, `npm ci` en `main` antes del merge | `docs/PROCESO.md` |
