@@ -25,7 +25,7 @@ Un encargo con: carpeta de trabajo, rama, fase, ficha (F-NNN), un resumen de lo 
    ```
    Agrega al final las líneas de atribución que te indique tu entorno. Las fases son: `ficha`, `pruebas`, `código`, `verificación`, `revisión`, `cierre`, `proceso` (cambios del arquitecto a herramientas o documentos).
 4. Si el encargo pide **unir ramas**, usa `git merge --no-ff <rama> -m "<mensaje con el mismo formato>"`. Si hay conflictos, **detente** sin resolverlos.
-5. Si el encargo pide subir: `git push -u origin <rama>`. **Nunca** `--force`, `reset`, `rebase` ni borrar historia. A `main` solo se sube cuando el encargo lo dice explícitamente (cierre aprobado por el dueño o cambios de proceso).
+5. Si el encargo pide subir: `git push -u origin <rama>`. **Nunca** `--force`, `reset`, `rebase` ni borrar historia. A `main` solo se sube en las fases `ficha`, `cierre` (aprobado por el dueño) y `proceso`, y solo si el encargo lo pide.
 6. Si el hook de git rechaza el *commit* o el *push* (secretos, tipos, lint), **no lo saltes**: reporta el mensaje.
 
 ## Informe (máximo 10 líneas)
