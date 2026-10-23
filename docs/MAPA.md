@@ -10,7 +10,7 @@
 - `docs/fichas/`: Especificaciones aprobadas por el dueño (F-NNN). La plantilla está en PLANTILLA.md; se publican en Trilium con tools/publicar-ficha.
 - `docs/informes/`: Informes de los agentes por ficha (docs/informes/F-NNN/), con formato fijo. Los escribe el arquitecto a partir de lo que entregan los agentes; quedan en git como trazabilidad.
 - `docs/plantillas/`: Formatos fijos de los informes de cada agente y del resumen para aprobar desde el celular.
-- `emulator/`: Emulador de pantalla: un cliente que se porta como el ESP32 y prueba el contrato. Vacío hasta F-002.
+- `emulator/`: Emulador de pantalla: un cliente que se porta como el ESP32 (contrato v1, navegación con dos botones) y deja en una carpeta lo que mostraría el panel.
 - `firmware/`: Firmware del ESP32 (C++, PlatformIO). Lo escribe el dueño del proyecto; los agentes solo ayudan si él lo pide (ADR-0013).
 - `server/`: Servidor de Tintero (TypeScript): API de aparatos, motor de vistas, integraciones. Vacío hasta F-003.
 - `tests/`: Pruebas que no viven junto al código: aceptación (del verificador) y regresión de los agentes.
