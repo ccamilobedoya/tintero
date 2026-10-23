@@ -18,6 +18,7 @@ const ViewSummarySchema = Type.Object({
   format: Type.Union([Type.Literal("raw1"), Type.Literal("png1")]),
   bytes: int(1, LIMITS.maxImageBytes),
   crc32: Type.String({ pattern: CRC_PATTERN }),
+  parent: Type.Optional(Type.String({ pattern: ID_PATTERN })),
 });
 
 export const IndexResponseSchema = Type.Object({
