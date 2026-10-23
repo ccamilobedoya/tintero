@@ -1,6 +1,6 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- every path is built from the configured store and contract-validated view ids */
 // The simulated flash (F-002): files under `config.store`, with a size cap.
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, open, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   validateActionsRequest,
@@ -43,12 +43,23 @@ export class Flash {
     return join(this.root, ...parts);
   }
 
+  /** Reads at most `max` bytes (never more than `max + 1` are held); null when bigger or unreadable. */
   private async readCapped(path: string, max: number): Promise<Buffer | null> {
+    let handle;
     try {
-      if ((await stat(path)).size > max) return null;
-      return await readFile(path);
+      handle = await open(path, "r");
+      const buffer = Buffer.alloc(max + 1);
+      let total = 0;
+      while (total <= max) {
+        const { bytesRead } = await handle.read(buffer, total, max + 1 - total, null);
+        if (bytesRead === 0) break;
+        total += bytesRead;
+      }
+      return total > max ? null : buffer.subarray(0, total);
     } catch {
       return null;
+    } finally {
+      await handle?.close();
     }
   }
 

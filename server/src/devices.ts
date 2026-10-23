@@ -44,7 +44,7 @@ export class DeviceList {
     try {
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- path from the command line of the owner
       const stat = statSync(this.file);
-      signature = `${stat.mtimeMs}:${stat.size}`;
+      signature = `${stat.mtimeMs}:${stat.ctimeMs}:${stat.size}:${stat.ino}`;
     } catch {
       signature = "unreadable";
     }

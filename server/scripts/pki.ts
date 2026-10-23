@@ -3,8 +3,16 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- every path is built from the folder given by the owner, after checkFolder */
 import { execFile } from "node:child_process";
 import { X509Certificate } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import {
+  chmodSync,
+  constants,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
+import { chmod, copyFile, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -84,13 +92,25 @@ async function withWork<T>(build: (work: string) => Promise<T>): Promise<T> {
   }
 }
 
-async function install(work: string, files: { from: string; to: string; mode: number }[]) {
-  for (const file of files) {
-    const data = await readFile(join(work, file.from));
-    await writeFile(file.to, data, { flag: "wx", mode: file.mode });
-    chmodSync(file.to, file.mode);
+/** Copies each `from` to its `to` (exclusive); if any fails, removes what this call installed. */
+export async function installFiles(
+  files: { from: string; to: string; mode: number }[],
+): Promise<void> {
+  const installed: string[] = [];
+  try {
+    for (const file of files) {
+      await copyFile(file.from, file.to, constants.COPYFILE_EXCL);
+      installed.push(file.to);
+      await chmod(file.to, file.mode);
+    }
+  } catch (error) {
+    for (const path of installed) rmSync(path, { force: true });
+    throw error;
   }
 }
+
+const install = (work: string, files: { from: string; to: string; mode: number }[]) =>
+  installFiles(files.map((file) => ({ ...file, from: join(work, file.from) })));
 
 const genKey = (path: string): Promise<void> =>
   openssl(["genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256", "-out", path]);
@@ -178,6 +198,7 @@ export async function pkiDevice(dir: string, id: string): Promise<string> {
       { from: "leaf.key", to: key, mode: 0o600 },
       { from: "leaf.crt", to: crt, mode: 0o644 },
     ]);
+    // nosemgrep: tintero-lectura-sin-tope -- the certificate this program just installed, one PEM
     const pem = await readFile(crt);
     return `${fingerprint(new X509Certificate(pem).raw)} ${id}`;
   });

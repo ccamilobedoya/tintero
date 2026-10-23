@@ -102,6 +102,8 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
   // Who is asking: the id from the device list (TLS) or `local` (no TLS); null when not listed.
   const identity = new WeakMap<object, string | null>();
   const prints = new WeakMap<object, string>();
+  // Panels seen per device since the server started. Never pruned: it is bounded by
+  // (devices in the list) x `maxPanels`, because unlisted callers never reach this map.
   const panelsOf = new Map<string, Set<string>>();
 
   function identify(request: FastifyRequest): string | null {

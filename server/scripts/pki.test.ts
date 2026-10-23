@@ -1,11 +1,19 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- temp folders of the test */
 import { X509Certificate } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { fingerprint } from "../src/tls.ts";
-import { main, pkiDevice, pkiInit, pkiServer } from "./pki.ts";
+import { installFiles, main, pkiDevice, pkiInit, pkiServer } from "./pki.ts";
 
 const REPO = resolve(import.meta.dirname, "../..");
 let base: string;
@@ -17,6 +25,43 @@ afterAll(() => {
 });
 
 const mode = (path: string): number => statSync(path).mode & 0o777;
+
+describe("installFiles (CA4)", () => {
+  it("leaves nothing behind when the second source is missing", async () => {
+    const dir = join(base, "inst-fail");
+    mkdirSync(dir);
+    writeFileSync(join(dir, "a.src"), "a");
+    const files = [
+      { from: join(dir, "a.src"), to: join(dir, "a.out"), mode: 0o600 },
+      { from: join(dir, "missing"), to: join(dir, "b.out"), mode: 0o644 },
+    ];
+    await expect(installFiles(files)).rejects.toThrow();
+    expect(existsSync(join(dir, "a.out"))).toBe(false);
+    expect(existsSync(join(dir, "b.out"))).toBe(false);
+  });
+
+  it("installs both files with their modes and never touches an existing target", async () => {
+    const dir = join(base, "inst-ok");
+    mkdirSync(dir);
+    writeFileSync(join(dir, "a.src"), "a");
+    writeFileSync(join(dir, "b.src"), "b");
+    await installFiles([
+      { from: join(dir, "a.src"), to: join(dir, "a.out"), mode: 0o600 },
+      { from: join(dir, "b.src"), to: join(dir, "b.out"), mode: 0o644 },
+    ]);
+    expect(mode(join(dir, "a.out"))).toBe(0o600);
+    expect(mode(join(dir, "b.out"))).toBe(0o644);
+    writeFileSync(join(dir, "c.out"), "mine");
+    await expect(
+      installFiles([
+        { from: join(dir, "a.src"), to: join(dir, "d.out"), mode: 0o600 },
+        { from: join(dir, "b.src"), to: join(dir, "c.out"), mode: 0o600 },
+      ]),
+    ).rejects.toThrow();
+    expect(existsSync(join(dir, "d.out"))).toBe(false);
+    expect(readFileSync(join(dir, "c.out"), "utf8")).toBe("mine");
+  });
+});
 
 describe("pki", () => {
   it("creates the CA, the server and a device with strict permissions (CA7)", async () => {

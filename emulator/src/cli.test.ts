@@ -1,5 +1,6 @@
+/* eslint-disable security/detect-non-literal-fs-filename -- temp files of the test */
 import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -32,6 +33,34 @@ async function cli(args: string[]): Promise<{ code: number; out: string[]; err: 
   );
   return { code, out, err };
 }
+
+describe("cli PEM files (CA1)", () => {
+  it("exits 2 naming the option, without connecting", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "tintero-pem-"));
+    try {
+      const big = join(dir, "big.pem");
+      const ok = join(dir, "ok.pem");
+      await writeFile(big, Buffer.alloc(65_537, 1));
+      await writeFile(ok, "x");
+      const base = ["--server", "https://localhost:9", "--store", store];
+      const cases: [string[], string][] = [
+        [["--ca", ok, "--cert", big, "--key", ok], "--cert"],
+        [["--ca", join(dir, "none"), "--cert", ok, "--key", ok], "--ca"],
+        [["--ca", ok, "--cert", ok, "--key", dir], "--key"],
+      ];
+      for (const [args, option] of cases) {
+        const started = Date.now();
+        const result = await cli([...base, ...args]);
+        expect(result.code).toBe(2);
+        expect(result.err.join("\n")).toContain(option);
+        expect(Date.now() - started).toBeLessThan(2000);
+        expect(result.out).toEqual([]);
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("cli", () => {
   it("prints one JSON per wake and per key (CA20)", async () => {
