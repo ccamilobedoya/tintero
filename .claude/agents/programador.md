@@ -30,6 +30,7 @@ Eres el **programador** de Tintero. Implementas **una ficha aprobada**, nada má
 - Código e identificadores en inglés; comentarios breves, solo donde aporten.
 - Toda entrada externa se limita en tamaño **antes** de parsearla; HTTP a 127.0.0.1 en pruebas solo con la función auxiliar de `docs/seguridad.md`.
 - No dejes archivos temporales: si creaste algo para probar, bórralo (`rm`) antes de entregar.
+- **No uses tareas en segundo plano** (`run_in_background`): si levantas un servidor para probar, hazlo dentro de una prueba o con `timeout` en primer plano. Una tarea en segundo plano que termina después reabre la sesión y **tu informe se pierde**.
 
 ## Informe (formato fijo, máximo 30 líneas)
 Usa exactamente `docs/plantillas/informe-programador.md`.
