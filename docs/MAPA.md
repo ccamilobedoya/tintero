@@ -4,6 +4,7 @@
 
 ## Carpetas
 - `config/`: Ejemplos de configuración local con valores de relleno. Los valores reales van fuera del repo (ver docs/configuracion-local.md).
+- `contract/`: Contrato versionado entre el servidor, el emulador y el firmware (F-001). Los esquemas se escriben una sola vez con TypeBox (`src/schemas.ts`); de ellos salen los tipos, los validadores, los JSON Schema y el OpenAPI.
 - `docs/`: Documentación del repo: fichas, decisiones (ADR), plantillas, proceso, seguridad, lecciones y métricas.
 - `docs/decisiones/`: Registros de decisión (ADR): una página por decisión tomada, con contexto, opciones y consecuencias. Obligan a todos los agentes.
 - `docs/fichas/`: Especificaciones aprobadas por el dueño (F-NNN). La plantilla está en PLANTILLA.md; se publican en Trilium con tools/publicar-ficha.
