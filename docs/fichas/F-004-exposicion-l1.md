@@ -79,6 +79,7 @@ export interface ServerConfig {
 }
 export function fingerprint(certDer: Uint8Array): string; // SHA-256 del DER, 64 hex en minúscula, sin «:»
 ```
+- `createApp(config)` con `config.tls` crea la app Fastify con `https` (sin escuchar: `app.listen` o `startServer` la abren) y la identidad de cada petición sale del certificado del *socket*; `renders()` cuenta igual. Sin `tls`, igual que F-003 (aparato `local`). *(Aclarado el 2026-10-23, a pedido del verificador.)*
 
 ### Lista de aparatos (`--devices`)
 - Texto UTF-8, **≤ 64 KiB** (más grande → se trata como ilegible). Una línea por aparato: `<huella> <id>`; `huella` = 64 hex en minúscula; `id` = `[a-z0-9-]{1,32}`, única. Líneas vacías y las que empiezan con `#` se ignoran.
