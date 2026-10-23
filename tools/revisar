@@ -31,7 +31,7 @@ DOCKER=(docker run --rm --user "$UIDGID" -e HOME=/tmp -v "$PWD:/src" -w /src)
 run npm-audit npm-audit.json npm audit --json --fetch-timeout=45000 --fetch-retries=1 &
 run npm-signatures npm-signatures.txt sh -c 'npm audit signatures --fetch-timeout=45000 2>&1' &
 run_to_file semgrep "${DOCKER[@]}" "$SEMGREP_IMAGE" semgrep scan --metrics=off --quiet \
-  --config p/typescript --config p/javascript --config p/nodejs --config p/secrets \
+  --config p/typescript --config p/javascript --config p/nodejs --config p/secrets --config tools/semgrep/tintero.yml \
   --exclude node_modules --exclude .revisar --json --output "$OUT/semgrep.json" &
 run osv-scanner osv.json "${DOCKER[@]}" "$OSV_IMAGE" scan source --lockfile /src/package-lock.json --format json &
 run_to_file gitleaks "${DOCKER[@]}" "$GITLEAKS_IMAGE" dir /src --no-banner --redact \

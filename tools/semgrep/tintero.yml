@@ -1,0 +1,24 @@
+# Reglas propias de Tintero para semgrep (P2: hallazgo repetido → regla automática). Las corre tools/revisar.
+rules:
+  - id: tintero-lectura-sin-tope
+    # Lección de F-001 y F-004: toda entrada externa se limita en tamaño antes de procesarla (CLAUDE.md).
+    # Solo código del producto: tools/ lee archivos del propio repo y la configuración local del dueño.
+    message: >-
+      Lectura de archivo sin tope de tamaño. Usa readCapped (server/src/tls.ts) o una lectura con tope.
+      Si el archivo lo genera el propio programa o el repo, márcalo con
+      `// nosemgrep: tintero-lectura-sin-tope -- <por qué>`.
+    severity: WARNING
+    languages: [typescript]
+    paths:
+      include:
+        - "/server/"
+        - "/emulator/"
+        - "/contract/"
+      exclude:
+        - "*.test.ts"
+    pattern-either:
+      - pattern: readFileSync(...)
+      - pattern: $FS.readFileSync(...)
+      - pattern: readFile(...)
+      - pattern: $FS.readFile(...)
+      - pattern: $FS.promises.readFile(...)
