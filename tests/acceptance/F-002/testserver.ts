@@ -142,7 +142,11 @@ export class TestServer {
     this.server = undefined;
     if (!server) return;
     for (const s of this.sockets) s.destroy();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await new Promise<void>((resolve) => {
+      server.close(() => {
+        resolve();
+      });
+    });
   }
 
   bump(id: string, hash: string): void {
@@ -162,7 +166,7 @@ export class TestServer {
       crc32: crc32Hex(v.image),
       ...(v.parent !== undefined ? { parent: v.parent } : {}),
     }));
-    const doc: Record<string, unknown> = {
+    const doc: { pad?: string; [k: string]: unknown } = {
       protocol: 1,
       server_time: 1761096000,
       next_wake_s: this.nextWakeS,
@@ -171,7 +175,7 @@ export class TestServer {
       current: this.current,
       views,
     };
-    if (this.indexPadding > 0) doc["pad"] = "x".repeat(this.indexPadding);
+    if (this.indexPadding > 0) doc.pad = "x".repeat(this.indexPadding);
     return JSON.stringify(doc);
   }
 
