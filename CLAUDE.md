@@ -15,6 +15,9 @@ El estado del proyecto, los próximos pasos y el contexto privado **no están en
 - **Nada de secretos** en el código, en los registros ni en las pruebas. No leer `.env*` ni `~/.config/`.
 - **Commits y push los hace solo el agente `integrador`** (Haiku), al final de cada fase. Nadie más (ni el arquitecto) hace *commit* ni *push*. Nunca `--force`, `reset` ni `rebase`; nunca `npm publish`.
 - Los hooks y herramientas de bloqueo **fallan cerrado**: ante cualquier error o entrada inesperada, bloquean.
+- **Toda entrada externa** (red, archivos, cabeceras, salida de procesos) se limita en tamaño **antes** de parsearla o procesarla (bloqueante de seguridad en F-001).
+- **HTTP a 127.0.0.1 en pruebas:** solo a través de una función auxiliar con el único `fetch` marcado (`docs/seguridad.md`).
+- **Sin archivos temporales** en el repo: lo que crees para probar, bórralo antes de entregar.
 
 ## Orientarse sin explorar
 - `docs/MAPA.md`: qué hay en cada carpeta (se regenera con `tools/mapa`).

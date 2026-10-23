@@ -14,6 +14,8 @@ Regresión de los agentes (P8): una ficha de juguete con una ambigüedad y un er
 3. **Verificador nuevo, fase «pruebas»**, con `tests/agents/F-999-resuelta.md`; luego **fase «verificación»** contra `toy/battery.ts`.
    **Esperado:** CA1 y CA3 **PASAN**; **CA2 FALLA** (3000 mV da un porcentaje negativo).
 4. `tools/check-scope verificador --base main` limpio en cada paso.
+5. **Integrador** (Haiku), en la misma carpeta desechable: crear un archivo `tests/acceptance/F-999/extra.txt` **después** de armar el encargo con `tools/encargo-integrador` (que no lo lista).
+   **Esperado:** el integrador **se detiene** sin hacer *commit* porque `git status` no coincide con el encargo.
 5. Borrar la carpeta y la rama. Anotar el resultado en `docs/metricas.md`.
 
 Si algún «esperado» no se cumple, el cambio al agente se revisa antes de usarlo.

@@ -6,7 +6,16 @@ Carpetas de trabajo (*worktrees*), fuera del repo: `../tintero-wt/F-NNN-{acc,dev
 
 **Lanzar un agente:** `tools/lanzar-agente <rol> <modelo> <carpeta> <encargo.md> [tope-usd]` (contexto limpio, tope de gasto, costo y tokens en `.agentes/`).
 
-**Al final de cada fase** el arquitecto lanza al **integrador** (Haiku) con un encargo de 4–6 líneas: carpeta, rama, fase, rol a comprobar, resumen, si se sube. El integrador hace *commit* y `git push -u origin <rama>`. Los informes de los agentes quedan en `.agentes/` durante el ciclo y el arquitecto los consolida en `docs/informes/F-NNN/` **al cierre** (así no rompen el control de alcance de cada rol).
+**Al final de cada fase** el arquitecto arma el encargo con **`tools/encargo-integrador`** (lista exacta de archivos, primera línea ≤ 72 caracteres) y lanza al **integrador** (Haiku). El integrador hace *commit* y `git push -u origin <rama>`. Los informes de los agentes quedan en `.agentes/` durante el ciclo y el arquitecto los consolida en `docs/informes/F-NNN/` **al cierre** (así no rompen el control de alcance de cada rol).
+
+## Reglas del arquitecto al orquestar (lecciones de F-000 y F-001)
+1. **Encargos al integrador solo con `tools/encargo-integrador`**: nunca escritos a mano (se olvidaban archivos o pasaban de 72 caracteres).
+2. **Lo que un agente necesita va primero a su rama:** si el arquitecto cambia una regla, excepción o herramienta que el agente va a usar, el integrador la guarda en `main` y la une a la rama de trabajo **antes** de lanzar al agente.
+3. **Aclaraciones de la ficha:** si después de la fase 1 se aclara un CA, el encargo de la verificación lo dice explícitamente («el CA-N se aclaró: …»).
+4. **Dependencias:** si una rama cambia `package-lock.json`, `npm ci` en cada carpeta que la use y en `main` antes del merge.
+5. **Esperar agentes:** cada `tools/lanzar-agente` en primer plano, o en una tarea en segundo plano propia (con su aviso). **Nunca** bucles con `pgrep -f` (se encuentran a sí mismos).
+6. **Si un agente termina con error** (`is_error`, p. ej. el límite de uso de la cuenta): revisar qué dejó a medias en su carpeta, esperar a que se reinicie el límite y relanzarlo con una nota de lo que ya existe.
+7. **Encargos con datos concretos:** nombres de archivos, rutas, puertos y URLs que las pruebas necesiten van en la ficha, no se dejan a criterio del agente.
 
 ## 0 · Ficha
 1. Escribir `docs/fichas/F-NNN-<nombre>.md` desde `PLANTILLA.md` y marcar **Listo para programar**.

@@ -10,6 +10,7 @@
 - [ ] Los archivos a crear o tocar están listados.
 - [ ] Presupuestos y reglas de seguridad que aplican, nombrados.
 - [ ] Lo que queda fuera de alcance, escrito.
+- [ ] **Nombres de archivos, rutas, puertos y URLs** que las pruebas necesiten, escritos (incluida la convención de nombres de ejemplos o datos de prueba).
 
 ## Contexto
 Por qué existe; ADR que aplica.
@@ -30,7 +31,10 @@ Interfaces, endpoints, tipos, formatos, errores.
 Tiempos, tamaños, memoria.
 
 ## Seguridad
-Reglas de `docs/seguridad.md` que aplican y cómo se comprueban.
+Reglas de `docs/seguridad.md` que aplican y cómo se comprueban. Siempre:
+- [ ] Toda entrada externa con **límite de tamaño antes de parsear**.
+- [ ] Servicios locales solo en **127.0.0.1**.
+- [ ] Dependencias nuevas nombradas arriba (o ninguna).
 
 ## Archivos
 A crear / a tocar.

@@ -28,6 +28,8 @@ Eres el **programador** de Tintero. Implementas **una ficha aprobada**, nada má
 - No cambies criterios, presupuestos ni reglas de seguridad para que algo pase.
 - No leas `tests/acceptance/` (no está en tu rama a propósito) ni archivos `.env` o de `~/.config/`.
 - Código e identificadores en inglés; comentarios breves, solo donde aporten.
+- Toda entrada externa se limita en tamaño **antes** de parsearla; HTTP a 127.0.0.1 en pruebas solo con la función auxiliar de `docs/seguridad.md`.
+- No dejes archivos temporales: si creaste algo para probar, bórralo (`rm`) antes de entregar.
 
 ## Informe (formato fijo, máximo 30 líneas)
 Usa exactamente `docs/plantillas/informe-programador.md`.

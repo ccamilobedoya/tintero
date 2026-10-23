@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Arma el encargo del integrador con la lista EXACTA de archivos cambiados (lección de F-001: los encargos
+# escritos a mano olvidaban archivos o pasaban de 72 caracteres, y el integrador se detenía).
+# Uso: tools/encargo-integrador <carpeta> --fase <fase> --ficha F-NNN --resumen "<texto>" \
+#        [--rol <programador|verificador> [--base main|HEAD]] [--merge <rama>] [--push] [--detalle "<línea>"]...
+# Imprime el encargo; redirígelo a un archivo y pásalo a tools/lanzar-agente integrador haiku <carpeta> <archivo>.
+set -euo pipefail
+DIR="${1:?carpeta}"; shift
+FASE=""; FICHA=""; RESUMEN=""; ROL=""; BASE="main"; MERGE=""; PUSH=0; DETALLES=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --fase) FASE="$2"; shift 2 ;;
+    --ficha) FICHA="$2"; shift 2 ;;
+    --resumen) RESUMEN="$2"; shift 2 ;;
+    --rol) ROL="$2"; shift 2 ;;
+    --base) BASE="$2"; shift 2 ;;
+    --merge) MERGE="$2"; shift 2 ;;
+    --push) PUSH=1; shift ;;
+    --detalle) DETALLES+=("$2"); shift 2 ;;
+    *) echo "Opción desconocida: $1" >&2; exit 2 ;;
+  esac
+done
+case "$FASE" in ficha|pruebas|código|verificación|revisión|cierre|proceso) ;; *) echo "Fase inválida: $FASE" >&2; exit 2 ;; esac
+[[ "$FICHA" =~ ^F-[0-9]{3}$ ]] || { echo "Ficha inválida: $FICHA" >&2; exit 2; }
+TITLE="$FICHA $FASE: $RESUMEN"
+[ "${#TITLE}" -le 72 ] || { echo "La primera línea del commit tiene ${#TITLE} caracteres (máx. 72): $TITLE" >&2; exit 2; }
+cd "$DIR"
+BRANCH="$(git branch --show-current)"
+mapfile -t FILES < <(git status --short --untracked-files=all)
+
+echo "Carpeta: el directorio actual. Rama: \`$BRANCH\`. Fase: \`$FASE\`. Ficha: $FICHA."
+[ -n "$ROL" ] && echo "Rol a comprobar: \`$ROL\` con \`tools/check-scope $ROL --base $BASE\`."
+STEP=1
+if [ -n "$MERGE" ]; then
+  echo "$STEP. Une \`$MERGE\`: \`git merge --no-ff $MERGE -m \"$FICHA $FASE: trae $MERGE\"\`. Si hay conflictos, detente."; STEP=$((STEP+1))
+fi
+if [ "${#FILES[@]}" -gt 0 ]; then
+  echo "$STEP. Commit con **exactamente** estos cambios (salida de \`git status --short\` al armar el encargo; si ves otros, detente):"
+  printf '   - `%s`\n' "${FILES[@]}"
+  echo "   Primera línea: \`$TITLE\`"
+  for d in "${DETALLES[@]}"; do echo "   - Detalle: $d"; done
+  STEP=$((STEP+1))
+else
+  echo "No hay cambios sin commit: no hagas commit (solo lo que pidan los otros pasos)."
+fi
+if [ "$PUSH" -eq 1 ]; then echo "$STEP. \`git push -u origin $BRANCH\`."; else echo "$STEP. **No** hagas push."; fi
