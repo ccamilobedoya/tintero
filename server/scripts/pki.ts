@@ -3,16 +3,8 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- every path is built from the folder given by the owner, after checkFolder */
 import { execFile } from "node:child_process";
 import { X509Certificate } from "node:crypto";
-import {
-  chmodSync,
-  constants,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  realpathSync,
-  rmSync,
-} from "node:fs";
-import { chmod, copyFile, readFile, writeFile } from "node:fs/promises";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { chmod, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -99,7 +91,16 @@ export async function installFiles(
   const installed: string[] = [];
   try {
     for (const file of files) {
-      await copyFile(file.from, file.to, constants.COPYFILE_EXCL);
+      // nosemgrep: tintero-lectura-sin-tope -- a PEM that this program just generated in its private temp folder
+      const data = await readFile(file.from);
+      try {
+        // Exclusive creation with the final mode from the start (never the source's mode).
+        await writeFile(file.to, data, { flag: "wx", mode: file.mode });
+      } catch (error) {
+        // A partial destination is ours to remove; one that already existed never is.
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") rmSync(file.to, { force: true });
+        throw error;
+      }
       installed.push(file.to);
       await chmod(file.to, file.mode);
     }

@@ -13,7 +13,13 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { fingerprint } from "../src/tls.ts";
+import * as fsp from "node:fs/promises";
 import { installFiles, main, pkiDevice, pkiInit, pkiServer } from "./pki.ts";
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...actual, writeFile: vi.fn(actual.writeFile) };
+});
 
 const REPO = resolve(import.meta.dirname, "../..");
 let base: string;
@@ -60,6 +66,48 @@ describe("installFiles (CA4)", () => {
     ).rejects.toThrow();
     expect(existsSync(join(dir, "d.out"))).toBe(false);
     expect(readFileSync(join(dir, "c.out"), "utf8")).toBe("mine");
+  });
+});
+
+describe("installFiles (writing)", () => {
+  it("creates the target exclusively with its own mode, not the source's", async () => {
+    const dir = join(base, "inst-mode");
+    mkdirSync(dir);
+    writeFileSync(join(dir, "a.src"), "a", { mode: 0o666 });
+    const spy = vi.mocked(fsp.writeFile);
+    spy.mockClear();
+    await installFiles([{ from: join(dir, "a.src"), to: join(dir, "a.out"), mode: 0o600 }]);
+    expect(spy).toHaveBeenCalledWith(
+      join(dir, "a.out"),
+      expect.anything(),
+      expect.objectContaining({ flag: "wx", mode: 0o600 }),
+    );
+  });
+
+  it("removes a partial target when the write fails with a non-EEXIST error", async () => {
+    const dir = join(base, "inst-partial");
+    mkdirSync(dir);
+    writeFileSync(join(dir, "a.src"), "a");
+    const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+    vi.mocked(fsp.writeFile).mockImplementationOnce(async (path, data, options) => {
+      await actual.writeFile(path, data, options);
+      throw Object.assign(new Error("disk full"), { code: "ENOSPC" });
+    });
+    await expect(
+      installFiles([{ from: join(dir, "a.src"), to: join(dir, "a.out"), mode: 0o600 }]),
+    ).rejects.toThrow("disk full");
+    expect(existsSync(join(dir, "a.out"))).toBe(false);
+  });
+
+  it("never removes a target that already existed (EEXIST)", async () => {
+    const dir = join(base, "inst-exists");
+    mkdirSync(dir);
+    writeFileSync(join(dir, "a.src"), "a");
+    writeFileSync(join(dir, "a.out"), "mine");
+    await expect(
+      installFiles([{ from: join(dir, "a.src"), to: join(dir, "a.out"), mode: 0o600 }]),
+    ).rejects.toThrow();
+    expect(readFileSync(join(dir, "a.out"), "utf8")).toBe("mine");
   });
 });
 
