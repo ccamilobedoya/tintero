@@ -9,7 +9,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint --max-warnings 0 server contract emulator tools && eslint tests",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run --passWithNoTests",
@@ -22,6 +22,7 @@
     "contract:mock": "node contract/scripts/serve.ts mock",
     "test:acceptance": "vitest run --config vitest.acceptance.config.ts --passWithNoTests",
     "emulator": "node emulator/src/cli.ts",
+    "server": "node server/src/main.ts",
     "setup": "git config core.hooksPath tools/git-hooks"
   },
   "devDependencies": {
@@ -36,6 +37,7 @@
     "vitest": "5.0.5"
   },
   "dependencies": {
+    "fastify": "5.12.7",
     "typebox": "1.4.3"
   }
 }

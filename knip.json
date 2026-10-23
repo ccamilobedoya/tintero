@@ -4,6 +4,7 @@
     "contract/src/index.ts",
     "contract/scripts/*.ts",
     "emulator/src/{index,cli}.ts",
+    "server/src/{index,main}.ts",
     "tools/lib/{check-scope,map,publish-spec,review-summary,private-terms}.ts",
     "tools/hooks/*.ts",
     "tests/agents/toy/*.ts"
