@@ -18,7 +18,7 @@ LOCAL_TOOLS=("Bash(curl -s http://127.0.0.1:*)" "Bash(curl -sS http://127.0.0.1:
 case "$ROLE" in
   programador) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "${LOCAL_TOOLS[@]}" "Bash(npx eslint:*)" "Bash(npx prettier:*)" \
     "Bash(npm install --save-exact:*)" "Bash(npm install --save-dev --save-exact:*)" "Bash(rm:*)") ;;
-  verificador) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "${LOCAL_TOOLS[@]}" "Bash(tools/revisar:*)" "Bash(rm:*)") ;;
+  verificador) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "${LOCAL_TOOLS[@]}" "Bash(npx eslint:*)" "Bash(npx prettier:*)" "Bash(tools/revisar:*)" "Bash(rm:*)") ;;
   revisor) TOOLS=("${READ_TOOLS[@]}" "Bash(cat .revisar/:*)") ;;
   integrador) TOOLS=(Read "${READ_TOOLS[@]:3}" "Bash(git add:*)" "Bash(git commit:*)" "Bash(git merge:*)" "Bash(git push -u origin:*)" "Bash(git push origin:*)" "Bash(git branch:*)" "Bash(git switch:*)" "Bash(tools/check-scope:*)") ;;
   *) echo "Rol desconocido: $ROLE" >&2; exit 2 ;;

@@ -11,6 +11,7 @@
 - [ ] Presupuestos y reglas de seguridad que aplican, nombrados.
 - [ ] Lo que queda fuera de alcance, escrito.
 - [ ] **Nombres de archivos, rutas, puertos y URLs** que las pruebas necesiten, escritos (incluida la convención de nombres de ejemplos o datos de prueba).
+- [ ] Toda **función que se pruebe tiene nombre y firma**, y todo **contador o medida** dice desde cuándo cuenta.
 
 ## Contexto
 Por qué existe; ADR que aplica.

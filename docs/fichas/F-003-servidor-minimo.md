@@ -88,7 +88,7 @@ Coordenadas en píxeles del panel declarado; `u = round(min(w, h) / 24)` es la u
 ### Límites y tiempos (mejoras de F-001)
 - Cuerpos de `POST`: **≤ 4096 bytes**, comprobado **antes de leer más** (por `Content-Length` y cortando la lectura si se pasa) → **413** `too_large`, aunque el cuerpo no sea JSON válido.
 - Cabeceras: `maxHeaderSize` del servidor **8192**; cabeceras sin terminar en `--headers-timeout-ms` → se cierra la conexión.
-- `contract/scripts/serve.ts`: montar con `--mount type=bind,source=…,target=…` (acepta rutas con `:`) en lugar de `-v`.
+- `contract/scripts/serve.ts`: montar con `--mount type=bind,source=…,target=…` (acepta rutas con `:`) en lugar de `-v`. Exporta **`dockerArgs(kind: "docs" | "mock", specPath: string, port: number): string[]`** y **no corre al importarse** (solo con `import.meta.main`); usado como script, se comporta igual que hoy. *(Aclarado el 2026-10-23, a pedido del verificador.)*
 
 ### Registro (S6)
 Una línea JSON por petición en la salida estándar: `{ "ts", "method", "route", "status", "bytes", "ms", "firmware", "power" }`. `route` sin la cadena de consulta. **Nunca** cuerpos, imágenes, zonas, ni otras cabeceras. Las entradas de `POST /api/v1/log` salen como `{ "ts", "device_log": { "level", "msg" } }` con `msg` sin caracteres de control y ≤ 200.
@@ -115,8 +115,8 @@ Las pruebas arrancan el servidor con `startServer(config, 0)` (puerto efímero, 
 - **CA12.** `GET /`, `GET /api/v1/otra` y `DELETE /api/v1/index` → **404 sin cuerpo**.
 - **CA13.** Con `headersTimeoutMs: 500`, una conexión que manda cabeceras incompletas se cierra en menos de 2 s.
 - **CA14.** El registro tiene una línea JSON por petición con exactamente los campos de la ficha; no contiene el texto de ninguna cabecera salvo `Tintero-Firmware` y `Tintero-Power`, ni bytes de imágenes.
-- **CA15.** `contract/scripts/serve.ts` arma los argumentos de Docker con `--mount type=bind,source=<ruta>,target=…`; una ruta con `:` queda intacta en ese argumento (prueba de la función que arma los argumentos).
-- **CA16.** Cinco pedidos seguidos de la imagen de `patron` con la misma huella dibujan **una sola vez** (`renders()` sube en 1).
+- **CA15.** `dockerArgs` de `contract/scripts/serve.ts` arma los argumentos con `--mount type=bind,source=<ruta>,target=…` y sin `-v`; una ruta con `:` queda intacta en ese argumento.
+- **CA16.** **Después** del primer `GET index` (que puede dibujar las vistas), cinco pedidos seguidos de la imagen de `patron` con su huella **no** aumentan `renders()`; y con el mismo estado y panel, cada vista se dibuja **como mucho una vez** en total (`renders()` ≤ 3). *(Aclarado el 2026-10-23.)*
 
 ## Presupuestos
 - `GET /api/v1/index` y una imagen ya en caché: **< 50 ms** cada uno en local.
