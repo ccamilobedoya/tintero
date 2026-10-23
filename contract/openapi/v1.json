@@ -808,7 +808,8 @@
                   ]
                 },
                 "bytes": { "type": "integer", "minimum": 1, "maximum": 1048576 },
-                "crc32": { "type": "string", "pattern": "^[0-9a-f]{8}$" }
+                "crc32": { "type": "string", "pattern": "^[0-9a-f]{8}$" },
+                "parent": { "type": "string", "pattern": "^[a-z0-9_-]{1,16}$" }
               }
             },
             "minItems": 1,

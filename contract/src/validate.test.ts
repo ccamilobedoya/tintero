@@ -60,6 +60,17 @@ describe("validateIndex", () => {
     expect(codes(validateIndex("not json"))).toEqual(["invalid_json"]);
   });
 
+  it("checks the optional parent (D1)", () => {
+    const base = indexOk();
+    const withParent = (parent: string) => ({
+      ...base,
+      views: [view({}), view({ parent }, "detail")],
+    });
+    expect(validateIndex(text(withParent("todo"))).ok).toBe(true);
+    expect(codes(validateIndex(text(withParent("ghost"))))).toEqual(["unknown_parent"]);
+    expect(codes(validateIndex(text(withParent("detail"))))).toEqual(["unknown_parent"]);
+  });
+
   it("rejects an oversize but well-formed index (CA3)", () => {
     const big = { ...indexOk(), pad: "x".repeat(2100) };
     expect(codes(validateIndex(text(big)))).toEqual(["too_large"]);

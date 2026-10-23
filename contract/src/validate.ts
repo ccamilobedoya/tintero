@@ -29,6 +29,7 @@ export type ContractErrorCode =
   | "too_large"
   | "duplicate_id"
   | "unknown_current"
+  | "unknown_parent"
   | "out_of_panel"
   | "raw1_size"
   | "bad_image"
@@ -112,6 +113,12 @@ export function validateIndex(raw: string): Validation<IndexResponse> {
     index.views.forEach((view, i) => {
       if (view.format === "raw1" && view.bytes !== expected) {
         errors.push({ path: `/views/${i}/bytes`, code: "raw1_size" });
+      }
+      if (
+        view.parent !== undefined &&
+        (view.parent === view.id || !index.views.some((other) => other.id === view.parent))
+      ) {
+        errors.push({ path: `/views/${i}/parent`, code: "unknown_parent" });
       }
     });
     return errors;
