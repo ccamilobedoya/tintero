@@ -96,7 +96,7 @@ export function encodePng1(raw1: Uint8Array, panel: Panel): Uint8Array;
 | `views/<id>.raw1` | Imagen de la vista |
 | `views/<id>.zones.json` | Zonas de la vista |
 | `views/<id>.meta.json` | `{ "hash": "…", "crc32": "…", "bytes": N }` |
-| `queue.json` | Acciones pendientes (máx. 8 por envío; se guardan todas) |
+| `queue.json` | Acciones pendientes: un **arreglo JSON de `Action`** del contrato (`[{ "id", "view", "zone", "act", "at" }, …]`), en el orden en que se hicieron; se mandan de a 8. *(Formato aclarado el 2026-10-22, a pedido del verificador.)* |
 | `state.json` | `{ "current": "<id>" \| null, "focus": "<zone id>" \| null }` |
 | `screen.raw1` / `screen.png` | Lo que muestra el panel ahora |
 
