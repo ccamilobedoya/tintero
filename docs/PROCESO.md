@@ -17,6 +17,8 @@ Carpetas de trabajo (*worktrees*), fuera del repo: `../tintero-wt/F-NNN-{acc,dev
 8. **Cadenas de comandos:** siempre con `set -eo pipefail`, y **nunca** pasar la salida de `tools/lanzar-agente` por un *pipe* sin `pipefail` (`| sed`, `| head`): el *pipe* tapa el código 3 de DETENIDO y la cadena sigue (pasó al cerrar F-003). **Conflictos de merge:** si el integrador se detiene por un conflicto, el arquitecto lo resuelve (solo uniones mecánicas; si toca lógica, vuelve al programador) y el integrador completa el merge.
 6. **Si un agente termina con error** (`is_error`, p. ej. el límite de uso de la cuenta): revisar qué dejó a medias en su carpeta, esperar a que se reinicie el límite y relanzarlo con una nota de lo que ya existe.
 7. **Encargos con datos concretos:** nombres de archivos, rutas, puertos y URLs que las pruebas necesiten van en la ficha, no se dejan a criterio del agente.
+9. **Lo que abre algo a internet** (Funnel, puertos públicos) no lo corre el arquitecto (el modo automático lo bloquea, y está bien): lo prepara en un script con limpieza al salir (`trap`) y lo corre el dueño.
+10. **Encargo del programador:** además de las comprobaciones de siempre, `npm run test:acceptance` (las pruebas de las fichas anteriores están en su rama). En F-004 un cambio de texto rompió las de F-003.
 
 ## 0 · Ficha
 1. Escribir `docs/fichas/F-NNN-<nombre>.md` desde `PLANTILLA.md` y marcar **Listo para programar**.
