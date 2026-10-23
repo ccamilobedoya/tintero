@@ -88,6 +88,11 @@ describe("CA3 la lista de aparatos se recarga con misma fecha y mismo tamaño", 
       const before = await get(port, ca, cert, key);
       expect(before.status).toBe(200);
 
+      // Fecha de segundos enteros: se restaura exacta (utimes pierde subms).
+      utimesSync(list, 1_700_000_000, 1_700_000_000);
+      const mid = await get(port, ca, cert, key);
+      expect(mid.status).toBe(200);
+
       const st = statSync(list);
       const other = `${"0".repeat(64)} p1\n`;
       expect(Buffer.byteLength(other)).toBe(st.size);
