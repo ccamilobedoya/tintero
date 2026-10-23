@@ -11,3 +11,5 @@ La API de aparatos se expone por Tailscale Funnel, en uno de los puertos que Fun
 
 ## Consecuencias
 Antes de exponer, revisar que ningún servicio del servidor reinicie la configuración de Funnel al arrancar (detalle de infraestructura fuera del repo). Activar Funnel pide permisos de administrador del servidor.
+
+**Nota (2026-10-23, F-004):** activar Funnel **no** pide permisos de administrador si el usuario del servidor es operador de Tailscale (comprobado). L1 se probó en vivo y funciona: ver ADR-0028 a ADR-0030.
