@@ -1,6 +1,6 @@
 # F-002 · Emulador de pantalla
 
-**Estado:** borrador (espera la puerta 1 del dueño) · 2026-10-22
+**Estado:** borrador · D1, D2 y D4 aprobadas (2026-10-22); falta D3
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna (HTTP con `node:http`/`node:https`, PNG con `node:zlib`).
 
@@ -8,10 +8,10 @@
 
 | # | Decisión | Propuesta | Por qué |
 |---|----------|-----------|---------|
-| **D1** | ¿Cómo sabe el aparato que está en un **detalle**, para que «Aceptar largo» vuelva (ADR-0005)? | Campo **opcional** `parent` en cada vista del índice (id de la vista a la que se vuelve). Volver es **local, sin red**. Es un cambio **aditivo** de v1 (M2): los aparatos que no lo conocen lo ignoran | La alternativa (una acción `back` al servidor) gasta WiFi en cada vuelta atrás |
-| **D2** | ¿El emulador estima batería? | **No.** Reporta peticiones, bytes y conexiones por despertada; la energía se mide con la placa real | Un número inventado de consumo engañaría más de lo que ayuda |
+| **D1** ✅ | ¿Cómo sabe el aparato que está en un **detalle**, para que «Aceptar largo» vuelva (ADR-0005)? | **Aprobado (dueño, 2026-10-22):** campo **opcional** `parent` en cada vista del índice (id de la vista a la que se vuelve). Volver es **local, sin red**. Es un cambio **aditivo** de v1 (M2): los aparatos que no lo conocen lo ignoran | La alternativa (una acción `back` al servidor) gasta WiFi en cada vuelta atrás |
+| **D2** ✅ | ¿El emulador estima batería? | **Aprobado (dueño, 2026-10-22): no.** Reporta peticiones, bytes y conexiones por despertada; la energía se mide con la placa real | Un número inventado de consumo engañaría más de lo que ayuda |
 | **D3** | ¿Dibuja la marca ✓ optimista al aceptar una tarea? | **No en F-002:** manda la acción y muestra la vista que devuelva el servidor. La marca optimista queda para el firmware | Mantiene el emulador simple y fiel al contrato |
-| **D4** | ¿Cómo se ve lo que «muestra» el emulador? | Un archivo **`screen.png`** (y `screen.raw1`) en su carpeta de almacenamiento. Una vista web en vivo, después si hace falta | Se abre con cualquier visor de imágenes, también desde el celular |
+| **D4** ✅ | ¿Cómo se ve lo que «muestra» el emulador? | **Aprobado (dueño, 2026-10-22):** un archivo **`screen.png`** (y `screen.raw1`) en su carpeta de almacenamiento. **Pendiente para después:** que los puntos de foco de la navegación también se vean desde el emulador (una vista web, o una segunda imagen con todas las zonas disponibles marcadas) | Se abre con cualquier visor de imágenes, también desde el celular |
 
 ## Listo para programar
 - [x] Cada CA se puede comprobar con una prueba, con valores concretos.
@@ -32,7 +32,7 @@ El emulador es un programa que **se porta como el ESP32** según el contrato v1 
 - Una **CLI** para usarlo a mano o desde scripts.
 - El cambio aditivo del contrato para `parent` (D1).
 
-**Fuera de alcance:** certificado de cliente / mTLS (F-004; el cliente HTTP queda preparado para recibir opciones TLS); estimar energía (D2); la marca ✓ optimista (D3); dormir en tiempo real (la CLI encadena despertadas sin esperar); `png1` (ADR-0020: solo `raw1`); una vista web.
+**Fuera de alcance:** ver todas las zonas de foco a la vez (pendiente de D4: web o segunda imagen, en otra ficha); certificado de cliente / mTLS (F-004; el cliente HTTP queda preparado para recibir opciones TLS); estimar energía (D2); la marca ✓ optimista (D3); dormir en tiempo real (la CLI encadena despertadas sin esperar); `png1` (ADR-0020: solo `raw1`); una vista web.
 
 ## Contrato
 
