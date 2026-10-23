@@ -42,7 +42,11 @@ DENY=("Bash(git push --force:*)" "Bash(git push -f:*)" "Bash(git push --no-verif
 [ "$ROLE" = integrador ] || DENY+=("Bash(git push:*)" "Bash(git commit:*)")
 
 cd "$WORKDIR"
-claude -p --agent "$ROLE" --model "$MODEL" --permission-mode default \
+# Siempre la definición del agente de la copia principal del repo (no la de la rama de la carpeta).
+MAIN_REPO="$(cd "$(git -C "$REPO" rev-parse --git-common-dir)/.." && pwd)"
+AGENTS_JSON="$(node "$MAIN_REPO/tools/lib/agent-json.ts" "$MAIN_REPO/.claude/agents/$ROLE.md")"
+
+claude -p --agents "$AGENTS_JSON" --agent "$ROLE" --model "$MODEL" --permission-mode default \
   --allowedTools "${TOOLS[@]}" --disallowedTools "${DENY[@]}" \
   --max-budget-usd "$BUDGET" --output-format json "$(cat "$BRIEF")" </dev/null >"$LOG"
 
@@ -52,6 +56,7 @@ const u = d.usage ?? {};
 if (d.is_error) console.log("⚠️ EL AGENTE TERMINÓ CON ERROR (p. ej. límite de uso de la cuenta): su trabajo puede estar incompleto.\n");
 console.log(d.result ?? "(sin resultado)");
 if (d.is_error) process.exitCode = 1;
-if (/\*\*Estado:\*\*\s*DETENIDO/.test(d.result ?? "")) { console.log("\n⛔ EL AGENTE SE DETUVO: no sigas la cadena sin revisar su informe."); process.exitCode = 3; }
+const isIntegrator = process.argv[2] === "integrador";
+if (/\*\*Estado:\*\*\s*DETENIDO/.test(d.result ?? "") || (isIntegrator && !/\*\*Estado:\*\*\s*OK/.test(d.result ?? ""))) { console.log("\n⛔ EL AGENTE SE DETUVO: no sigas la cadena sin revisar su informe."); process.exitCode = 3; }
 console.log(`\n--- ${process.argv[2]} · costo USD ${(d.total_cost_usd ?? 0).toFixed(3)} · turnos ${d.num_turns ?? "?"} · tokens entrada ${u.input_tokens ?? "?"} (+caché ${u.cache_read_input_tokens ?? 0}) salida ${u.output_tokens ?? "?"} · ${d.subtype ?? ""}`);
 ' "$LOG" "$ROLE"

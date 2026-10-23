@@ -26,7 +26,12 @@ fi
 # 2. Nada personal ni de infraestructura (lista privada fuera del repo).
 node tools/lib/private-terms.ts --staged || exit 1
 
-# 3. Tipos y lint sobre el TypeScript del commit.
+# 3. Si el commit trae package-lock.json (p. ej. un merge con dependencias nuevas), instalar antes de compilar.
+if printf '%s\n' "${STAGED[@]}" | grep -qx 'package-lock.json'; then
+  npm ci --silent >/dev/null 2>&1 || { echo "❌ npm ci falló con el package-lock.json del commit." >&2; exit 1; }
+fi
+
+# 4. Tipos y lint sobre el TypeScript del commit.
 # Las pruebas de aceptación se escriben antes del código (P1): aquí no se compilan; tools/revisar sí, en la verificación.
 mapfile -t TS < <(printf '%s\n' "${STAGED[@]}" | grep -E '\.(ts|js|mjs)$' | grep -v '^tests/acceptance/' || true)
 if [ "${#TS[@]}" -gt 0 ]; then

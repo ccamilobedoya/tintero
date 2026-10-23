@@ -12,7 +12,7 @@ Carpetas de trabajo (*worktrees*), fuera del repo: `../tintero-wt/F-NNN-{acc,dev
 1. **Encargos al integrador solo con `tools/encargo-integrador`**: nunca escritos a mano (se olvidaban archivos o pasaban de 72 caracteres).
 2. **Lo que un agente necesita va primero a su rama:** si el arquitecto cambia una regla, excepción o herramienta que el agente va a usar, el integrador la guarda en `main` y la une a la rama de trabajo **antes** de lanzar al agente.
 3. **Aclaraciones de la ficha:** si después de la fase 1 se aclara un CA, el encargo de la verificación lo dice explícitamente («el CA-N se aclaró: …»).
-4. **Dependencias:** si una rama cambia `package-lock.json`, `npm ci` en cada carpeta que la use y en `main` antes del merge.
+4. **Dependencias:** si un commit (o un merge) trae `package-lock.json`, el hook corre `npm ci` antes de compilar. Al crear una carpeta de trabajo, `npm ci` como siempre.
 5. **Esperar agentes:** cada `tools/lanzar-agente` en primer plano, o en una tarea en segundo plano propia (con su aviso). **Nunca** bucles con `pgrep -f` (se encuentran a sí mismos).
 6. **Si un agente termina con error** (`is_error`, p. ej. el límite de uso de la cuenta): revisar qué dejó a medias en su carpeta, esperar a que se reinicie el límite y relanzarlo con una nota de lo que ya existe.
 7. **Encargos con datos concretos:** nombres de archivos, rutas, puertos y URLs que las pruebas necesiten van en la ficha, no se dejan a criterio del agente.
@@ -51,7 +51,7 @@ En la carpeta `ver`: `tools/revisar --base main`.
 ## 5 · Cierre
 1. El arquitecto lee los informes (no todo el código), llena **Resultado obtenido** y **Resumen para aprobar**, y publica la ficha.
 2. **Puerta 2:** el dueño aprueba integrar.
-3. Si la rama cambia `package-lock.json`, el arquitecto corre `npm ci` en `main` **antes** (el hook compila el resultado del merge). **Integrador:** une `ver/F-NNN` en `main` (`merge --no-ff`, fase `cierre`) y sube `main`.
+3. **Integrador:** une `ver/F-NNN` en `main` (`merge --no-ff`, fase `cierre`) y sube `main`.
 4. El arquitecto borra los *worktrees*; actualiza `docs/metricas.md`, `docs/lecciones.md` y la nota de estado (fuera del repo); `tools/mapa`; **integrador** fase `proceso` en `main`, con push.
 
 ## Regresión de los agentes (P8)
