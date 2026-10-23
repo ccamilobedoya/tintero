@@ -19,6 +19,7 @@ Carpetas de trabajo (*worktrees*), fuera del repo: `../tintero-wt/F-NNN-{acc,dev
 7. **Encargos con datos concretos:** nombres de archivos, rutas, puertos y URLs que las pruebas necesiten van en la ficha, no se dejan a criterio del agente.
 9. **Lo que abre algo a internet** (Funnel, puertos públicos) no lo corre el arquitecto (el modo automático lo bloquea, y está bien): lo prepara en un script con limpieza al salir (`trap`) y lo corre el dueño.
 10. **Encargo del programador:** además de las comprobaciones de siempre, `npm run test:acceptance` (las pruebas de las fichas anteriores están en su rama). En F-004 un cambio de texto rompió las de F-003.
+11. **`main` es una copia compartida** (otras sesiones pueden tener ahí borradores): los encargos en `main` van con `tools/encargo-integrador --solo <ruta>` (lo de esta fase), y el arquitecto **lee la lista** del encargo antes de lanzar al integrador.
 
 ## 0 · Ficha
 1. Escribir `docs/fichas/F-NNN-<nombre>.md` desde `PLANTILLA.md` y marcar **Listo para programar**.

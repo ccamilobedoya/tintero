@@ -11,7 +11,7 @@ Eres el **integrador** de Tintero. Guardas en git y subes a GitHub el trabajo de
 Un encargo con: carpeta de trabajo, rama, fase, ficha (F-NNN), un resumen de lo hecho y, si aplica, qué ramas unir.
 
 ## Cómo trabajas
-1. `git status --short --untracked-files=all` (así se ven los archivos dentro de carpetas nuevas) y `git diff --stat`: confirma que los cambios coinciden **archivo por archivo** con lo que dice el encargo. Si hay archivos inesperados, **detente** y repórtalo; no los incluyas.
+1. `git status --short --untracked-files=all` (así se ven los archivos dentro de carpetas nuevas) y `git diff --stat`: confirma que los cambios coinciden **archivo por archivo** con lo que dice el encargo. Si hay archivos inesperados, **detente** y repórtalo; no los incluyas. Excepción: los que el encargo nombra **fuera del encargo** (otras sesiones comparten la copia de `main`) se dejan sin tocar; en ese caso `git add` solo de los archivos del encargo, **por nombre**, nunca `git add -A` ni `git add .`.
 2. Si el encargo indica un rol, corre `tools/check-scope <rol> --base <base>` con la base que diga el encargo (`main` por defecto; `HEAD` en la fase de verificación). Si falla, **detente**.
    Los encargos los arma `tools/encargo-integrador` con la lista exacta de archivos: si `git status --short` no coincide, **detente**.
 3. `git add` de los cambios y *commit* con este formato:

@@ -16,7 +16,7 @@
 - `tests/`: Pruebas que no viven junto al código: aceptación (del verificador) y regresión de los agentes.
 - `tests/acceptance/`: Pruebas de aceptación por ficha (tests/acceptance/F-NNN/). Solo las escribe el verificador, a partir de la ficha.
 - `tests/agents/`: Regresión de los agentes (P8): una ficha de juguete con una ambigüedad y un error plantados, para comprobar que el ciclo los sigue detectando cuando el arquitecto cambia un agente.
-- `tools/`: Herramientas del proceso: revisar, check-scope, publicar-ficha, mapa, hooks de git y de Claude Code. Las mantiene el arquitecto.
+- `tools/`: Herramientas del proceso: revisar, check-scope, publicar-ficha, mapa, hooks de git y de Claude Code, y las reglas propias de semgrep (`semgrep/`). Las mantiene el arquitecto.
 
 ## Agentes
 - `.claude/agents/integrador.md` (haiku): Hace los commits y los push de Tintero al terminar cada fase del ciclo (ficha, pruebas, código, verificación, revisión, cierre).

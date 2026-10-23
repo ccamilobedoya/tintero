@@ -3,10 +3,13 @@
 # escritos a mano olvidaban archivos o pasaban de 72 caracteres, y el integrador se detenía).
 # Uso: tools/encargo-integrador <carpeta> --fase <fase> --ficha F-NNN --resumen "<texto>" \
 #        [--rol <programador|verificador> [--base main|HEAD]] [--merge <rama>] [--push] [--detalle "<línea>"]...
+#        [--solo <ruta>]...
+# --solo (repetible): solo entran los cambios bajo esas rutas. Úsalo en `main`, cuya copia comparten otras sesiones
+# (lección de F-007: un cierre se llevó el borrador de otra ficha). Lo que quede fuera se lista aparte.
 # Imprime el encargo; redirígelo a un archivo y pásalo a tools/lanzar-agente integrador haiku <carpeta> <archivo>.
 set -euo pipefail
 DIR="${1:?carpeta}"; shift
-FASE=""; FICHA=""; RESUMEN=""; ROL=""; BASE="main"; MERGE=""; PUSH=0; DETALLES=()
+FASE=""; FICHA=""; RESUMEN=""; ROL=""; BASE="main"; MERGE=""; PUSH=0; DETALLES=(); SOLO=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --fase) FASE="$2"; shift 2 ;;
@@ -17,6 +20,7 @@ while [ $# -gt 0 ]; do
     --merge) MERGE="$2"; shift 2 ;;
     --push) PUSH=1; shift ;;
     --detalle) DETALLES+=("$2"); shift 2 ;;
+    --solo) SOLO+=("${2%/}"); shift 2 ;;
     *) echo "Opción desconocida: $1" >&2; exit 2 ;;
   esac
 done
@@ -26,7 +30,16 @@ TITLE="$FICHA $FASE: $RESUMEN"
 [ "${#TITLE}" -le 72 ] || { echo "La primera línea del commit tiene ${#TITLE} caracteres (máx. 72): $TITLE" >&2; exit 2; }
 cd "$DIR"
 BRANCH="$(git branch --show-current)"
-mapfile -t FILES < <(git status --short --untracked-files=all)
+mapfile -t ALL < <(git status --short --untracked-files=all)
+FILES=(); LEFT=()
+for line in "${ALL[@]}"; do
+  path="${line:3}"; keep=1
+  if [ "${#SOLO[@]}" -gt 0 ]; then
+    keep=0
+    for s in "${SOLO[@]}"; do [[ "$path" == "$s" || "$path" == "$s/"* ]] && keep=1; done
+  fi
+  if [ "$keep" -eq 1 ]; then FILES+=("$line"); else LEFT+=("$line"); fi
+done
 
 echo "Carpeta: el directorio actual. Rama: \`$BRANCH\`. Fase: \`$FASE\`. Ficha: $FICHA."
 [ -n "$ROL" ] && echo "Rol a comprobar: \`$ROL\` con \`tools/check-scope $ROL --base $BASE\`."
@@ -37,6 +50,10 @@ fi
 if [ "${#FILES[@]}" -gt 0 ]; then
   echo "$STEP. Commit con **exactamente** estos cambios (salida de \`git status --short\` al armar el encargo; si ves otros, detente):"
   printf '   - `%s`\n' "${FILES[@]}"
+  if [ "${#LEFT[@]}" -gt 0 ]; then
+    echo "   **Fuera del encargo** (de otras sesiones que comparten esta copia): **no** los toques ni los incluyas; \`git add\` solo de los archivos de arriba, por nombre:"
+    printf '   - `%s`\n' "${LEFT[@]}"
+  fi
   echo "   Primera línea: \`$TITLE\`"
   for d in "${DETALLES[@]}"; do echo "   - Detalle: $d"; done
   STEP=$((STEP+1))
