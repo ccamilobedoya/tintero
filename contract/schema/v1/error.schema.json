@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tintero.example/contract/v1/error.schema.json",
+  "type": "object",
+  "required": ["error"],
+  "properties": {
+    "error": {
+      "type": "object",
+      "required": ["code", "msg"],
+      "properties": {
+        "code": {
+          "anyOf": [
+            { "type": "string", "const": "invalid_request" },
+            { "type": "string", "const": "unknown_view" },
+            { "type": "string", "const": "stale_view" },
+            { "type": "string", "const": "stale_zone" },
+            { "type": "string", "const": "too_large" },
+            { "type": "string", "const": "too_many" },
+            { "type": "string", "const": "busy" }
+          ]
+        },
+        "msg": { "type": "string", "maxLength": 200 }
+      }
+    }
+  }
+}

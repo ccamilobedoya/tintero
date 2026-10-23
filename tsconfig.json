@@ -20,6 +20,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["server", "emulator", "tools", "tests", "*.ts"],
+  "include": ["contract", "server", "emulator", "tools", "tests", "*.ts"],
   "exclude": ["node_modules", "firmware", "tests/acceptance"]
 }

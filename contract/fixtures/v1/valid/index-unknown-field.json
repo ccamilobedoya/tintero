@@ -1,0 +1,12 @@
+{
+  "protocol": 1,
+  "server_time": 1761096000,
+  "next_wake_s": 1800,
+  "full_refresh": false,
+  "future_field": { "a": 1 },
+  "panel": { "w": 800, "h": 480, "dpi": 124, "depth": 1 },
+  "current": "todo",
+  "views": [
+    { "id": "todo", "hash": "9f2c1a7b", "format": "raw1", "bytes": 48000, "crc32": "3a1f09c4" }
+  ]
+}

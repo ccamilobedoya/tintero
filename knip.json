@@ -1,6 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
+    "contract/src/index.ts",
+    "contract/scripts/*.ts",
     "tools/lib/{check-scope,map,publish-spec,review-summary,private-terms}.ts",
     "tools/hooks/*.ts",
     "tests/agents/toy/*.ts"

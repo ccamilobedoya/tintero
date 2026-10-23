@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tintero.example/contract/v1/log-request.schema.json",
+  "type": "object",
+  "required": ["entries"],
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["at", "level", "msg"],
+        "properties": {
+          "at": { "type": "integer", "minimum": 0 },
+          "level": {
+            "anyOf": [
+              { "type": "string", "const": "error" },
+              { "type": "string", "const": "warn" },
+              { "type": "string", "const": "info" }
+            ]
+          },
+          "msg": { "type": "string", "minLength": 1, "maxLength": 200 }
+        }
+      },
+      "minItems": 1,
+      "maxItems": 10
+    }
+  }
+}

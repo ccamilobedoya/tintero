@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tintero.example/contract/v1/actions-response.schema.json",
+  "type": "object",
+  "required": ["results", "index_changed"],
+  "properties": {
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9_-]{8,24}$" },
+          "status": {
+            "anyOf": [
+              { "type": "string", "const": "applied" },
+              { "type": "string", "const": "duplicate" },
+              { "type": "string", "const": "stale" }
+            ]
+          }
+        }
+      },
+      "minItems": 1,
+      "maxItems": 8
+    },
+    "index_changed": { "type": "boolean" }
+  }
+}
