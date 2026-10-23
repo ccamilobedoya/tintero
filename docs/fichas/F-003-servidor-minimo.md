@@ -1,6 +1,6 @@
 # F-003 · Servidor mínimo
 
-**Estado:** **aprobada** por el dueño el 2026-10-22 (puerta 1: D1 **Fastify**, D2–D4)
+**Estado:** **cerrada** · el dueño aprobó integrar el 2026-10-23
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** **`fastify`** 5.x (D1). Nada más: ni su integración con TypeBox ni plugins.
 
@@ -136,16 +136,44 @@ Las pruebas arrancan el servidor con `startServer(config, 0)` (puerto efímero, 
 `npm run server` + `npm run emulator -- --server http://127.0.0.1:8790 --wakes 1` hace el ciclo completo de una pantalla real contra un servidor real, y `screen.png` muestra la demostración. Con `--keys tab,ok` se marca una casilla y la pantalla cambia.
 
 ## Terminado
-- [ ] Todos los CA pasan en la verificación.
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados.
-- [ ] `check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Todos los CA pasan en la verificación (16/16; informes en `docs/informes/F-003/`).
+- [x] `tools/revisar` limpio (solo avisos en pruebas viejas; pide revisor por `fastify`: aprobado).
+- [x] `check-scope` limpio para cada rol.
+- [x] Resultado obtenido y resumen escritos; métricas y lecciones actualizadas.
+- [x] El dueño aprobó integrar (2026-10-23).
 
 ---
 
-## Resultado obtenido
-*(Se llena al cerrar.)*
+## Resultado obtenido (2026-10-23)
+
+**Qué se hizo:** servidor en `server/src/` con Fastify 5.12.7 (sin esquemas de ruta ni Ajv, cuerpo como texto con `bodyLimit` 4096, registro propio sin contenido, errores al formato del contrato, 404 vacío): las 5 rutas del contrato v1, vistas de demostración para cualquier panel (`demo` con 3 casillas y `abrir`, `detalle` con `parent`, `patron` con cuadrícula de 1 cm por ppp), caché de dibujos (48 entradas), acciones idempotentes (1000 ids), límites de cuerpo y cabeceras, `headersTimeout`, y falla cerrado si se pide otra dirección que 127.0.0.1. `contract/scripts/serve.ts`: `dockerArgs` exportada con `--mount`.
+
+| CA | Resultado |
+|----|-----------|
+| CA1–CA16 | ✅ PASAN (60 pruebas de aceptación + 170 unitarias), incluido el ciclo completo con el emulador |
+
+**Vueltas:** pruebas 1 (aclaraciones de CA15 y CA16) · programación 2 (corte por límite de uso; informe perdido; avisos de lint) · verificación 1 (el verificador corrigió su prueba de CA13 y 3 errores de lint) · revisión 1 (juicio, aprobado).
+
+**Obligatorio en F-004** (antes de exponer el servidor; mejoras del revisor)
+- La caché se vacía entera al llenarse: expulsar la entrada más vieja y **limitar los paneles distintos** por aparato (quien alterne paneles fuerza redibujos).
+- Fijar `server.requestTimeout` (p. ej. 15 s) y `maxConnections`: con `serverFactory` rige el de Node (300 s).
+
+**Otras mejoras anotadas:** mantener al día la lista de carpetas del script `lint` (o volver a `eslint .`); quitar el `export` sin uso de `clean` en `server/src/log.ts`.
+
+**Proceso (8 lecciones nuevas):** agentes sin tareas en segundo plano; `Estado: OK/DETENIDO` del integrador con corte automático de la cadena; agentes cargados siempre desde `main`; `npm ci` automático en el hook si el commit trae `package-lock.json`; lint estricto igual al hook; permisos de lint al verificador; funciones y contadores con nombre y punto de partida en las fichas.
+
+**Costo de agentes:** USD 2,46 en 24 corridas (programador 1,18 · verificador 1,10, con la regresión · revisor 0,15 · integrador 0,03).
 
 ## Resumen para aprobar
-*(Se llena al cerrar.)*
+
+**Qué cambió:** existe el servidor mínimo (Fastify): habla el contrato v1 con vistas de demostración, y el ciclo completo **emulador ↔ servidor** funciona: despierta, baja las vistas, marca una casilla con el botón y la pantalla cambia. Incluye un patrón de calibración de 1 cm para comprobar tamaños en la placa real.
+
+**Criterios:** 16 de 16 · revisión aprobada sin bloqueantes · 2 mejoras pasan como obligatorias a F-004.
+
+**Dependencias nuevas:** `fastify` 5.12.7.
+
+**Riesgos o pendientes:** sin autenticación: solo escucha en 127.0.0.1 hasta F-004.
+
+**Costo de agentes:** USD 2,46.
+
+**Decisión que se pide:** integrar `ver/F-003` a `main`.
