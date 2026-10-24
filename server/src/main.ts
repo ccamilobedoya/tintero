@@ -1,8 +1,12 @@
 // `npm run server -- [--port N] [--host 127.0.0.1] [--next-wake-s N] [--headers-timeout-ms N]
 //   [--tls-cert F --tls-key F --client-ca F --devices F] [--max-panels N] [--max-connections N]
-//   [--views F --data F [--chromium http://127.0.0.1:N]]`
+//   [--views F --data F [--chromium http://127.0.0.1:N] [--integrations F]]`
 import { accessSync, constants } from "node:fs";
 import { parseOptions, UsageError } from "./args.ts";
+import { checkAgainstData, loadIntegrations } from "./integrations/config.ts";
+import { guardedHttp, IntegrationHttpError, parseBase } from "./integrations/http.ts";
+import { triliumTasksManifest } from "./integrations/manifest.ts";
+import { createTriliumTasks, type TriliumTasks } from "./integrations/trilium-tasks.ts";
 import {
   ConfigError,
   chromiumRenderer,
@@ -19,7 +23,7 @@ import { shutdown, type ShutdownStep } from "./shutdown.ts";
 const USAGE =
   "usage: server [--port N] [--host 127.0.0.1] [--next-wake-s N] [--headers-timeout-ms N]\n" +
   "  [--tls-cert F --tls-key F --client-ca F --devices F] [--max-panels N] [--max-connections N]\n" +
-  "  [--views F --data F [--chromium http://127.0.0.1:N]]";
+  "  [--views F --data F [--chromium http://127.0.0.1:N] [--integrations F]]";
 
 let options;
 try {
@@ -40,8 +44,10 @@ if (options.host !== "127.0.0.1") {
 // The view engine (F-005): only with --views and --data; without them the demonstration runs.
 let engine: Engine | undefined;
 let stopChromium: (() => Promise<void>) | undefined;
-// Engine first, then the container: the container always gets its turn.
+let tasks: TriliumTasks | undefined;
+// Integrations, then the engine, then the container: the container always gets its turn.
 const steps = (): ShutdownStep[] => [
+  { name: "integrations", run: () => tasks?.stop(), timeoutMs: 6000 },
   { name: "engine", run: () => engine?.close(), timeoutMs: 5000 },
   { name: "chromium", run: () => stopChromium?.(), timeoutMs: 25_000 },
 ];
@@ -55,6 +61,27 @@ if (options.views !== undefined && options.data !== undefined) {
     console.error(error.message);
     process.exit(2);
   }
+  // Integrations are checked before Chromium starts: their errors need no Docker.
+  let integration;
+  if (options.integrations !== undefined) {
+    try {
+      const file = loadIntegrations(options.integrations);
+      checkAgainstData(file, loaded.data);
+      const config = file.integrations["trilium-tareas"];
+      if (config !== undefined) {
+        const http = guardedHttp(parseBase(config.baseUrl), config.keyFile, triliumTasksManifest, {
+          allowWrite: config.allowWrite,
+          log: logEngine,
+        });
+        integration = { config, http };
+      }
+    } catch (error) {
+      if (error instanceof ConfigError) console.error(error.message);
+      else if (error instanceof IntegrationHttpError) console.error(`integrations: ${error.code}`);
+      else throw error;
+      process.exit(2);
+    }
+  }
   try {
     let endpoint = options.chromium;
     if (endpoint === undefined) {
@@ -67,7 +94,17 @@ if (options.views !== undefined && options.data !== undefined) {
       renderer: await chromiumRenderer(endpoint),
       nextWakeS: options.config.nextWakeS,
       log: logEngine,
+      onToggle: (change) => tasks?.onToggle(change),
     });
+    if (integration !== undefined) {
+      tasks = createTriliumTasks({
+        ...integration,
+        manifest: triliumTasksManifest,
+        engine,
+        log: logEngine,
+      });
+      tasks.start();
+    }
   } catch {
     await shutdown(steps());
     console.error("cannot start the view engine: Chromium is not available");
