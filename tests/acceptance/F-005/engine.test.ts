@@ -4,6 +4,8 @@ import type { Action } from "../../../contract/src/index.ts";
 import { zoneId, type Engine } from "../../../server/src/engine/index.ts";
 import {
   P124,
+  P200,
+  V124,
   isBlack,
   launchChromium,
   makeClock,
@@ -169,6 +171,22 @@ describe("CA23 un servicio avisa", () => {
     const text = JSON.stringify([a, b]);
     for (const t of ["Pagar la factura", "Café y azúcar", "PROJ-"]) expect(text).not.toContain(t);
   });
+});
+
+describe("CA17/CA25 revisión de letras de varios motores", () => {
+  it("dos motores sobre el mismo Renderer: el index con un panel nuevo no da busy", async () => {
+    const a = engine();
+    const b = engine();
+    // Both start their theme glyph check with the first index of each.
+    await Promise.all([getViews(a, "local", P124), getViews(b, "local", P124)]);
+    // Right away, without waiting for idle(): a new panel on each engine.
+    const [ra, rb] = await Promise.all([a.index("local", V124), b.index("local", V124)]);
+    expect(ra.ok, JSON.stringify(ra.ok ? "ok" : ra)).toBe(true);
+    expect(rb.ok, JSON.stringify(rb.ok ? "ok" : rb)).toBe(true);
+    const [rc, rd] = await Promise.all([a.index("local", P200), b.index("local", P200)]);
+    expect(rc.ok, JSON.stringify(rc.ok ? "ok" : rc)).toBe(true);
+    expect(rd.ok, JSON.stringify(rd.ok ? "ok" : rd)).toBe(true);
+  }, 120_000);
 });
 
 describe("CA24 preparado antes de despertar", () => {

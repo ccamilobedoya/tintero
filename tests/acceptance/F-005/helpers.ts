@@ -92,12 +92,7 @@ export async function getViews(
   device: string,
   panel: Panel,
 ): Promise<{ current: string; views: RenderedView[] }> {
-  let r = await engine.index(device, panel);
-  if (!r.ok && r.code === "busy") {
-    // The client retries after `busy` (ficha CA17): wait for the draws and ask again.
-    await engine.idle();
-    r = await engine.index(device, panel);
-  }
+  const r = await engine.index(device, panel);
   if (!r.ok) throw new Error(`index failed: ${r.code}`);
   return r.value;
 }
@@ -289,7 +284,7 @@ export interface Cli {
 }
 
 /** Starts `npm run server -- --port 0 ...` (new process group) and reads the first line. */
-export async function startCli(extra: string[]): Promise<Cli> {
+export async function startCli(extra: string[], signalGroup = false): Promise<Cli> {
   const p = spawn(process.execPath, ["server/src/main.ts", "--port", "0", ...extra], {
     cwd: ROOT,
     detached: true,
@@ -315,8 +310,9 @@ export async function startCli(extra: string[]): Promise<Cli> {
   const stop = async (): Promise<void> => {
     if (!p.pid) return;
     try {
-      // Only the server process gets the signal (as a service manager would), not its children.
-      process.kill(p.pid, "SIGTERM");
+      // By default only the server process gets the signal (as a service manager would);
+      // with `signalGroup` the whole process group does (as Ctrl-C in a terminal would).
+      process.kill(signalGroup ? -p.pid : p.pid, "SIGTERM");
     } catch {
       return;
     }

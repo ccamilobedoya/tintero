@@ -212,3 +212,26 @@ describe("CA10 otros ppp y panel vertical", () => {
     expect(ev.map(rect)[0]).toEqual({ x: 10, y: 361, w: 460, h: 24 });
   }, 60_000);
 });
+
+describe("Presupuesto de dibujo", () => {
+  it("promedio de 5 dibujos de hoy en P124 tras uno de calentamiento: < 500 ms", async () => {
+    await drawn(P124, ["hoy"]);
+    const full = cr.renderer.calls.filter(
+      (c) => c.out.raw1.length === 48_000 && c.html.length > 2000,
+    );
+    const html = full.at(-1)?.html ?? "";
+    expect(html).not.toBe("");
+    await cr.renderer.render(html, P124);
+    const times: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const t0 = performance.now();
+      await cr.renderer.render(html, P124);
+      times.push(performance.now() - t0);
+    }
+    const avg = times.reduce((a, b) => a + b, 0) / times.length;
+    console.log(
+      `PRESUPUESTO ms: ${times.map((t) => t.toFixed(0)).join(",")} promedio ${avg.toFixed(0)}`,
+    );
+    expect(avg).toBeLessThan(500);
+  }, 60_000);
+});

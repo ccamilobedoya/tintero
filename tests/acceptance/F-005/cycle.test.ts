@@ -134,3 +134,33 @@ describe("CA20 cierre", () => {
     expect(left).toEqual([]);
   }, 60_000);
 });
+
+describe("CA20 cierre con señal al grupo de procesos", () => {
+  it("con SIGTERM al grupo no queda su contenedor en menos de 15 s", async () => {
+    const before = new Set(await dockerNames());
+    const group = await startCli(
+      ["--views", "config/views.example.json", "--data", "config/data.example.json"],
+      true,
+    );
+    try {
+      const mine = new Set(registeredContainers());
+      const groupOwn = (await dockerNames()).filter(
+        (n) => n.startsWith("tintero-chromium-") && !before.has(n) && !mine.has(n),
+      );
+      expect(groupOwn.length).toBeGreaterThanOrEqual(1);
+
+      const t0 = Date.now();
+      await group.stop();
+      let left = groupOwn;
+      while (Date.now() - t0 < 15_000) {
+        const running = new Set(await dockerNames());
+        left = groupOwn.filter((n) => running.has(n));
+        if (left.length === 0) break;
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      expect(left).toEqual([]);
+    } finally {
+      await group.stop();
+    }
+  }, 120_000);
+});
