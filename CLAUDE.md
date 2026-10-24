@@ -18,6 +18,7 @@ El estado del proyecto, los próximos pasos y el contexto privado **no están en
 - **Toda entrada externa** (red, archivos, cabeceras, salida de procesos) se limita en tamaño **antes** de parsearla o procesarla (bloqueante de seguridad en F-001); las lecturas de archivos las vigila la regla de semgrep `tintero-lectura-sin-tope` (`tools/semgrep/`).
 - **HTTP a 127.0.0.1 en pruebas:** solo a través de una función auxiliar con el único `fetch` marcado (`docs/seguridad.md`).
 - **Sin archivos temporales** en el repo: lo que crees para probar, bórralo antes de entregar.
+- **Trabajo de fondo sobre un recurso compartido** (p. ej. el `Renderer`): la prioridad vive en el recurso, el trabajo de fondo cede el paso al principal y se cancela en `close()` (lección de F-005).
 
 ## Orientarse sin explorar
 - `docs/MAPA.md`: qué hay en cada carpeta (se regenera con `tools/mapa`).
