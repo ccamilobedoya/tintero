@@ -1,6 +1,6 @@
 # F-006 · Tareas del tablero Kanban en la pantalla
 
-**Estado:** **aprobada** · el dueño aprobó D0–D10 el 2026-10-24 (ADR-0037 a ADR-0041) y pidió empezar el mismo día
+**Estado:** **cerrada** · el dueño aprobó integrar el 2026-10-24 (D0–D10 aprobadas el mismo día; ADR-0037 a ADR-0041)
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna.
 
@@ -187,16 +187,50 @@ Reloj fijo **`2026-10-24T17:00:00Z`** (12:00 del sábado 24 en Lima) salvo que s
 `npm run render` con los ejemplos de esta ficha dibuja `hoy` y `tablero` como `docs/disenos/F-006/1-hoy-fase1.png` y `3-tablero.png`, y Aceptar pasa una tarea a *Hecho hoy* y la devuelve. Con F-009, las tareas salen del tablero de Trilium.
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto).
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Todos los CA pasan en la verificación (informe adjunto).
+- [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
+- [x] `tools/check-scope` limpio para cada rol.
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas *(métricas y lecciones al integrar)*.
+- [x] El dueño aprobó integrar (2026-10-24).
 
 ---
 
-## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+## Resultado obtenido (2026-10-24)
+
+**Qué se hizo:** bloque `task-board` en `server/src/engine/blocks/` (franjas por etapa, la que manda invertida y con filas de dos líneas, `row` y `card`, casilla a medias para *En progreso*, `vence` invertido si ya pasó, vacíos, «+N más» con la regla de reserva por etapa, encabezados de categoría solo si alguna tarea la trae); `Stage`, `stageOf`, `stage` y `doneAt` en `Task` con sus validaciones; medidas nuevas del tema; `toggle` que marca *Hecho* con la hora y recuerda la etapa anterior, y `open` para fuentes de solo lectura; `setSource(…, { readAt })` y `staleLabel`, con el aviso dentro de la clave de dibujo; `README` del bloque. `groupTasks` pasó de `task-list.ts` a `blocks/common.ts` para compartirla (sin cambiar `task-list`).
+
+| CA | Resultado |
+|----|-----------|
+| CA1–CA13 | ✅ PASAN (34 pruebas de aceptación escritas antes del código, comprobadas también por el arquitecto; 322 unitarias). F-001 a F-005 siguen pasando |
+
+**Vueltas**
+- Pruebas: 1 vuelta, sin CA «NO VERIFICABLE». Aclaración de la ficha: dónde se exportan `stageOf` y `staleLabel` (`index.ts`).
+- Programación: 1 vuelta.
+- Verificación: 1 vuelta, CUMPLE 13/13. El verificador subió a 120 s el tope del `afterAll` que cierra los motores (infraestructura de la prueba; no cambia lo que se comprueba).
+- Revisión: `tools/revisar` **limpio** (salida 0), sin modelo.
+
+**Mejoras y avisos (no bloquean)**
+- `tablero`: una `card` con título de una línea deja su segunda línea en blanco (alto fijo, como pide la regla de «cabe»). Si molesta en el panel real, se ajusta el diseño en otra ficha.
+- F-005 CA27 («tres motores… no da *busy*») falló **una vez** en la corrida completa en paralelo y pasa sola: prueba sensible al tiempo bajo carga, anterior a F-006. Vigilar.
+- F-007 CA6 sigue necesitando `tools/revisar` antes (ya se sabía).
+- `npm run lint` completo da 71 avisos en `tests/acceptance` de fichas anteriores; vale una limpieza.
+- Presupuesto de dibujo **sin medir** en esta ficha (las pruebas con Chromium pasan; no se tomó el tiempo).
+
+**Costo de agentes:** USD 2,03 (verificador 0,78 · programador 1,23 · integrador 0,01).
 
 ## Resumen para aprobar
-*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
+
+## Para aprobar · F-006 · Tareas del tablero Kanban en la pantalla
+
+**Qué cambió:** la pantalla ya sabe mostrar el tablero: *Hoy* con lo que está en progreso arriba y en grande, lo pendiente debajo y lo cerrado hoy al lado del mes; y *Tablero* con las tres columnas. Aceptar marca una tarea como hecha y, otra vez, la devuelve. Todavía con datos de prueba: el tablero real de Trilium llega con F-009.
+
+**Criterios:** 13 de 13 pasan · vueltas: verificación 1, revisión 0 (limpia con herramientas)
+
+**Revisión:** limpia · zonas sensibles: no
+**Dependencias nuevas:** ninguna
+
+**Riesgos o pendientes:** la casilla a medias y la letra de 12 pt se confirman en el panel real (M9); F-005 CA27 sensible a la carga; F-009 (Trilium) es la siguiente.
+
+**Costo de agentes:** USD 2,03.
+
+**Decisión que se pide:** integrar `ver/F-006` a `main`.
