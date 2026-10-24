@@ -127,42 +127,54 @@ const CELL = 64;
 export async function checkThemeGlyphs(renderer: Renderer, panel: Panel): Promise<GlyphProblem[]> {
   const metrics = themeMetrics(panel);
   const problems: GlyphProblem[] = [];
-  // One page per role and weight: row `i` holds the plain letter (left) and the accented one.
-  const probe: Panel = { w: CELL * 2, h: CELL * GLYPH_PAIRS.length, dpi: panel.dpi, depth: 1 };
-  const stride = (CELL * 2) / 8;
-  const cell = (raw1: Uint8Array, row: number, col: number): Uint8Array => {
+  // Drawn at the panel size (no context change): a grid where each pair is plain + accented.
+  const perRow = Math.max(1, Math.floor(panel.w / (CELL * 2)));
+  const perPage = perRow * Math.max(1, Math.floor(panel.h / CELL));
+  const stride = Math.ceil(panel.w / 8);
+  const cell = (raw1: Uint8Array, x: number, y: number): Uint8Array => {
     const out = new Uint8Array((CELL / 8) * CELL);
-    for (let y = 0; y < CELL; y++) {
-      const from = (row * CELL + y) * stride + col * (CELL / 8);
-      out.set(raw1.subarray(from, from + CELL / 8), y * (CELL / 8));
+    for (let line = 0; line < CELL; line++) {
+      const from = (y + line) * stride + x / 8;
+      out.set(raw1.subarray(from, from + CELL / 8), line * (CELL / 8));
     }
     return out;
   };
+  const at = (i: number): { x: number; y: number } => ({
+    x: (i % perRow) * CELL * 2,
+    y: Math.floor(i / perRow) * CELL,
+  });
   for (const role of ["title", "text", "detail"] as const) {
     // eslint-disable-next-line security/detect-object-injection -- role is a fixed union
     const font = metrics.font[role];
     for (const bold of [false, true]) {
-      const cells = GLYPH_PAIRS.map(([accented, plain], row) =>
-        [plain, accented]
-          .map(
-            (glyph, col) =>
-              `<p style="left:${col * CELL + 8}px;top:${row * CELL + 8}px">${glyph}</p>`,
-          )
-          .join(""),
-      ).join("");
-      const page =
-        `<!doctype html><meta charset="utf-8"><style>*{margin:0}body{background:#fff;color:#000}` +
-        `p{position:absolute;line-height:${CELL - 16}px;${fontCss(font, bold)}}</style>${cells}`;
-      const { raw1 } = await renderer.render(page, probe);
-      GLYPH_PAIRS.forEach(([accented], row) => {
-        const a = cell(raw1, row, 1);
-        const p = cell(raw1, row, 0);
-        if (a.every((byte) => byte === 0)) {
-          problems.push({ role, bold, px: font.px, glyph: accented, problem: "blank" });
-        } else if (a.every((byte, i) => byte === p.at(i))) {
-          problems.push({ role, bold, px: font.px, glyph: accented, problem: "same" });
-        }
-      });
+      for (let start = 0; start < GLYPH_PAIRS.length; start += perPage) {
+        const pairs = GLYPH_PAIRS.slice(start, start + perPage);
+        const cells = pairs
+          .map(([accented, plain], i) => {
+            const { x, y } = at(i);
+            return [plain, accented]
+              .map(
+                (glyph, col) =>
+                  `<p style="left:${x + col * CELL + 8}px;top:${y + 8}px">${glyph}</p>`,
+              )
+              .join("");
+          })
+          .join("");
+        const page =
+          `<!doctype html><meta charset="utf-8"><style>*{margin:0}body{background:#fff;color:#000}` +
+          `p{position:absolute;line-height:${CELL - 16}px;${fontCss(font, bold)}}</style>${cells}`;
+        const { raw1 } = await renderer.render(page, panel, { priority: "low" });
+        pairs.forEach(([accented], i) => {
+          const { x, y } = at(i);
+          const a = cell(raw1, x + CELL, y);
+          const p = cell(raw1, x, y);
+          if (a.every((byte) => byte === 0)) {
+            problems.push({ role, bold, px: font.px, glyph: accented, problem: "blank" });
+          } else if (a.every((byte, k) => byte === p.at(k))) {
+            problems.push({ role, bold, px: font.px, glyph: accented, problem: "same" });
+          }
+        });
+      }
     }
   }
   return problems;

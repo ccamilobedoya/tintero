@@ -1,7 +1,59 @@
 import type { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { describe, expect, it } from "vitest";
-import { cdpBase, chromiumDockerArgs, stopContainer } from "./chromium.ts";
+import { cdpBase, chromiumDockerArgs, priorityQueue, stopContainer } from "./chromium.ts";
+
+describe("priorityQueue", () => {
+  const sleep = (ms: number): Promise<void> =>
+    new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+
+  it("starts no `low` task while a `normal` one waits, one at a time", async () => {
+    const enqueue = priorityQueue();
+    const order: string[] = [];
+    let running = 0;
+    const task = (name: string) => async () => {
+      running++;
+      expect(running).toBe(1);
+      order.push(name);
+      await sleep(20);
+      running--;
+    };
+    const all = [
+      enqueue(task("low1"), "low"),
+      enqueue(task("low2"), "low"),
+      enqueue(task("low3"), "low"),
+      enqueue(task("n1")),
+      enqueue(task("n2"), "normal"),
+    ];
+    await Promise.all(all);
+    expect(order).toEqual(["low1", "n1", "n2", "low2", "low3"]);
+  });
+
+  it("makes a `normal` arriving during a `low` wait only for that `low`", async () => {
+    const enqueue = priorityQueue();
+    const started: number[] = [];
+    const t0 = Date.now();
+    const slow = (ms: number) => async () => {
+      started.push(Date.now() - t0);
+      await sleep(ms);
+    };
+    const lows = [enqueue(slow(100), "low"), enqueue(slow(100), "low"), enqueue(slow(100), "low")];
+    await sleep(30);
+    await enqueue(slow(1));
+    expect(started[1]).toBeLessThan(180); // right after the first `low`, before the other two
+    await Promise.all(lows);
+    expect(started).toHaveLength(4);
+  });
+
+  it("keeps going after a task fails", async () => {
+    const enqueue = priorityQueue();
+    const failing = enqueue(() => Promise.reject(new Error("x")));
+    await expect(failing).rejects.toThrow("x");
+    await expect(enqueue(() => Promise.resolve(7))).resolves.toBe(7);
+  });
+});
 
 describe("chromiumDockerArgs", () => {
   const args = chromiumDockerArgs("tintero-chromium-x", 0, "/f", "img@sha256:abc");

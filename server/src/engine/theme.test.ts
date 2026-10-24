@@ -66,10 +66,10 @@ describe("checkThemeGlyphs", () => {
   const renderer = (ink: (glyph: string) => number): Renderer => ({
     render: (html, panel) => {
       const raw1 = new Uint8Array((panel.w / 8) * panel.h);
-      [...html.matchAll(/<p style="[^"]*">(.)<\/p>/gu)].forEach((match, k) => {
-        const row = Math.floor(k / 2);
-        const col = k % 2;
-        raw1[(row * 64 + 30) * (panel.w / 8) + col * 8] = ink(match[1] ?? "");
+      [...html.matchAll(/<p style="left:(\d+)px;top:(\d+)px">(.)<\/p>/gu)].forEach((match) => {
+        const x = Number(match[1]) - 8;
+        const y = Number(match[2]) - 8;
+        raw1[(y + 30) * (panel.w / 8) + x / 8] = ink(match[3] ?? "");
       });
       return Promise.resolve({ raw1, gray: 0, boxes: [], overflow: [] });
     },
@@ -103,11 +103,11 @@ describe("checkThemeGlyphs", () => {
     expect(onlyN.map((p) => p.px)).toContain(22);
   });
 
-  it("draws every role and weight in a probe page of at most 2048 px", async () => {
-    const sizes: number[][] = [];
+  it("draws at the panel size with low priority, in pages that fit the panel", async () => {
+    const sizes: { size: number[]; priority: string | undefined }[] = [];
     const spy: Renderer = {
-      render: (_html, panel) => {
-        sizes.push([panel.w, panel.h]);
+      render: (_html, panel, options) => {
+        sizes.push({ size: [panel.w, panel.h], priority: options?.priority });
         return Promise.resolve({
           raw1: new Uint8Array((panel.w / 8) * panel.h),
           gray: 0,
@@ -119,7 +119,12 @@ describe("checkThemeGlyphs", () => {
       close: () => Promise.resolve(),
     };
     await checkThemeGlyphs(spy, P124);
-    expect(sizes).toHaveLength(6);
-    expect(sizes.every(([w, h]) => w === 128 && (h ?? 0) <= 2048)).toBe(true);
+    expect(sizes).toHaveLength(6); // 13 pairs fit in one 800 x 480 page
+    expect(sizes.every((c) => c.size[0] === 800 && c.size[1] === 480 && c.priority === "low")).toBe(
+      true,
+    );
+    sizes.length = 0;
+    await checkThemeGlyphs(spy, { w: 128, h: 128, dpi: 124, depth: 1 });
+    expect(sizes.length).toBeGreaterThan(6); // a small panel needs several pages
   });
 });

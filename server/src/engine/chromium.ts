@@ -23,11 +23,43 @@ export interface RenderOutput {
   boxes: Box[];
   overflow: string[];
 }
+export interface RenderOptions {
+  /** `low` starts only when no `normal` draw is waiting. Default `normal`. */
+  priority?: "normal" | "low";
+}
 export interface Renderer {
-  render(html: string, panel: Panel): Promise<RenderOutput>;
+  render(html: string, panel: Panel, options?: RenderOptions): Promise<RenderOutput>;
   /** Requests the page tried to make and that were blocked, since the renderer was created. */
   blockedRequests(): number;
   close(): Promise<void>;
+}
+
+/**
+ * Runs tasks one at a time. A `low` task starts only when no `normal` one is waiting; a
+ * `normal` one waits at most for a `low` that already started.
+ */
+export function priorityQueue(): <T>(
+  task: () => Promise<T>,
+  priority?: "normal" | "low",
+) => Promise<T> {
+  const normal: (() => void)[] = [];
+  const low: (() => void)[] = [];
+  let active = false;
+  const next = (): void => {
+    const start = normal.shift() ?? low.shift();
+    if (start) start();
+    else active = false;
+  };
+  return <T>(task: () => Promise<T>, priority: "normal" | "low" = "normal"): Promise<T> =>
+    new Promise<T>((resolve, reject) => {
+      const start = (): void => {
+        task().then(resolve, reject).finally(next);
+      };
+      if (!active) {
+        active = true;
+        start();
+      } else (priority === "low" ? low : normal).push(start);
+    });
 }
 
 const CDP_BASE = /^http:\/\/127\.0\.0\.1:([0-9]{1,5})$/;
@@ -208,7 +240,7 @@ export async function chromiumRenderer(
   // One context and page per panel size, reused between drawings (JavaScript off, every request
   // blocked). Drawings are serialized; a new context only if the size changes or one failed.
   let cached: { w: number; h: number; context: BrowserContext; page: Page } | undefined;
-  let tail: Promise<unknown> = Promise.resolve();
+  const enqueue = priorityQueue();
 
   const dropCached = async (): Promise<void> => {
     const old = cached;
@@ -303,7 +335,7 @@ export async function chromiumRenderer(
   };
 
   return {
-    render(html, panel) {
+    render(html, panel, options) {
       const run = async (): Promise<RenderOutput> => {
         try {
           if (!browser.isConnected()) {
@@ -319,13 +351,11 @@ export async function chromiumRenderer(
           return withTimeout(html, panel);
         }
       };
-      const result = tail.then(run, run);
-      tail = result.catch(() => undefined);
-      return result;
+      return enqueue(run, options?.priority);
     },
     blockedRequests: () => blocked,
     async close() {
-      await tail;
+      await enqueue(() => Promise.resolve(), "low"); // after everything already queued
       await dropCached();
       await browser.close().catch(() => undefined);
     },
