@@ -1,7 +1,7 @@
 // Chromium in Docker and the CDP connection (sensitive zone, ADR-0031, docs/seguridad.md).
 // CDP goes over plain HTTP to 127.0.0.1 only: `cdpBase` is the single place that builds and
 // validates that URL, and the two calls that use it are the only ones marked `nosemgrep`.
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright-core";
@@ -96,6 +96,40 @@ function docker(args: string[], timeoutMs = 15_000): Promise<string> {
   });
 }
 
+/**
+ * Stops a container. Detached (own process group, no stdio) so that a Ctrl+C that reaches the
+ * whole group of the server does not kill `docker stop` before it finishes.
+ */
+export function stopContainer(
+  name: string,
+  spawnFn: typeof spawn = spawn,
+  timeoutMs = 20_000,
+): Promise<void> {
+  return new Promise((resolve) => {
+    if (!CONTAINER_NAME.test(name)) {
+      resolve();
+      return;
+    }
+    try {
+      const child = spawnFn("docker", ["stop", "--time", "2", name], {
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true,
+      });
+      child.unref();
+      const timer = setTimeout(resolve, timeoutMs);
+      const done = (): void => {
+        clearTimeout(timer);
+        resolve();
+      };
+      child.once("error", done); // docker missing or gone: nothing else to do
+      child.once("exit", done);
+    } catch {
+      resolve();
+    }
+  });
+}
+
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -136,13 +170,7 @@ export async function startChromium(
   if (!CONTAINER_NAME.test(name)) throw new Error("invalid container name");
   const fontsDir = fileURLToPath(new URL("../../fonts", import.meta.url));
   await docker(chromiumDockerArgs(name, port, fontsDir, chromiumImage()), START_TIMEOUT_MS);
-  const stop = async (): Promise<void> => {
-    try {
-      await docker(["stop", "--time", "2", name], 20_000);
-    } catch {
-      // already gone (--rm removes it when it stops)
-    }
-  };
+  const stop = (): Promise<void> => stopContainer(name);
   try {
     const mapped = (await docker(["port", name, "9222/tcp"])).split("\n")[0] ?? "";
     const found = /^127\.0\.0\.1:([0-9]{1,5})$/.exec(mapped.trim());
