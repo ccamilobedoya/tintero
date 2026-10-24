@@ -4,7 +4,7 @@
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { chromium, type Browser } from "playwright-core";
+import { chromium, type Browser, type BrowserContext, type Page } from "playwright-core";
 import type { Panel } from "../../../contract/src/index.ts";
 import { readCapped } from "../tls.ts";
 import { countGray, decodePng, toRaw1 } from "./png.ts";
@@ -177,7 +177,21 @@ export async function chromiumRenderer(
   let browser = await connectCdp(endpoint);
   let blocked = 0;
 
-  const draw = async (html: string, panel: Panel): Promise<RenderOutput> => {
+  // One context and page per panel size, reused between drawings (JavaScript off, every request
+  // blocked). Drawings are serialized; a new context only if the size changes or one failed.
+  let cached: { w: number; h: number; context: BrowserContext; page: Page } | undefined;
+  let tail: Promise<unknown> = Promise.resolve();
+
+  const dropCached = async (): Promise<void> => {
+    const old = cached;
+    cached = undefined;
+    await old?.context.close().catch(() => undefined);
+  };
+
+  const pageFor = async (panel: Panel): Promise<Page> => {
+    if (cached && (cached.w !== panel.w || cached.h !== panel.h || !browser.isConnected()))
+      await dropCached();
+    if (cached) return cached.page;
     const context = await browser.newContext({
       viewport: { width: panel.w, height: panel.h },
       deviceScaleFactor: 1,
@@ -189,6 +203,17 @@ export async function chromiumRenderer(
         return route.abort();
       });
       const page = await context.newPage();
+      cached = { w: panel.w, h: panel.h, context, page };
+      return page;
+    } catch (error) {
+      await context.close().catch(() => undefined);
+      throw error;
+    }
+  };
+
+  const draw = async (html: string, panel: Panel): Promise<RenderOutput> => {
+    try {
+      const page = await pageFor(panel);
       await page.setContent(html, { waitUntil: "load", timeout: timeoutMs });
       // One call for both (each evaluation has a fixed cost): zone boxes and overflowing areas.
       const { boxes, overflow } = await page.$$eval("[data-zone],[data-fit]", (elements) => {
@@ -226,8 +251,9 @@ export async function chromiumRenderer(
         boxes,
         overflow: [...new Set(overflow)],
       };
-    } finally {
-      await context.close().catch(() => undefined);
+    } catch (error) {
+      await dropCached();
+      throw error;
     }
   };
 
@@ -240,25 +266,39 @@ export async function chromiumRenderer(
     });
     try {
       return await Promise.race([draw(html, panel), limit]);
+    } catch (error) {
+      await dropCached(); // a timed-out drawing may still hold the page
+      throw error;
     } finally {
       clearTimeout(timer);
     }
   };
 
   return {
-    async render(html, panel) {
-      try {
-        if (!browser.isConnected()) browser = await connectCdp(endpoint);
-        return await withTimeout(html, panel);
-      } catch (error) {
-        // A dropped connection is retried once with a fresh one.
-        if (browser.isConnected()) throw error;
-        browser = await connectCdp(endpoint);
-        return withTimeout(html, panel);
-      }
+    render(html, panel) {
+      const run = async (): Promise<RenderOutput> => {
+        try {
+          if (!browser.isConnected()) {
+            await dropCached();
+            browser = await connectCdp(endpoint);
+          }
+          return await withTimeout(html, panel);
+        } catch (error) {
+          // A dropped connection is retried once with a fresh one.
+          if (browser.isConnected()) throw error;
+          await dropCached();
+          browser = await connectCdp(endpoint);
+          return withTimeout(html, panel);
+        }
+      };
+      const result = tail.then(run, run);
+      tail = result.catch(() => undefined);
+      return result;
     },
     blockedRequests: () => blocked,
     async close() {
+      await tail;
+      await dropCached();
       await browser.close().catch(() => undefined);
     },
   };
