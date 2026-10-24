@@ -336,16 +336,12 @@ export function createEngine(options: EngineOptions): Engine {
   function startGlyphCheck(panel: Panel): void {
     if (glyphChecked.has(panel.dpi)) return;
     glyphChecked.add(panel.dpi);
-    // Each probe draw starts only while the engine is idle and yields to view draws: it never
-    // starts with jobs queued, and after `close()` it never starts at all.
+    // Probe draws are `low` priority in the renderer (view draws go first, from any engine);
+    // after `close()` no further one is requested.
     const guarded: Renderer = {
       render: async (html, p) => {
-        for (;;) {
-          if (closed) throw new Error("closed");
-          if (!running && queue.length === 0) break;
-          await idle();
-        }
-        return renderer.render(html, p);
+        if (closed) throw new Error("closed");
+        return renderer.render(html, p, { priority: "low" });
       },
       blockedRequests: () => renderer.blockedRequests(),
       close: () => Promise.resolve(),

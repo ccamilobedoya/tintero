@@ -326,63 +326,38 @@ describe("prewarm (CA24)", () => {
 });
 
 describe("theme glyph check", () => {
-  const PROBE_W = 128;
   const sleep = (ms: number): Promise<void> =>
     new Promise((resolve) => {
       setTimeout(resolve, ms);
     });
 
-  /** Serializes draws like the real renderer; probe draws (128 px wide) are slow. */
-  function slowProbe(probeMs: number) {
-    const inner = fakeRenderer({ delayMs: 5 });
-    const log: string[] = [];
-    let tail: Promise<unknown> = Promise.resolve();
-    const renderer: FakeRenderer = {
-      ...inner,
-      render: (html, panel) => {
-        const probe = panel.w === PROBE_W;
-        const run = tail.then(async () => {
-          log.push(probe ? "probe" : "view");
-          if (probe) await sleep(probeMs);
-          return inner.render(html, panel);
-        });
-        tail = run.catch(() => undefined);
-        return run;
-      },
-    };
-    return { renderer, log };
-  }
-
-  it("never makes an index wait behind it (busy) and yields to queued view draws", async () => {
-    const { renderer, log } = slowProbe(150);
-    const { engine } = setup({ renderer, renderWaitMs: 400 });
+  it("draws the probes with `low` priority and the views with `normal`", async () => {
+    const renderer = fakeRenderer({ delayMs: 5 });
+    const { engine } = setup({ renderer });
     await indexOk(engine);
-    await sleep(40); // the first probe draw is in flight now
-    const probesBefore = log.filter((e) => e === "probe").length;
-    expect(probesBefore).toBe(1);
-    const items = baseData.sources.tareas;
-    if (items?.type !== "tasks") throw new Error("tasks expected");
-    engine.setSource(
-      "tareas",
-      items.items.map((t) => (t.id === "t-005" ? { ...t, done: !t.done } : t)),
-    );
-    const again = await engine.index("local", P124);
-    expect(again.ok).toBe(true);
-    // No probe draw started while the view draws were queued.
-    // The next probe draw (if any) comes only after the last view draw.
-    const second = log.indexOf("probe", log.indexOf("probe") + 1);
-    expect(second === -1 || second > log.lastIndexOf("view")).toBe(true);
+    await sleep(50);
+    expect(renderer.priorities.slice(0, 3)).toEqual(["normal", "normal", "normal"]);
+    expect(renderer.priorities).toContain("low");
     await engine.close();
   });
 
+  it("answers the first index of three engines on one renderer without busy (CA27)", async () => {
+    const renderer = fakeRenderer({ delayMs: 60 });
+    const engines = [0, 1, 2].map(() => setup({ renderer, renderWaitMs: 1500 }).engine);
+    const results = await Promise.all(engines.map((engine) => engine.index("local", P124)));
+    expect(results.every((r) => r.ok)).toBe(true);
+    for (const engine of engines) await engine.close();
+  });
+
   it("starts no probe draw after close()", async () => {
-    const { renderer, log } = slowProbe(30);
+    const renderer = fakeRenderer({ delayMs: 30 });
     const { engine } = setup({ renderer });
     await indexOk(engine);
     await engine.close();
-    const seen = log.filter((e) => e === "probe").length;
+    await sleep(40);
+    const seen = renderer.priorities.filter((p) => p === "low").length;
     await sleep(300);
-    expect(log.filter((e) => e === "probe").length).toBe(seen);
+    expect(renderer.priorities.filter((p) => p === "low").length).toBe(seen);
     expect(seen).toBeLessThan(6);
   });
 });
