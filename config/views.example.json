@@ -3,30 +3,47 @@
   "timezone": "UTC",
   "theme": "base",
   "devices": {
-    "*": { "views": ["pendientes", "agenda", "resumen"] }
+    "*": { "views": ["hoy", "pendientes", "agenda"] }
   },
   "views": [
     {
+      "id": "hoy",
+      "title": "Hoy",
+      "grid": {
+        "columns": [50, 50],
+        "rows": [55, 45],
+        "areas": [
+          ["pendientes", "eventos"],
+          ["jira", "calendario"]
+        ]
+      },
+      "portrait": {
+        "columns": [100],
+        "rows": [35, 25, 15, 25],
+        "areas": [["pendientes"], ["eventos"], ["jira"], ["calendario"]]
+      },
+      "slots": {
+        "pendientes": { "block": "task-list", "source": "tareas", "title": "Pendientes" },
+        "eventos": { "block": "agenda", "source": "calendario", "title": "Próximos eventos" },
+        "jira": { "block": "issue-list", "source": "jira", "title": "Jira" },
+        "calendario": { "block": "month-calendar", "source": "calendario" }
+      }
+    },
+    {
       "id": "pendientes",
       "title": "Pendientes",
-      "layout": "full",
-      "slots": [{ "block": "task-list", "source": "tareas", "options": { "group_by": "category" } }]
+      "grid": { "columns": [100], "rows": [100], "areas": [["lista"]] },
+      "slots": {
+        "lista": { "block": "task-list", "source": "tareas", "options": { "group_by": "category" } }
+      }
     },
     {
       "id": "agenda",
       "title": "Agenda",
-      "layout": "full",
-      "slots": [{ "block": "agenda", "source": "calendario", "options": { "days": 7 } }]
-    },
-    {
-      "id": "resumen",
-      "title": "Resumen",
-      "layout": "columns-2",
-      "split": 60,
-      "slots": [
-        { "block": "task-list", "source": "tareas" },
-        { "block": "agenda", "source": "calendario" }
-      ]
+      "grid": { "columns": [100], "rows": [100], "areas": [["eventos"]] },
+      "slots": {
+        "eventos": { "block": "agenda", "source": "calendario", "options": { "days": 7 } }
+      }
     }
   ]
 }
