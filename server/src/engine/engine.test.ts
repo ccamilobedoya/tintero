@@ -325,6 +325,68 @@ describe("prewarm (CA24)", () => {
   });
 });
 
+describe("theme glyph check", () => {
+  const PROBE_W = 128;
+  const sleep = (ms: number): Promise<void> =>
+    new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+
+  /** Serializes draws like the real renderer; probe draws (128 px wide) are slow. */
+  function slowProbe(probeMs: number) {
+    const inner = fakeRenderer({ delayMs: 5 });
+    const log: string[] = [];
+    let tail: Promise<unknown> = Promise.resolve();
+    const renderer: FakeRenderer = {
+      ...inner,
+      render: (html, panel) => {
+        const probe = panel.w === PROBE_W;
+        const run = tail.then(async () => {
+          log.push(probe ? "probe" : "view");
+          if (probe) await sleep(probeMs);
+          return inner.render(html, panel);
+        });
+        tail = run.catch(() => undefined);
+        return run;
+      },
+    };
+    return { renderer, log };
+  }
+
+  it("never makes an index wait behind it (busy) and yields to queued view draws", async () => {
+    const { renderer, log } = slowProbe(150);
+    const { engine } = setup({ renderer, renderWaitMs: 400 });
+    await indexOk(engine);
+    await sleep(40); // the first probe draw is in flight now
+    const probesBefore = log.filter((e) => e === "probe").length;
+    expect(probesBefore).toBe(1);
+    const items = baseData.sources.tareas;
+    if (items?.type !== "tasks") throw new Error("tasks expected");
+    engine.setSource(
+      "tareas",
+      items.items.map((t) => (t.id === "t-005" ? { ...t, done: !t.done } : t)),
+    );
+    const again = await engine.index("local", P124);
+    expect(again.ok).toBe(true);
+    // No probe draw started while the view draws were queued.
+    // The next probe draw (if any) comes only after the last view draw.
+    const second = log.indexOf("probe", log.indexOf("probe") + 1);
+    expect(second === -1 || second > log.lastIndexOf("view")).toBe(true);
+    await engine.close();
+  });
+
+  it("starts no probe draw after close()", async () => {
+    const { renderer, log } = slowProbe(30);
+    const { engine } = setup({ renderer });
+    await indexOk(engine);
+    await engine.close();
+    const seen = log.filter((e) => e === "probe").length;
+    await sleep(300);
+    expect(log.filter((e) => e === "probe").length).toBe(seen);
+    expect(seen).toBeLessThan(6);
+  });
+});
+
 describe("close", () => {
   it("stops queued work and closes the renderer", async () => {
     const renderer = fakeRenderer({ delayMs: 50 });
