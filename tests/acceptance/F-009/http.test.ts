@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- objetos de error y de prueba */
 import { inspect } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { guardedHttp } from "../../../server/src/integrations/http.ts";
@@ -76,7 +75,7 @@ function await_noThrow(fn: () => unknown): boolean {
 }
 
 describe("CA2 llave", () => {
-  it("permisos, ausencia, tamaño y vacío", async () => {
+  it("permisos, ausencia, tamaño y vacío", () => {
     const make = (file: string) => () =>
       guardedHttp(new URL(fake.base), file, triliumTasksManifest);
     const messages: string[] = [];
@@ -117,7 +116,8 @@ describe("CA2 llave", () => {
     for (const r of fake.requests) expect(r.authorization).toBe(TOKEN);
     for (const name of Object.getOwnPropertyNames(http)) {
       const v = (http as unknown as Record<string, unknown>)[name];
-      expect(JSON.stringify(v) ?? "").not.toContain(TOKEN);
+      const json = JSON.stringify(v) as string | undefined;
+      expect(json ?? "").not.toContain(TOKEN);
     }
     expect(inspect(http, { showHidden: true, depth: 4 })).not.toContain(TOKEN);
   });
@@ -135,7 +135,8 @@ describe("CA2 llave", () => {
 describe("CA3 topes", () => {
   const oneLine = (logs: { lines: Line[] }, status: number): void => {
     expect(logs.lines).toHaveLength(1);
-    const l = logs.lines[0] as Line;
+    const l = logs.lines[0];
+    if (!l) throw new Error("sin línea de registro");
     expect(l.status).toBe(status);
     expect(l.ts).toBe(new Date(NOW).toISOString());
     expect(l.integration).toBe("trilium-tareas");

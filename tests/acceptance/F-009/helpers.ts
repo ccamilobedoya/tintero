@@ -1,4 +1,4 @@
-/* eslint-disable security/detect-non-literal-fs-filename, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- carpetas temporales propias y JSON de prueba */
+/* eslint-disable security/detect-non-literal-fs-filename, @typescript-eslint/no-unsafe-member-access -- carpetas temporales propias y JSON de prueba */
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -155,7 +155,7 @@ export async function scenario(
   const data = data6(cfgViews, (o: Loose) => {
     o.sources.tablero.items = [];
   });
-  let tt: TriliumTasks | undefined;
+  const ref: { tt?: TriliumTasks } = {};
   const engineOptions = {
     config: cfgViews,
     data,
@@ -163,10 +163,10 @@ export async function scenario(
     clock: clock.clock,
     nextWakeS: 1800,
     onToggle: (change: Parameters<TriliumTasks["onToggle"]>[0]) => {
-      tt?.onToggle(change);
+      ref.tt?.onToggle(change);
     },
   };
-  const engine = createEngine(engineOptions as Parameters<typeof createEngine>[0]);
+  const engine = createEngine(engineOptions);
   const calls: SpyCall[] = [];
   const spy = {
     setSource: (id: string, items: unknown, meta?: { readAt?: Date }) => {
@@ -189,7 +189,7 @@ export async function scenario(
     clock: clock.clock,
     logs,
   });
-  tt = createTriliumTasks({
+  const made = createTriliumTasks({
     http,
     config: cfg,
     manifest: triliumTasksManifest,
@@ -202,7 +202,7 @@ export async function scenario(
     await getViews(engine, "local", P124);
     await engine.idle();
   };
-  const made = tt;
+  ref.tt = made;
   return {
     fake,
     clock,

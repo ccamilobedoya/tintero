@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- JSON de prueba */
 import { afterAll, beforeEach, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { IntegrationHttpError } from "../../../server/src/integrations/http.ts";
 import { markStage, readBoard } from "../../../server/src/integrations/trilium-tasks.ts";
