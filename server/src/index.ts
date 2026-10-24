@@ -4,6 +4,8 @@ import { createApp, type ServerConfig } from "./app.ts";
 
 export { createApp, demoViews } from "./app.ts";
 export type { ServerConfig } from "./app.ts";
+export { createEngine, zoneId } from "./engine/index.ts";
+export type { Engine, EngineOptions, RenderedView, Renderer } from "./engine/index.ts";
 export { fingerprint } from "./tls.ts";
 export type { TlsConfig } from "./tls.ts";
 export type { DemoView } from "./views.ts";
@@ -19,6 +21,11 @@ export async function startServer(
   const scheme = config.tls ? "https" : "http";
   return {
     url: `${scheme}://127.0.0.1:${address.port}`,
-    close: () => app.close(),
+    close: () => {
+      const closing = app.close();
+      // Keep-alive connections would hold the close forever.
+      app.server.closeAllConnections();
+      return closing;
+    },
   };
 }

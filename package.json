@@ -24,6 +24,7 @@
     "emulator": "node emulator/src/cli.ts",
     "server": "node server/src/main.ts",
     "pki": "node server/scripts/pki.ts",
+    "render": "node server/scripts/render.ts",
     "setup": "git config core.hooksPath tools/git-hooks"
   },
   "devDependencies": {
@@ -39,6 +40,7 @@
   },
   "dependencies": {
     "fastify": "5.12.7",
+    "playwright-core": "1.64.1",
     "typebox": "1.4.3"
   }
 }

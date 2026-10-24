@@ -41,6 +41,11 @@ export function logDevicesError(reason: string): void {
   write({ ts: new Date().toISOString(), devices_error: clean(reason, 40) });
 }
 
+/** One line per draw of the engine: `{ ts, render, ms, ok }` (plus overflow / tooSmall); no content. */
+export function logEngine(entry: Record<string, unknown>): void {
+  write(entry);
+}
+
 export function logDevice(level: string, msg: string): void {
   write({ ts: new Date().toISOString(), device_log: { level, msg: clean(msg, 200) } });
 }
