@@ -23,3 +23,8 @@ emulator/src/tls/**
 
 # Contrato del protocolo (F-001)
 contract/**
+
+# Motor de vistas (F-005): el Chromium y el armado del HTML (lo que se dibuja no puede salir a la red)
+server/src/engine/chromium.ts
+server/src/engine/html.ts
+server/fonts/**

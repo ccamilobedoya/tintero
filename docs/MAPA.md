@@ -13,6 +13,7 @@
 - `emulator/`: Emulador de pantalla: un cliente que se porta como el ESP32 (contrato v1, navegación con dos botones) y deja en una carpeta lo que mostraría el panel.
 - `firmware/`: Firmware del ESP32 (C++, PlatformIO). Lo escribe el dueño del proyecto; los agentes solo ayudan si él lo pide (ADR-0013).
 - `server/`: Servidor mínimo de Tintero (F-003): habla el contrato v1 con vistas de demostración (`demo`, `detalle`, `patron`) dibujadas por código en `raw1`, para cualquier panel declarado. Solo escucha en `127.0.0.1`, sin TLS (demostración local) o con TLS y certificado de cliente (F-004); el estado vive en memoria.
+- `server/fonts/`: Letras del tema `base` del motor de vistas (F-005, ADR-0034): DejaVu Sans para títulos y texto, Terminus (mapa de bits) para los detalles. Las monta el contenedor de Chromium de solo lectura, con `fonts.conf` (sin suavizado).
 - `tests/`: Pruebas que no viven junto al código: aceptación (del verificador) y regresión de los agentes.
 - `tests/acceptance/`: Pruebas de aceptación por ficha (tests/acceptance/F-NNN/). Solo las escribe el verificador, a partir de la ficha.
 - `tests/agents/`: Regresión de los agentes (P8): una ficha de juguete con una ambigüedad y un error plantados, para comprobar que el ciclo los sigue detectando cuando el arquitecto cambia un agente.
