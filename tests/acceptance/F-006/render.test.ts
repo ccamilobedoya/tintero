@@ -35,7 +35,7 @@ afterAll(async () => {
       /* closing anyway */
     }
   }
-});
+}, 120_000);
 
 /** Draws the views (default both) and returns them plus the full-page draws made. */
 async function drawn(
