@@ -1,6 +1,6 @@
 # F-005 · Motor de vistas
 
-**Estado:** **aprobada** · el dueño aprobó D1–D7 el 2026-10-23 (ADR-0031 a ADR-0036)
+**Estado:** **cerrada** · el dueño aprobó integrar el 2026-10-24 (D1–D7 aprobadas el 2026-10-23; ADR-0031 a ADR-0036)
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** **`playwright-core`** 1.64.1 (D1): maneja el Chromium sin interfaz por CDP. Licencia Apache-2.0, **sin dependencias propias** y sin scripts de instalación (no baja navegadores). Chromium **no** es un paquete npm: corre en Docker, con la imagen fijada por *digest* en `tools/images.conf` (`CHROMIUM_IMAGE`). Las letras van como archivos en el repo, con sus licencias (D5).
 
@@ -277,16 +277,51 @@ Las pruebas que usan Chromium lo arrancan con `startChromium()` y lo detienen al
 `npm run server -- --views config/views.example.json --data config/data.example.json` + el emulador muestran la vista de 4 bloques del dueño (pendientes con «+5 más», próximos eventos, Jira con «+2 más» y el calendario del mes), la lista completa de pendientes y la agenda; con `Tab` y Aceptar se marca una tarea y la pantalla cambia; Aceptar sobre un evento o una tarea de Jira abre su detalle. `npm run render` deja las mismas imágenes en PNG para revisarlas con las zonas encima. Las integraciones solo tienen que entregar tareas y eventos en los tipos comunes.
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto).
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Todos los CA pasan en la verificación (27/27; informes en `docs/informes/F-005/`).
+- [x] `tools/revisar` limpio (pide revisor solo por zona sensible y dependencia nueva: juicio con 1 bloqueante, resuelto; confirmación aprobada).
+- [x] `tools/check-scope` limpio para cada rol.
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones al cierre.
+- [x] El dueño aprobó integrar (2026-10-24).
 
 ---
 
-## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+## Resultado obtenido (2026-10-24)
+
+**Qué se hizo:** motor de vistas en `server/src/engine/`: unidades físicas y tema `base` con letra por papel (DejaVu Sans + Terminus) y `pickFont`; archivos de vistas y datos de prueba con esquema, límites y errores con ruta JSON; cuadrícula fija con áreas (y otra para panel vertical); bloques `task-list`, `issue-list`, `agenda`, `month-calendar` y detalle, con la regla «cabe / +N más» y revisión de desbordes a lo alto y a lo ancho; dibujo con Chromium en Docker endurecido por CDP (`playwright-core` 1.64.1), página reutilizada por tamaño de panel, cola con prioridad (la revisión de letras en baja), PNG propio → `raw1`; motor con huellas, caché compartida, estado por aparato, `apply`, `setSource` y `prewarm`; servidor con `--views/--data/--chromium` y cierre ordenado con topes que siempre detiene el contenedor (también con Ctrl+C al grupo de procesos); vista previa `npm run render`.
+
+| CA | Resultado |
+|----|-----------|
+| CA1–CA27 | ✅ PASAN (79 pruebas de aceptación escritas antes del código + 303 unitarias). F-001 a F-004 siguen pasando |
+
+**Presupuesto:** dibujo de `hoy` (4 bloques, 800 × 480) con el contenedor arrancado: **151 ms** de promedio (tope 500 ms; en la vuelta 1 eran 500–770 ms: se reutiliza la página).
+
+**Vueltas**
+- Pruebas: 1 vuelta, sin CA «NO VERIFICABLE».
+- Programación: 4 vueltas (la 1 en dos corridas: la primera se cortó por el límite de uso de la cuenta). 2: el cierre del servidor no detenía Chromium (se colgaba con conexiones abiertas) + página reutilizada. 3: bloqueante del revisor (la revisión de letras hacía esperar a las vistas) + Ctrl+C al grupo de procesos. 4: prioridad en el `Renderer` (aclaración de la ficha, CA27).
+- Verificación: 4 vueltas: NO CUMPLE (CA20 cierre; CA17 por una contradicción de la ficha, aclarada), CUMPLE, NO CUMPLE (sin el reintento ante `busy` que el verificador había puesto, y con varios motores: se vio que la ficha no decía cómo programar la revisión de letras, aclarado), CUMPLE 27/27.
+- Revisión: juicio (1 bloqueante, resuelto) → confirmación (aprobado).
+- Aclaraciones de la ficha: `renders()` cuenta solo dibujos de vistas (CA17); prioridad en el `Renderer` y CA27.
+
+**Mejoras anotadas (no bloquean)**
+- `priorityQueue`: si una tarea lanzara de forma síncrona, la cola se trabaría (corregir con `Promise.resolve().then(task)`).
+- Tras un tiempo vencido, el dibujo viejo puede cerrar el contexto del siguiente al fallar (`dropCached` por identidad).
+- Con tráfico `normal` continuo, un dibujo `low` (y el `close()`) espera sin límite: es lo que pide CA27; queda escrito.
+- `hoy` en un panel de 200 ppp de 800 × 480 da `tooSmall` en el calendario (el espacio mide menos de 35 mm): comportamiento esperado.
+- El script `npm run render` es nuevo (está en *Vista previa*).
+
+**Costo de agentes:** USD 9,95 en 37 corridas (programador 6,48 · verificador 3,10 · revisor 0,33 · integrador 0,05).
 
 ## Resumen para aprobar
-*(Al cerrar, con `docs/plantillas/resumen-aprobacion.md`.)*
+
+**Qué cambió:** existe el motor de vistas: arma cada pantalla con una cuadrícula fija y bloques (pendientes por categoría, Jira, próximos eventos, calendario del mes y detalle), la dibuja con CSS en un Chromium aislado a 1 bit y nítida (DejaVu Sans + Terminus), nunca deja que algo se desborde («+N más») y tiene la imagen lista antes de que la pantalla despierte. Con el emulador, la vista de 4 bloques funciona de punta a punta: se marca una tarea con los botones y la pantalla cambia.
+
+**Criterios:** 27 de 27 pasan · vueltas: verificación 4, revisión 2
+
+**Revisión:** aprobada (el bloqueante se resolvió) · 3 mejoras anotadas · zonas sensibles: `server/src/engine/chromium.ts`, `html.ts`, `server/fonts/`, `package.json`
+**Dependencias nuevas:** `playwright-core` 1.64.1 (sin dependencias propias); imagen Docker `chromedp/headless-shell` fijada por *digest*
+
+**Riesgos o pendientes:** la letra se confirma en el panel real (M9); las 3 mejoras del revisor; F-006 (tareas de Trilium), F-008 (el aparato informa su vista) y la ficha del servicio permanente.
+
+**Costo de agentes:** USD 9,95.
+
+**Decisión que se pide:** integrar `ver/F-005` a `main`.
