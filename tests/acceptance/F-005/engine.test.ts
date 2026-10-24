@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call -- JSON de prueba */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return -- JSON de prueba */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Action } from "../../../contract/src/index.ts";
 import { zoneId, type Engine } from "../../../server/src/engine/index.ts";

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call -- JSON de prueba */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access -- JSON de prueba */
 import { describe, expect, it } from "vitest";
 import { validateErrorBody } from "../../../contract/src/index.ts";
 import { createApp } from "../../../server/src/index.ts";

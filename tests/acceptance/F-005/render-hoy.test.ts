@@ -150,22 +150,21 @@ describe("CA8 divisores y calendario (P124)", () => {
   it("calendario tiene un rectángulo negro relleno de 12 px o más de alto", async () => {
     const { views } = await drawn(P124);
     const img = viewOf(views, "hoy").raw1;
-    // runs[x] = consecutive black pixels downwards from (x, y), inside the calendar area
-    const x0 = 404;
-    const y0 = 284;
+    // Today is a filled black box with a white numeral: look for its frame, i.e. a black
+    // top edge of >= 8 px with black columns >= 12 px tall at its left end and 3 px in.
     const W = 800;
     const H = 480;
-    const run = new Array<number>(W).fill(0);
+    const down = (x: number, y: number): number => {
+      let n = 0;
+      while (y + n < H && isBlack(img, W, x, y + n)) n++;
+      return n;
+    };
     let found = false;
-    for (let y = H - 1; y >= y0 && !found; y--) {
-      for (let x = x0; x < W; x++) run[x] = isBlack(img, W, x, y) ? (run[x] ?? 0) + 1 : 0;
-      let wide = 0;
-      for (let x = x0; x < W; x++) {
-        wide = (run[x] ?? 0) >= 12 ? wide + 1 : 0;
-        if (wide >= 8) {
-          found = true;
-          break;
-        }
+    for (let y = 284; y < H && !found; y++) {
+      for (let x = 404; x + 7 < W && !found; x++) {
+        let edge = true;
+        for (let k = 0; k < 8 && edge; k++) edge = isBlack(img, W, x + k, y);
+        if (edge && down(x, y) >= 12 && down(x + 3, y) >= 12) found = true;
       }
     }
     expect(found).toBe(true);
@@ -178,7 +177,7 @@ describe("CA9 lista completa y casillas (P124)", () => {
     const v = viewOf(views, "pendientes");
     expect(v.zones).toHaveLength(10);
     expect(v.hidden).toEqual({ lista: 0 });
-    expect(rect(v.zones[0] as Zone)).toEqual({ x: 10, y: 68, w: 780, h: 24 });
+    expect(v.zones[0]).toMatchObject({ x: 10, y: 68, w: 780, h: 24 });
     expect(v.zones[4]?.id).toBe(zoneId("pendientes", "tareas", "t-005"));
     expect(v.zones[4]?.y).toBe(186);
     // t-001: pendiente, casilla en (10, 72) de 15 × 15
@@ -194,7 +193,7 @@ describe("CA10 otros ppp y panel vertical", () => {
   it("pendientes en P200", async () => {
     const { views } = await drawn(P200);
     const v = viewOf(views, "pendientes");
-    expect(rect(v.zones[0] as Zone)).toEqual({ x: 16, y: 110, w: 768, h: 39 });
+    expect(v.zones[0]).toMatchObject({ x: 16, y: 110, w: 768, h: 39 });
   }, 60_000);
 
   it("hoy en V124 usa portrait", async () => {

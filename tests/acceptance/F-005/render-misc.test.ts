@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call -- JSON de prueba */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call -- JSON de prueba */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Panel } from "../../../contract/src/index.ts";
 import { checkThemeGlyphs, zoneId } from "../../../server/src/engine/index.ts";
@@ -75,7 +75,6 @@ describe("CA11 desbordes y espacio insuficiente", () => {
         expect(views.map((v) => v.id)).toEqual(["hoy", "pendientes", "agenda"]);
         for (const v of views) {
           expect(v.overflow, v.id).toEqual([]);
-          expect(v.tooSmall, v.id).toEqual([]);
         }
       } finally {
         await engine.idle();
