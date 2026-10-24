@@ -11,15 +11,17 @@ import {
 import {
   ConfigError,
   parseItems,
+  stageOf,
   type CalendarEvent,
   type DataFile,
   type Source,
+  type Stage,
   type Task,
   type ViewDef,
   type ViewsConfig,
 } from "./config.ts";
 import type { Renderer } from "./chromium.ts";
-import { dayKey, localParts } from "./dates.ts";
+import { dayKey, localParts, staleLabel } from "./dates.ts";
 import { buildDetailView, buildView, zoneId, type BuiltView } from "./view.ts";
 import { checkThemeGlyphs } from "./theme.ts";
 
@@ -66,6 +68,7 @@ export interface Engine {
   setSource(
     id: string,
     items: unknown,
+    meta?: { readAt?: Date },
   ): { ok: true; changed: boolean } | { ok: false; error: string };
   prewarm(): Promise<void>;
   idle(): Promise<void>;
@@ -100,6 +103,7 @@ interface Job {
   panel: Panel;
   at: Date;
   sources: Record<string, Source>;
+  stale: Record<string, string>;
   finish(): void;
 }
 
@@ -140,6 +144,10 @@ export function createEngine(options: EngineOptions): Engine {
     sources = { ...sources, [id]: source };
     digests.delete(id);
   };
+
+  // Last good read of each source, and the stage a task had before it was marked done.
+  const readAts = new Map<string, Date>();
+  const previousStage = new Map<string, Stage>();
 
   const deviceViews = new Map(Object.entries(config.devices));
   const defs = new Map(config.views.map((view) => [view.id, view]));
@@ -185,17 +193,31 @@ export function createEngine(options: EngineOptions): Engine {
     return list;
   }
 
-  function keyOf(d: Descriptor, panel: Panel, at: Date): string {
-    const today = dayKey(localParts(at, config.timezone).day);
-    const used = d.detail
+  const usedSources = (d: Descriptor): string[] =>
+    d.detail
       ? [d.detail.sourceId]
       : [...new Set(Object.values(d.def.slots).map((slot) => slot.source))];
+
+  /** The "sin datos desde" notice of each used source, as of `at`. */
+  function staleFor(d: Descriptor, at: Date): Record<string, string> {
+    const out = new Map<string, string>();
+    for (const id of usedSources(d)) {
+      const label = staleLabel(readAts.get(id), at, config.timezone);
+      if (label !== undefined) out.set(id, label);
+    }
+    return Object.fromEntries(out);
+  }
+
+  function keyOf(d: Descriptor, panel: Panel, at: Date): string {
+    const today = dayKey(localParts(at, config.timezone).day);
+    const used = usedSources(d);
+    const stale = staleFor(d, at);
     return sha(
       JSON.stringify([
         d.detail ? ["detail", d.parent, d.detail.itemId] : (defJson.get(d.id) ?? ""),
         "base",
         config.timezone,
-        used.map((id) => [id, digestOf(id)]),
+        used.map((id) => [id, digestOf(id), Object.hasOwn(stale, id) ? stale[id] : null]), // eslint-disable-line security/detect-object-injection -- guarded by hasOwn
         today,
         [panel.w, panel.h, panel.dpi],
       ]),
@@ -227,7 +249,7 @@ export function createEngine(options: EngineOptions): Engine {
     drawn++;
     const lastKey = `${d.id}|${panelKey(panel)}`;
     try {
-      const input = { panel, config, sources: job.sources, at: job.at };
+      const input = { panel, config, sources: job.sources, at: job.at, stale: job.stale };
       const built: BuiltView = d.detail
         ? buildDetailView({ ...input, ...d.detail })
         : buildView(d.def, input);
@@ -311,7 +333,15 @@ export function createEngine(options: EngineOptions): Engine {
     if (waiting) return { key, done: waiting };
     if (closed) return { key };
     const done = new Promise<void>((resolve) => {
-      queue.push({ key, descriptor: d, panel, at, sources, finish: resolve });
+      queue.push({
+        key,
+        descriptor: d,
+        panel,
+        at,
+        sources,
+        stale: staleFor(d, at),
+        finish: resolve,
+      });
     });
     pending.set(key, done);
     void pump();
@@ -412,14 +442,29 @@ export function createEngine(options: EngineOptions): Engine {
     const target = findTarget(device, action.view, action.zone);
     if (!target) return { status: "stale", changed: false } as const;
 
-    if (action.act === "toggle" && target.block === "task-list" && !target.readonly) {
+    const checkable = target.block === "task-list" || target.block === "task-board";
+    if (action.act === "toggle" && checkable && !target.readonly) {
       const source = sources[target.sourceId];
       if (source?.type !== "tasks") return { status: "stale", changed: false } as const;
+      const remember = `${target.sourceId}\n${target.itemId}`;
       replaceSource(target.sourceId, {
         ...source,
-        items: source.items.map((task) =>
-          task.id === target.itemId ? { ...task, done: !task.done } : task,
-        ),
+        items: source.items.map((task) => {
+          if (task.id !== target.itemId) return task;
+          // F-005 data (no stage) keeps its plain flip in `task-list`.
+          if (task.stage === undefined && target.block === "task-list") {
+            return { ...task, done: !task.done };
+          }
+          if (stageOf(task) !== "done") {
+            previousStage.set(remember, stageOf(task));
+            return { ...task, stage: "done", done: true, doneAt: clock().toISOString() };
+          }
+          const back = previousStage.get(remember) ?? "todo";
+          previousStage.delete(remember);
+          const reopened: Task = { ...task, stage: back, done: false };
+          delete reopened.doneAt;
+          return reopened;
+        }),
       });
       enqueueWhere((d) => usesSource(d, target.sourceId));
       return { status: "applied", changed: true } as const;
@@ -428,7 +473,7 @@ export function createEngine(options: EngineOptions): Engine {
     const opens =
       target.block === "agenda" ||
       target.block === "issue-list" ||
-      (target.block === "task-list" && target.readonly);
+      ((target.block === "task-list" || target.block === "task-board") && target.readonly);
     if (action.act === "open" && opens) {
       const state = stateOf(device);
       const before = state.open;
@@ -505,7 +550,7 @@ export function createEngine(options: EngineOptions): Engine {
 
     apply,
 
-    setSource(id, items) {
+    setSource(id, items, meta) {
       const source = ownSource(id);
       if (!source) return { ok: false, error: "unknown source" };
       let parsed: Task[] | CalendarEvent[];
@@ -515,12 +560,13 @@ export function createEngine(options: EngineOptions): Engine {
         // ConfigError carries only a pointer and a reason, never a value.
         return { ok: false, error: error instanceof ConfigError ? error.message : "invalid items" };
       }
-      if (JSON.stringify(parsed) === JSON.stringify(source.items)) {
-        return { ok: true, changed: false };
-      }
-      replaceSource(id, { ...source, items: parsed } as Source);
+      const readAt = meta?.readAt;
+      if (readAt instanceof Date && !Number.isNaN(readAt.getTime())) readAts.set(id, readAt);
+      const changed = JSON.stringify(parsed) !== JSON.stringify(source.items);
+      if (changed) replaceSource(id, { ...source, items: parsed } as Source);
+      // Queues the views whose key changed (data or notice); a cached key draws nothing.
       enqueueWhere((d) => usesSource(d, id));
-      return { ok: true, changed: true };
+      return { ok: true, changed };
     },
 
     prewarm() {

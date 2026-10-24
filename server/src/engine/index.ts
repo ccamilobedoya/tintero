@@ -9,7 +9,9 @@ export {
   parseDataFile,
   parseViewsConfig,
 } from "./config.ts";
-export type { DataFile, ViewsConfig } from "./config.ts";
+export { stageOf } from "./config.ts";
+export type { DataFile, Stage, ViewsConfig } from "./config.ts";
+export { staleLabel } from "./dates.ts";
 export { slotRects } from "./layout.ts";
 export type { SlotRect } from "./layout.ts";
 export { mmToPx, ptToPx } from "./units.ts";

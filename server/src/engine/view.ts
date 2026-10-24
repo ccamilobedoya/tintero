@@ -63,6 +63,8 @@ interface Input {
   config: ViewsConfig;
   sources: Record<string, Source>;
   at: Date;
+  /** Per source: the "sin datos desde" notice for this draw, when there is one. */
+  stale?: Record<string, string>;
 }
 
 function newFocus(viewId: string, sourceId: string, zones: ZoneSpec[]) {
@@ -78,7 +80,7 @@ function newFocus(viewId: string, sourceId: string, zones: ZoneSpec[]) {
 }
 
 export function buildView(def: ViewDef, input: Input): BuiltView {
-  const { panel, config, sources, at } = input;
+  const { panel, config, sources, at, stale } = input;
   const metrics = themeMetrics(panel);
   const today = localParts(at, config.timezone).day;
   const grid = gridFor(def, panel);
@@ -112,6 +114,8 @@ export function buildView(def: ViewDef, input: Input): BuiltView {
       source,
       timeZone: config.timezone,
       today,
+      stale:
+        stale !== undefined && Object.hasOwn(stale, slot.source) ? stale[slot.source] : undefined,
       focus: newFocus(def.id, slot.source, zones),
     };
     const result = BLOCKS[slot.block](context);
