@@ -14,6 +14,7 @@ import {
 } from "./engine/index.ts";
 import { startServer } from "./index.ts";
 import { logEngine } from "./log.ts";
+import { shutdown, type ShutdownStep } from "./shutdown.ts";
 
 const USAGE =
   "usage: server [--port N] [--host 127.0.0.1] [--next-wake-s N] [--headers-timeout-ms N]\n" +
@@ -39,6 +40,11 @@ if (options.host !== "127.0.0.1") {
 // The view engine (F-005): only with --views and --data; without them the demonstration runs.
 let engine: Engine | undefined;
 let stopChromium: (() => Promise<void>) | undefined;
+// Engine first, then the container: the container always gets its turn.
+const steps = (): ShutdownStep[] => [
+  { name: "engine", run: () => engine?.close(), timeoutMs: 5000 },
+  { name: "chromium", run: () => stopChromium?.(), timeoutMs: 25_000 },
+];
 if (options.views !== undefined && options.data !== undefined) {
   let loaded;
   try {
@@ -63,7 +69,7 @@ if (options.views !== undefined && options.data !== undefined) {
       log: logEngine,
     });
   } catch {
-    await stopChromium?.();
+    await shutdown(steps());
     console.error("cannot start the view engine: Chromium is not available");
     process.exit(2);
   }
@@ -77,8 +83,7 @@ try {
     options.port,
   );
 } catch {
-  await engine?.close();
-  await stopChromium?.();
+  await shutdown(steps());
   console.error(
     "cannot start: the TLS files or the device list cannot be read, or the port is busy",
   );
@@ -86,14 +91,16 @@ try {
 }
 console.log(JSON.stringify({ listening: running.url }));
 
+let stopping = false;
 const stop = (): void => {
-  void running
-    .close()
-    .then(() => engine?.close())
-    .then(() => stopChromium?.())
-    .finally(() => {
-      process.exit(0);
-    });
+  if (stopping) return;
+  stopping = true;
+  void shutdown([
+    { name: "server", run: () => running.close(), timeoutMs: 3000 },
+    ...steps(),
+  ]).finally(() => {
+    process.exit(0);
+  });
 };
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
