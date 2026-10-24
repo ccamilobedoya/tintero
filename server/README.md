@@ -30,6 +30,28 @@ npm run render -- --views config/views.example.json --data config/data.example.j
 
 Por cada vista del aparato (`--device`, por defecto `*`) escribe `<id>.png` (la misma imagen que recibe el aparato), `<id>.zones.png` (con el borde de cada zona invertido, 2 px) y `<id>.zones.json`. Sale con 0; con 2 ante opciones o archivos inválidos; con **1** si alguna vista tiene desbordes. La carpeta de salida debe quedar fuera del repo.
 
+### Bloque `task-board` (F-006)
+
+Tareas del tablero por etapa (`doing` *En progreso*, `todo` *Por hacer*, `done` *Hecho hoy*). Ejemplos: `config/tablero.views.example.json` y `config/tablero.data.example.json`.
+
+```bash
+npm run render -- --views config/tablero.views.example.json --data config/tablero.data.example.json \
+  --panel w=800,h=480,dpi=124,depth=1 --now 2026-10-24T17:00:00Z --out /tmp/tintero-tablero
+```
+
+| Opción | Valores | Por defecto |
+|--------|---------|-------------|
+| `stages` | 1–3 de `"doing"`, `"todo"`, `"done"`, sin repetir, en el orden en que se dibujan | `["doing", "todo"]` |
+| `lead` | `true`: la primera etapa **manda** (franja negra, títulos de hasta 2 líneas, casilla grande) | `false` |
+| `group_by` | `"category"` \| `"none"` (etapas que no mandan; sin encabezados si ninguna tarea trae categoría) | `"category"` |
+| `density` | `"row"` (una línea) \| `"card"` (título de hasta 2 líneas y detalle) — etapas que no mandan | `"row"` |
+
+- Cada etapa tiene una franja con su nombre y su total (o, si manda y la fuente lleva más de 5 min sin lectura buena, `sin datos desde HH:MM`). En *Hecho hoy* solo entran las de `doneAt` del día local de la vista.
+- Casilla: *Por hacer* vacía, *En progreso* a medias, *Hecho* llena y con el título tachado; sin casilla si la fuente es `readonly`. `vence` anterior a hoy sale blanco sobre negro.
+- **Regla de «cabe»:** si todo cabe, se dibuja todo. Si no, se reserva `moreRow` al final y se recorre etapa por etapa: cada una conserva su franja y su primera fila (se reserva lo que necesitan las etapas que faltan) y sus filas entran mientras quepan; la primera que no cabe pasa a la etapa siguiente. «+N más» cuenta las tareas sin mostrar de todas las etapas. Mínimo: 30 mm de ancho y alto para franja + primera fila + «+N más»; si no, «No cabe».
+- Zonas: una por tarea (`toggle`, o `open` si la fuente es `readonly`). `toggle` pasa la tarea a *Hecho* (con `doneAt` = reloj del motor) y, otra vez, la devuelve a su etapa anterior.
+- `setSource(id, items, { readAt })` recibe la hora de la última lectura buena.
+
 ### Cómo se escribe un bloque nuevo
 
 Un bloque es una función `(context: BlockContext) => BlockResult` en `src/engine/blocks/<nombre>.ts`, registrada en `blocks/index.ts` y en `config.ts` (nombre, tipo de fuente y opciones). No sabe de dónde vienen los datos (ADR-0009): recibe los elementos de su fuente.

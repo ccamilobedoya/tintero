@@ -1,4 +1,5 @@
 // Pieces shared by the blocks: the "fits / +N more" rule, the block title row and "No cabe".
+import type { Task } from "../config.ts";
 import { html, type Raw } from "../html.ts";
 import { fontCss } from "../theme.ts";
 import { mmToPx } from "../units.ts";
@@ -126,6 +127,28 @@ export function noFit(context: BlockContext): BlockResult {
       No cabe
     </div>`,
   };
+}
+
+const NO_CATEGORY = "Sin categoría";
+
+export function groupTasks(tasks: Task[], byCategory: boolean): Group<Task>[] {
+  if (!byCategory) return [{ items: tasks }];
+  const order: string[] = [];
+  const byName = new Map<string, Task[]>();
+  for (const task of tasks) {
+    const name = task.category ?? NO_CATEGORY;
+    let list = byName.get(name);
+    if (!list) {
+      list = [];
+      byName.set(name, list);
+      order.push(name);
+    }
+    list.push(task);
+  }
+  // Tasks without a category go last, whatever their position in the data.
+  const names = [...order.filter((name) => name !== NO_CATEGORY)];
+  if (byName.has(NO_CATEGORY)) names.push(NO_CATEGORY);
+  return names.map((name) => ({ header: name, items: byName.get(name) ?? [] }));
 }
 
 /** `25 oct` from `2026-10-25`. */

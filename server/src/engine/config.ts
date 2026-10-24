@@ -8,11 +8,12 @@ export class ConfigError extends Error {}
 const MAX_VIEWS_BYTES = 65_536;
 const MAX_DATA_BYTES = 524_288;
 
-export type BlockName = "task-list" | "issue-list" | "agenda" | "month-calendar";
+export type BlockName = "task-list" | "task-board" | "issue-list" | "agenda" | "month-calendar";
 export type SourceType = "tasks" | "events";
 
 const BLOCK_SOURCE: Record<BlockName, SourceType> = {
   "task-list": "tasks",
+  "task-board": "tasks",
   "issue-list": "tasks",
   agenda: "events",
   "month-calendar": "events",
@@ -48,15 +49,26 @@ export interface ViewsConfig {
   views: ViewDef[];
 }
 
+export type Stage = "todo" | "doing" | "done";
+const STAGES: readonly string[] = ["todo", "doing", "done"];
+
 export interface Task {
   id: string;
   title: string;
   done: boolean;
+  /** Without it: done ? "done" : "todo". When present, `done === (stage === "done")`. */
+  stage?: Stage;
+  /** RFC 3339 with zone; only with stage "done". */
+  doneAt?: string;
   category?: string;
   due?: string;
   key?: string;
   status?: string;
   description?: string;
+}
+
+export function stageOf(task: Task): Stage {
+  return task.stage ?? (task.done ? "done" : "todo");
 }
 
 export interface CalendarEvent {
@@ -208,6 +220,7 @@ function readSlot(r: Reader, value: unknown, pointer: string): Slot {
   if (own(obj, "options") !== undefined) {
     const known: Record<BlockName, string[]> = {
       "task-list": ["group_by"],
+      "task-board": ["stages", "lead", "group_by", "density"],
       "issue-list": ["description"],
       agenda: ["days"],
       "month-calendar": [],
@@ -218,6 +231,24 @@ function readSlot(r: Reader, value: unknown, pointer: string): Slot {
       if (group !== "category" && group !== "none") {
         r.fail(`${pointer}/options/group_by`, "must be category or none");
       }
+    }
+    if (own(options, "density") !== undefined) {
+      const density = own(options, "density");
+      if (density !== "row" && density !== "card") {
+        r.fail(`${pointer}/options/density`, "must be row or card");
+      }
+    }
+    if (own(options, "lead") !== undefined) {
+      r.boolean(own(options, "lead"), `${pointer}/options/lead`);
+    }
+    if (own(options, "stages") !== undefined) {
+      const list = r.array(own(options, "stages"), `${pointer}/options/stages`, 1, 3);
+      list.forEach((entry, i) => {
+        if (typeof entry !== "string" || !STAGES.includes(entry)) {
+          r.fail(`${pointer}/options/stages/${i}`, "must be doing, todo or done");
+        }
+        if (list.indexOf(entry) !== i) r.fail(`${pointer}/options/stages/${i}`, "repeated stage");
+      });
     }
     if (own(options, "description") !== undefined) {
       r.boolean(own(options, "description"), `${pointer}/options/description`);
@@ -326,6 +357,8 @@ function readTask(r: Reader, value: unknown, pointer: string): Task {
     "id",
     "title",
     "done",
+    "stage",
+    "doneAt",
     "category",
     "due",
     "key",
@@ -350,6 +383,22 @@ function readTask(r: Reader, value: unknown, pointer: string): Task {
     const due = r.string(own(obj, "due"), `${pointer}/due`, 10, 10);
     if (!validDate(due)) r.fail(`${pointer}/due`, "must be YYYY-MM-DD");
     task.due = due;
+  }
+  if (own(obj, "stage") !== undefined) {
+    const stage = own(obj, "stage");
+    if (typeof stage !== "string" || !STAGES.includes(stage)) {
+      r.fail(`${pointer}/stage`, "must be todo, doing or done");
+    }
+    task.stage = stage as Stage;
+    if (task.done !== (task.stage === "done")) {
+      r.fail(`${pointer}/stage`, "does not match done");
+    }
+  }
+  if (own(obj, "doneAt") !== undefined) {
+    const doneAt = r.string(own(obj, "doneAt"), `${pointer}/doneAt`, 20, 40);
+    if (task.stage !== "done") r.fail(`${pointer}/doneAt`, 'needs stage "done"');
+    if (!validDateTime(doneAt)) r.fail(`${pointer}/doneAt`, "must be RFC 3339 with zone");
+    task.doneAt = doneAt;
   }
   return task;
 }

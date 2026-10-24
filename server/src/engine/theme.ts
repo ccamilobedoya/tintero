@@ -61,6 +61,11 @@ export interface Metrics {
   box: number;
   boxBorder: number;
   gap: number;
+  strip: number;
+  sectionGap: number;
+  leadLine: number;
+  metaLine: number;
+  cardLine: number;
   font: Record<FontRole, FontChoice>;
 }
 
@@ -84,6 +89,11 @@ export function themeMetrics(panel: Panel): Metrics {
     box: mm(3),
     boxBorder: mm(0.5),
     gap: mm(1.5),
+    strip: mm(5),
+    sectionGap: mm(3),
+    leadLine: mm(5.5),
+    metaLine: mm(4),
+    cardLine: mm(4),
     font: { title: font("title"), text: font("text"), detail: font("detail") },
   };
 }

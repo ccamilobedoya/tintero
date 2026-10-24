@@ -18,6 +18,8 @@ export interface BlockContext {
   source: Source;
   timeZone: string;
   today: DayParts;
+  /** `sin datos desde HH:MM` when the source has not been read well for over 5 min. */
+  stale?: string | undefined;
   /** Asks for a focus zone on a row; returns the opaque `data-zone` id, or undefined when none is given. */
   focus(itemId: string, act: "toggle" | "open", w: number, h: number): string | undefined;
 }

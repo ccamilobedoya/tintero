@@ -137,5 +137,18 @@ export const shortDate = (day: DayParts): string =>
 /** `VIE 23 OCT` */
 export const upperDate = (day: DayParts): string => shortDate(day).toUpperCase();
 
+const STALE_AFTER_MS = 5 * 60 * 1000;
+
+/** `sin datos desde HH:MM` (local time of the last good read) when it is over 5 min old. */
+export function staleLabel(
+  readAt: Date | undefined,
+  now: Date,
+  timeZone: string,
+): string | undefined {
+  if (readAt === undefined || now.getTime() - readAt.getTime() <= STALE_AFTER_MS) return undefined;
+  const local = localParts(readAt, timeZone);
+  return `sin datos desde ${hhmm(local.hour * 60 + local.minute)}`;
+}
+
 export const daysInMonth = (y: number, m: number): number =>
   new Date(Date.UTC(y, m, 0)).getUTCDate();
