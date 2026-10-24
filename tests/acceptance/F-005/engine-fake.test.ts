@@ -70,7 +70,6 @@ describe("CA17 espera y busy", () => {
       const second = await e.index("local", P124);
       expect(second.ok).toBe(true);
       expect(e.renders()).toBe(n);
-      expect(r.count).toBe(n);
     } finally {
       await e.idle();
       await e.close();

@@ -55,10 +55,14 @@ describe("CA6 Chromium real, nitidez", () => {
   }, 90_000);
 
   it("hoy en P124: 48 000 bytes, gray = 0, overflow = [], y es repetible", async () => {
+    // The view draw is the call with a full-panel image; the glyph check draws other sizes.
+    const full = () => cr.renderer.calls.filter((c) => c.out.raw1.length === 48_000);
+    const n0 = full().length;
     const first = await drawn(P124, ["hoy"]);
-    const call1 = cr.renderer.calls.at(-1);
+    const call1 = full()[n0];
     const second = await drawn(P124, ["hoy"]);
-    const call2 = cr.renderer.calls.at(-1);
+    const call2 = full()[n0 + 1];
+    expect(viewOf(first.views, "hoy").raw1.length).toBe(48_000);
     expect(call1?.out.raw1.length).toBe(48_000);
     expect(call1?.out.gray).toBe(0);
     expect(call1?.out.overflow).toEqual([]);

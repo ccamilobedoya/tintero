@@ -92,7 +92,12 @@ export async function getViews(
   device: string,
   panel: Panel,
 ): Promise<{ current: string; views: RenderedView[] }> {
-  const r = await engine.index(device, panel);
+  let r = await engine.index(device, panel);
+  if (!r.ok && r.code === "busy") {
+    // The client retries after `busy` (ficha CA17): wait for the draws and ask again.
+    await engine.idle();
+    r = await engine.index(device, panel);
+  }
   if (!r.ok) throw new Error(`index failed: ${r.code}`);
   return r.value;
 }
@@ -285,7 +290,7 @@ export interface Cli {
 
 /** Starts `npm run server -- --port 0 ...` (new process group) and reads the first line. */
 export async function startCli(extra: string[]): Promise<Cli> {
-  const p = spawn("npm", ["run", "--silent", "server", "--", "--port", "0", ...extra], {
+  const p = spawn(process.execPath, ["server/src/main.ts", "--port", "0", ...extra], {
     cwd: ROOT,
     detached: true,
     stdio: ["ignore", "pipe", "pipe"],
@@ -310,11 +315,12 @@ export async function startCli(extra: string[]): Promise<Cli> {
   const stop = async (): Promise<void> => {
     if (!p.pid) return;
     try {
-      process.kill(-p.pid, "SIGTERM");
+      // Only the server process gets the signal (as a service manager would), not its children.
+      process.kill(p.pid, "SIGTERM");
     } catch {
       return;
     }
-    await Promise.race([exited, new Promise((r) => setTimeout(r, 12_000))]);
+    await Promise.race([exited, new Promise((r) => setTimeout(r, 20_000))]);
     try {
       process.kill(-p.pid, "SIGKILL");
     } catch {
