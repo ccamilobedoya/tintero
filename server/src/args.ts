@@ -2,6 +2,7 @@
 import { parseArgs } from "node:util";
 import { LIMITS } from "../../contract/src/index.ts";
 import type { ServerConfig } from "./app.ts";
+import { cdpBase } from "./engine/chromium.ts";
 
 export class UsageError extends Error {}
 
@@ -9,6 +10,11 @@ export interface Options {
   port: number;
   host: string;
   config: ServerConfig;
+  /** Files of the view engine (F-005); they come together. */
+  views?: string;
+  data?: string;
+  /** An already running Chromium (`http://127.0.0.1:<port>`); otherwise the server starts its own. */
+  chromium?: string;
 }
 
 function integer(name: string, value: string, min: number, max: number): number {
@@ -36,6 +42,9 @@ export function parseOptions(argv: string[]): Options {
         devices: { type: "string" },
         "max-panels": { type: "string" },
         "max-connections": { type: "string" },
+        views: { type: "string" },
+        data: { type: "string" },
+        chromium: { type: "string" },
       },
     }));
   } catch (error) {
@@ -77,9 +86,23 @@ export function parseOptions(argv: string[]): Options {
   ) {
     config.tls = { certFile, keyFile, clientCaFile, devicesFile };
   }
+  const { views, data, chromium } = values;
+  if ((views === undefined) !== (data === undefined)) {
+    throw new UsageError("--views and --data go together");
+  }
+  if (chromium !== undefined) {
+    if (views === undefined) throw new UsageError("--chromium needs --views and --data");
+    try {
+      cdpBase(chromium);
+    } catch (error) {
+      throw new UsageError("--chromium must be http://127.0.0.1:<port>", { cause: error });
+    }
+  }
   return {
     port: integer("--port", values.port ?? "8790", 0, 65_535),
     host: values.host ?? "127.0.0.1",
     config,
+    ...(views !== undefined && data !== undefined ? { views, data } : {}),
+    ...(chromium === undefined ? {} : { chromium: cdpBase(chromium) }),
   };
 }

@@ -10,6 +10,36 @@ npm run server -- [--port 8790] [--host 127.0.0.1] [--next-wake-s 1800] [--heade
 
 La primera línea de la salida es `{"listening":"http://127.0.0.1:<puerto>"}` (`--port 0` elige un puerto libre). `--host` distinto de `127.0.0.1` sale con código 2. Cada petición escribe una línea JSON en la salida estándar, sin contenido (S6).
 
+## Con el motor de vistas (F-005)
+
+```bash
+npm run server -- --views config/views.example.json --data config/data.example.json [--chromium http://127.0.0.1:<puerto>]
+```
+
+- `--views` (≤ 64 KiB) y `--data` (≤ 512 KiB) van **juntos** (si falta uno, sale con 2); un error en los archivos sale con 2 y un mensaje con la ruta JSON del campo (nunca el valor). Sin ellos, el servidor sigue con la demostración de F-003.
+- Sin `--chromium`, el servidor arranca su propio contenedor (`startChromium()`: imagen `CHROMIUM_IMAGE` de `tools/images.conf`, letras de `server/fonts/`, solo escucha en `127.0.0.1`) y lo detiene al salir (Ctrl+C / SIGTERM). Necesita Docker. `--chromium` solo acepta `http://127.0.0.1:<puerto>` (excepción de CDP en `docs/seguridad.md`).
+- Cada dibujo escribe una línea `{ "ts", "render", "ms", "ok" }` (más `overflow` o `tooSmall` si los hay), sin contenido.
+- Los dibujos se hacen cuando hay información nueva (`setSource`, una acción) o antes de que la pantalla despierte (cada 30 s se llama a `prewarm`); `503 busy` + `Retry-After: 5` solo es la red de seguridad.
+
+### Vista previa
+
+```bash
+npm run render -- --views config/views.example.json --data config/data.example.json \
+  --panel w=800,h=480,dpi=124,depth=1 --now 2026-10-23T12:00:00Z --out /tmp/tintero-vistas
+```
+
+Por cada vista del aparato (`--device`, por defecto `*`) escribe `<id>.png` (la misma imagen que recibe el aparato), `<id>.zones.png` (con el borde de cada zona invertido, 2 px) y `<id>.zones.json`. Sale con 0; con 2 ante opciones o archivos inválidos; con **1** si alguna vista tiene desbordes. La carpeta de salida debe quedar fuera del repo.
+
+### Cómo se escribe un bloque nuevo
+
+Un bloque es una función `(context: BlockContext) => BlockResult` en `src/engine/blocks/<nombre>.ts`, registrada en `blocks/index.ts` y en `config.ts` (nombre, tipo de fuente y opciones). No sabe de dónde vienen los datos (ADR-0009): recibe los elementos de su fuente.
+
+1. **Su diseño.** Todo en unidades físicas del tema (`context.metrics`: márgenes, alto de fila, letras ya elegidas con `pickFont`; nunca píxeles fijos). El bloque es dueño de su diseño, incluido qué hace con el texto que no cabe (una línea con «…», varias líneas con tope…). El HTML se arma **solo** con la plantilla `html` de `html.ts` (escapa todo valor); nada de `url()`, `@font-face` ni scripts.
+2. **Su regla de «cabe».** Use `fitList` de `blocks/common.ts`: las filas tienen el alto de su diseño, un encabezado solo se pone si cabe con una fila suya y, si no cabe todo, se reserva al final la fila «+N más» (`moreRow`). Devuelva `hidden` = cuántos elementos no se mostraron. Si el espacio es más chico que el mínimo del bloque, devuelva `noFit(context)` (`tooSmall`).
+3. **Sus zonas.** Por cada fila con foco llame `context.focus(itemId, "toggle" | "open", w, h)` **en el orden de las filas** (es el orden de `Tab`) y ponga el id que devuelve en `data-zone`. El motor ya limita a 48 zonas y a ≥ 8 px, y mide la caja real del elemento. Si el bloque no tiene foco, no llame a `focus`.
+4. **Revisión de desbordes.** Marque el contenedor y cada fila con `data-fit="<área>"` (`context.area`); el motor revisa después de dibujar que nada se salga a lo alto ni a lo ancho. Los textos con «…» no cuentan: se cortan a propósito dentro de su fila.
+5. Pruebas junto al código con el `Renderer` falso de `testing.ts`; `npm run render` muestra el resultado real.
+
 ## Probarlo con el emulador
 
 ```bash
@@ -51,3 +81,4 @@ npm run server -- --port 8443 \
 - `app.ts`: rutas, límites, errores, caché (expulsa la menos usada), paneles por aparato y registro de peticiones. `log.ts`: registro.
 - `tls.ts`: opciones TLS y huella. `devices.ts`: lista de aparatos. `../scripts/pki.ts`: CA y certificados.
 - `views.ts`, `draw.ts`, `state.ts`: vistas de demostración, dibujo `raw1` y estado.
+- `engine/` (F-005): `config.ts` (archivos de vistas y datos), `units.ts` y `theme.ts` (mm/pt → px, letras), `layout.ts` (cuadrícula → rectángulos), `blocks/` (un archivo por bloque), `view.ts` y `html.ts` (HTML de una vista, zona sensible), `chromium.ts` (contenedor y CDP, zona sensible), `png.ts` (PNG de Chromium → `raw1`), `engine.ts` (caché, cola de dibujo, estado por aparato, acciones), `index.ts` (lo que se exporta). `../scripts/render.ts`: vista previa.

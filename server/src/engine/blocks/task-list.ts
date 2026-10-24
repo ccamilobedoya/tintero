@@ -1,0 +1,95 @@
+// `task-list`: checkable rows (or open-only for a read-only source), grouped by category.
+import type { Task } from "../config.ts";
+import { MONTHS } from "../dates.ts";
+import { html, type Raw } from "../html.ts";
+import { fontCss } from "../theme.ts";
+import { fitList, groupHeader, isTooSmall, moreRow, noFit, shortDay, titleRow } from "./common.ts";
+import type { Block, BlockContext } from "./types.ts";
+
+const NO_CATEGORY = "Sin categoría";
+
+function groupTasks(tasks: Task[], byCategory: boolean): { header?: string; items: Task[] }[] {
+  if (!byCategory) return [{ items: tasks }];
+  const order: string[] = [];
+  const byName = new Map<string, Task[]>();
+  for (const task of tasks) {
+    const name = task.category ?? NO_CATEGORY;
+    let list = byName.get(name);
+    if (!list) {
+      list = [];
+      byName.set(name, list);
+      order.push(name);
+    }
+    list.push(task);
+  }
+  // Tasks without a category go last, whatever their position in the data.
+  const names = [...order.filter((name) => name !== NO_CATEGORY)];
+  if (byName.has(NO_CATEGORY)) names.push(NO_CATEGORY);
+  return names.map((name) => ({ header: name, items: byName.get(name) ?? [] }));
+}
+
+function taskRow(context: BlockContext, task: Task, y: number, readonly: boolean): Raw {
+  const { metrics } = context;
+  const h = metrics.row;
+  const zone = context.focus(task.id, readonly ? "open" : "toggle", context.w, h);
+  const boxTop = Math.floor((h - metrics.box) / 2);
+  const checkbox = readonly
+    ? html``
+    : html`<span
+        class="a"
+        style="left:0;top:${boxTop}px;width:${metrics.box}px;height:${metrics.box}px;border:${metrics.boxBorder}px solid #000;background:${task.done ? "#000" : "#fff"}"
+      ></span>`;
+  const first = readonly ? 0 : metrics.box + metrics.gap;
+  const due =
+    task.due === undefined
+      ? html``
+      : html`<span
+          style="grid-column:3;margin-left:${metrics.gap}px;white-space:nowrap;line-height:${h}px;${fontCss(metrics.font.detail)}"
+          >${shortDay(task.due, MONTHS)}</span
+        >`;
+  const deco = task.done ? "text-decoration:line-through;" : "";
+  return html`<div
+    class="a"
+    data-fit="${context.area}"
+    ${zone === undefined ? html`` : html` data-zone="${zone}"`}
+    style="left:0;top:${y}px;width:${context.w}px;height:${h}px;display:grid;grid-template-columns:${first}px minmax(0,1fr) max-content;align-items:center"
+  >
+    ${checkbox}<span
+      class="t"
+      style="grid-column:2;line-height:${h}px;${deco}${fontCss(metrics.font.text)}"
+      >${task.title}</span
+    >${due}
+  </div>`;
+}
+
+export const taskList: Block = (context) => {
+  const { metrics, slot, source } = context;
+  if (source.type !== "tasks") return noFit(context);
+  const grouped = slot.options.group_by !== "none";
+  const title = titleRow(context);
+  const minH =
+    2 * metrics.margin +
+    title.height +
+    (grouped ? metrics.groupRow : 0) +
+    metrics.row +
+    metrics.moreRow;
+  if (isTooSmall(context, 30, minH)) return noFit(context);
+  const fitted = fitList(
+    groupTasks(source.items, grouped),
+    () => metrics.row,
+    metrics.groupRow,
+    metrics.moreRow,
+    context.h - title.height,
+  );
+  const parts = fitted.placed.map((entry) => {
+    const y = title.height + entry.y;
+    return entry.kind === "header"
+      ? groupHeader(context, entry.text, y)
+      : taskRow(context, entry.item, y, source.readonly);
+  });
+  const more =
+    fitted.moreY === undefined
+      ? html``
+      : moreRow(context, title.height + fitted.moreY, fitted.hidden);
+  return { html: html`${title.html}${parts}${more}`, hidden: fitted.hidden, tooSmall: false };
+};

@@ -18,6 +18,7 @@ import {
   type ZonesResponse,
 } from "../../contract/src/index.ts";
 import { DeviceList } from "./devices.ts";
+import type { Engine, RenderedView } from "./engine/index.ts";
 import { logDevice, logRequest } from "./log.ts";
 import { DemoState } from "./state.ts";
 import { fingerprint, tlsOptions, type TlsConfig } from "./tls.ts";
@@ -31,15 +32,17 @@ export interface ServerConfig {
   maxConnections?: number; // 32
   maxPanelsPerDevice?: number; // 2
   tls?: TlsConfig;
+  engine?: Engine; // F-005: when present, the routes serve the views of the engine
 }
 
-type ErrorCode = "invalid_request" | "unknown_view" | "stale_view" | "too_large";
+type ErrorCode = "invalid_request" | "unknown_view" | "stale_view" | "too_large" | "busy";
 
 const BODY_LIMIT = 4096;
 const MAX_HEADER_SIZE = 8192;
 const MAX_TEXT_HEADER = 64;
 const CACHE_LIMIT = 48;
 const HASH_QUERY = /^[0-9a-f]{8,16}$/;
+const PREWARM_EVERY_MS = 30_000;
 
 interface Rendered {
   image: Buffer;
@@ -98,6 +101,19 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
       return server;
     },
   });
+
+  const engine = config.engine;
+  if (engine) {
+    // D6: the next images are made before the screens wake up.
+    const timer = setInterval(() => {
+      void engine.prewarm();
+    }, PREWARM_EVERY_MS);
+    timer.unref();
+    app.addHook("onClose", (_instance, done) => {
+      clearInterval(timer);
+      done();
+    });
+  }
 
   // Who is asking: the id from the device list (TLS) or `local` (no TLS); null when not listed.
   const identity = new WeakMap<object, string | null>();
@@ -246,9 +262,59 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
     return { view, rendered };
   }
 
-  app.get("/api/v1/index", (request, reply) => {
+  const deviceId = (request: FastifyRequest): string => identity.get(request) ?? "local";
+
+  const busy = (reply: FastifyReply) => {
+    void reply.header("retry-after", "5");
+    return sendError(reply, 503, "busy", "busy");
+  };
+
+  /** The engine's view for `:id`, with the same errors as the demonstration (404 before 400). */
+  function engineViewOf(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    panel: Panel,
+    eng: Engine,
+  ): RenderedView | undefined {
+    const params = request.params as { id: string };
+    const h = (request.query as Record<string, unknown>).h;
+    const valid = typeof h === "string" && HASH_QUERY.test(h);
+    const found = eng.view(deviceId(request), panel, params.id, valid ? h : "-");
+    if (found.ok) return found.value;
+    if (found.code === "unknown_view") {
+      void sendError(reply, 404, "unknown_view", "unknown view");
+    } else if (!valid) {
+      void sendError(reply, 400, "invalid_request", "missing or invalid h");
+    } else {
+      void sendError(reply, 409, "stale_view", "stale view");
+    }
+    return undefined;
+  }
+
+  app.get("/api/v1/index", async (request, reply) => {
     const panel = deviceOf(request, reply);
     if (!panel) return reply;
+    if (engine) {
+      const result = await engine.index(deviceId(request), panel);
+      if (!result.ok) return busy(reply);
+      const body: IndexResponse = {
+        protocol: 1,
+        server_time: Math.floor(Date.now() / 1000),
+        next_wake_s: config.nextWakeS,
+        full_refresh: false,
+        panel,
+        current: result.value.current,
+        views: result.value.views.map((view) => ({
+          id: view.id,
+          hash: view.hash,
+          format: "raw1",
+          bytes: raw1Bytes(panel),
+          crc32: view.crc32,
+          ...(view.parent === undefined ? {} : { parent: view.parent }),
+        })),
+      };
+      return reply.type("application/json").send(JSON.stringify(body));
+    }
     const summaries: ViewSummary[] = views.map((view) => {
       const rendered = render(panel, view);
       return {
@@ -275,6 +341,14 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
   app.get("/api/v1/views/:id/image", (request, reply) => {
     const panel = deviceOf(request, reply);
     if (!panel) return reply;
+    if (engine) {
+      const view = engineViewOf(request, reply, panel, engine);
+      if (!view) return reply;
+      const etag = `"${view.hash}"`;
+      reply.header("etag", etag);
+      if (header(request, "if-none-match") === etag) return reply.code(304).send();
+      return reply.type("application/octet-stream").send(Buffer.from(view.raw1));
+    }
     const found = viewOf(request, reply, panel);
     if (!found) return reply;
     const etag = `"${found.rendered.hash}"`;
@@ -286,6 +360,12 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
   app.get("/api/v1/views/:id/zones", (request, reply) => {
     const panel = deviceOf(request, reply);
     if (!panel) return reply;
+    if (engine) {
+      const view = engineViewOf(request, reply, panel, engine);
+      if (!view) return reply;
+      const body: ZonesResponse = { view: view.id, hash: view.hash, zones: view.zones };
+      return reply.type("application/json").send(JSON.stringify(body));
+    }
     const found = viewOf(request, reply, panel);
     if (!found) return reply;
     const body: ZonesResponse = {
@@ -302,7 +382,7 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
     if (!parsed.ok) return sendError(reply, 400, "invalid_request", "invalid actions");
     let changed = false;
     const results = parsed.value.actions.map((action) => {
-      const outcome = state.apply(action);
+      const outcome = engine ? engine.apply(deviceId(request), action) : state.apply(action);
       changed ||= outcome.changed;
       return { id: action.id, status: outcome.status };
     });
@@ -318,5 +398,5 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
     return reply.code(204).send();
   });
 
-  return { app, renders: () => renderCount };
+  return { app, renders: () => (engine ? engine.renders() : renderCount) };
 }
