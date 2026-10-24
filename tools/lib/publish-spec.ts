@@ -1,16 +1,72 @@
 // CLI: tools/publicar-ficha <docs/fichas/F-NNN-*.md>
 // Copies a spec to Trilium under the "Fichas" note, found by its #ficha label: creates it once, then
-// updates it. Where Trilium is and which note holds the specs is local configuration, never in the
+// updates it. PNG images the spec links with a relative path (e.g. `../disenos/F-006/x.png`) go up as
+// image attachments of that note, reused by file name, and the links are rewritten to point at them,
+// so the designs live in Trilium too and survive every republish. Where Trilium is and which note holds the specs is local configuration, never in the
 // repo (ADR-0023): $TINTERO_LOCAL_ENV or ~/.config/tintero/local.env (see docs/configuracion-local.md).
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { asArray, asRecord, asString } from "./json.ts";
+
+export interface SpecImage {
+  /** The link exactly as the spec writes it. */
+  link: string;
+  /** Attachment title in Trilium: the file name, unique within the spec. */
+  name: string;
+  bytes: Uint8Array;
+}
 
 export interface Spec {
   id: string;
   title: string;
   content: string;
+  images?: SpecImage[];
+}
+
+export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+const IMAGE_LINK = /!\[([^\]]*)\]\(([^)\s]+\.png)\)/g;
+
+/** Relative PNG links of the spec, without repeats, in order. Absolute and remote links are left alone. */
+export function imageLinks(markdown: string): string[] {
+  const links: string[] = [];
+  for (const match of markdown.matchAll(IMAGE_LINK)) {
+    const link = match[2] ?? "";
+    if (/^([a-z]+:|\/)/i.test(link) || links.includes(link)) continue;
+    links.push(link);
+  }
+  return links;
+}
+
+/** Points every image link at its attachment; links without one stay as they are. */
+export function rewriteImages(markdown: string, attachments: Map<string, string>): string {
+  return markdown.replace(IMAGE_LINK, (whole, alt: string, link: string) => {
+    const id = attachments.get(link);
+    return id === undefined
+      ? whole
+      : `![${alt}](api/attachments/${id}/image/${encodeURIComponent(basename(link))})`;
+  });
+}
+
+/** Reads the linked images: only PNGs inside `docs/`, each up to MAX_IMAGE_BYTES, names unique. */
+export function loadImages(markdown: string, specPath: string, repoRoot: string): SpecImage[] {
+  const docs = resolve(repoRoot, "docs");
+  const images: SpecImage[] = [];
+  for (const link of imageLinks(markdown)) {
+    const path = resolve(dirname(specPath), decodeURI(link));
+    if (relative(docs, path).startsWith("..") || !path.startsWith(docs + sep))
+      throw new Error(`La imagen ${link} está fuera de docs/.`);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- checked to be inside docs/
+    const size = statSync(path).size;
+    if (size > MAX_IMAGE_BYTES)
+      throw new Error(`La imagen ${link} pesa ${size} bytes (tope ${MAX_IMAGE_BYTES}).`);
+    const name = basename(path);
+    if (images.some((image) => image.name === name))
+      throw new Error(`Dos imágenes se llaman ${name}; cambiarle el nombre a una.`);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- checked to be inside docs/
+    images.push({ link, name, bytes: new Uint8Array(readFileSync(path)) });
+  }
+  return images;
 }
 
 export function parseSpec(markdown: string): Spec {
@@ -75,7 +131,7 @@ export class TriliumClient {
   private async request(
     method: string,
     path: string,
-    body?: string,
+    body?: string | Uint8Array,
     type = "application/json",
   ): Promise<unknown> {
     const init: RequestInit = {
@@ -103,12 +159,66 @@ export class TriliumClient {
     return ids[0];
   }
 
-  async publish(spec: Spec): Promise<{ noteId: string; created: boolean }> {
+  /** Uploads each image as an attachment of the note (reusing one with the same title). */
+  async syncImages(noteId: string, images: SpecImage[]): Promise<Map<string, string>> {
+    const current = asArray(await this.request("GET", `notes/${noteId}/attachments`)).map(
+      (entry) => {
+        const record = asRecord(entry);
+        return {
+          id: asString(record.attachmentId),
+          title: asString(record.title),
+          role: asString(record.role),
+        };
+      },
+    );
+    const ids = new Map<string, string>();
+    for (const image of images) {
+      let id = current.find((att) => att.role === "image" && att.title === image.name)?.id;
+      if (id === undefined) {
+        const created = await this.request(
+          "POST",
+          "attachments",
+          JSON.stringify({
+            ownerId: noteId,
+            role: "image",
+            mime: "image/png",
+            title: image.name,
+            content: "",
+          }),
+        );
+        id = asString(asRecord(created).attachmentId);
+        if (id === "") throw new Error(`Trilium no devolvió el id del adjunto ${image.name}.`);
+      }
+      await this.request(
+        "PUT",
+        `attachments/${id}/content`,
+        image.bytes,
+        "application/octet-stream",
+      );
+      ids.set(image.link, id);
+    }
+    return ids;
+  }
+
+  async publish(spec: Spec): Promise<{ noteId: string; created: boolean; images: number }> {
+    const images = spec.images ?? [];
+    const withImages = async (noteId: string): Promise<void> => {
+      if (images.length === 0) return;
+      const ids = await this.syncImages(noteId, images);
+      await this.request(
+        "PUT",
+        `notes/${noteId}/content`,
+        rewriteImages(spec.content, ids),
+        "text/plain",
+      );
+    };
     const existing = await this.findSpec(spec.id);
     if (existing !== undefined) {
-      await this.request("PUT", `notes/${existing}/content`, spec.content, "text/plain");
+      if (images.length === 0)
+        await this.request("PUT", `notes/${existing}/content`, spec.content, "text/plain");
       await this.request("PATCH", `notes/${existing}`, JSON.stringify({ title: spec.title }));
-      return { noteId: existing, created: false };
+      await withImages(existing);
+      return { noteId: existing, created: false, images: images.length };
     }
     const created = await this.request(
       "POST",
@@ -133,7 +243,8 @@ export class TriliumClient {
         isInheritable: false,
       }),
     );
-    return { noteId, created: true };
+    await withImages(noteId);
+    return { noteId, created: true, images: images.length };
   }
 }
 
@@ -144,7 +255,9 @@ async function main(): Promise<number> {
     return 2;
   }
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- the architect passes the spec path
-  const spec = parseSpec(readFileSync(file, "utf8"));
+  const markdown = readFileSync(file, "utf8");
+  const repoRoot = resolve(dirname(new URL(import.meta.url).pathname), "../..");
+  const spec = { ...parseSpec(markdown), images: loadImages(markdown, resolve(file), repoRoot) };
   const configPath = process.env.TINTERO_LOCAL_ENV ?? join(homedir(), ".config/tintero/local.env");
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- local config outside the repo (600)
   const config = parseLocalConfig(readFileSync(configPath, "utf8"), homedir());
@@ -153,7 +266,9 @@ async function main(): Promise<number> {
   const client = new TriliumClient(config.etapiUrl, token, config.fichasNoteId);
   const result = await client.publish(spec);
   process.stdout.write(
-    `${result.created ? "Creada" : "Actualizada"}: ${spec.title} → nota ${result.noteId}\n`,
+    `${result.created ? "Creada" : "Actualizada"}: ${spec.title} → nota ${result.noteId}` +
+      (result.images > 0 ? ` (${result.images} imágenes adjuntas)` : "") +
+      "\n",
   );
   return 0;
 }

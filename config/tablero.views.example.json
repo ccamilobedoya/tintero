@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "timezone": "America/Lima",
+  "theme": "base",
+  "devices": {
+    "*": { "views": ["hoy", "tablero"] }
+  },
+  "views": [
+    {
+      "id": "hoy",
+      "title": "Hoy",
+      "grid": {
+        "columns": [62, 38],
+        "rows": [45, 55],
+        "areas": [
+          ["tareas", "hechas"],
+          ["tareas", "mes"]
+        ]
+      },
+      "portrait": {
+        "columns": [100],
+        "rows": [55, 20, 25],
+        "areas": [["tareas"], ["hechas"], ["mes"]]
+      },
+      "slots": {
+        "tareas": {
+          "block": "task-board",
+          "source": "tablero",
+          "options": { "stages": ["doing", "todo"], "lead": true }
+        },
+        "hechas": { "block": "task-board", "source": "tablero", "options": { "stages": ["done"] } },
+        "mes": { "block": "month-calendar", "source": "calendario" }
+      }
+    },
+    {
+      "id": "tablero",
+      "title": "Tablero",
+      "grid": {
+        "columns": [32, 38, 30],
+        "rows": [100],
+        "areas": [["por_hacer", "en_progreso", "hechas"]]
+      },
+      "portrait": {
+        "columns": [100],
+        "rows": [30, 50, 20],
+        "areas": [["en_progreso"], ["por_hacer"], ["hechas"]]
+      },
+      "tab": ["en_progreso", "por_hacer", "hechas"],
+      "slots": {
+        "por_hacer": {
+          "block": "task-board",
+          "source": "tablero",
+          "options": { "stages": ["todo"], "density": "card", "group_by": "none" }
+        },
+        "en_progreso": {
+          "block": "task-board",
+          "source": "tablero",
+          "options": { "stages": ["doing"], "lead": true }
+        },
+        "hechas": {
+          "block": "task-board",
+          "source": "tablero",
+          "options": { "stages": ["done"], "density": "card" }
+        }
+      }
+    }
+  ]
+}
