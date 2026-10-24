@@ -13,6 +13,7 @@ import {
   getViews,
   mkEngine,
   only,
+  orderedRenderer,
   viewOf,
   type Loose,
 } from "./helpers.ts";
@@ -96,4 +97,25 @@ describe("CA17 espera y busy", () => {
       await e.close();
     }
   }, 60_000);
+});
+
+describe("CA27 orden de prioridad con un Renderer falso de 300 ms", () => {
+  it("ningún dibujo low empieza mientras hay dibujos normal esperando", async () => {
+    const r = orderedRenderer(300);
+    const engines = [0, 1, 2].map(() => mkEngine(r, { renderWaitMs: 30_000 }));
+    try {
+      const results = await Promise.all(engines.map((e) => e.index("local", P124)));
+      for (const x of results) expect(x.ok).toBe(true);
+      await new Promise((res) => setTimeout(res, 700));
+      expect(r.started.filter((s) => s.priority === "normal")).toHaveLength(9);
+      const lows = r.started.filter((s) => s.priority === "low");
+      expect(lows.length).toBeGreaterThan(0);
+      for (const s of lows) {
+        expect(s.normalWaiting).toBe(0);
+        expect(s.panel).toEqual(P124);
+      }
+    } finally {
+      for (const e of engines) await e.close();
+    }
+  }, 120_000);
 });

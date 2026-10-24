@@ -123,8 +123,8 @@ export function spyRenderer(inner: Renderer): Spy {
   const calls: Spy["calls"] = [];
   return {
     calls,
-    render: async (html, panel) => {
-      const out = await inner.render(html, panel);
+    render: async (html, panel, options) => {
+      const out = await inner.render(html, panel, options);
       calls.push({ html, panel, out });
       return out;
     },
@@ -151,6 +151,44 @@ export function fakeRenderer(delayMs = 0): Renderer & { count: number } {
     close: () => Promise.resolve(),
   };
   return self;
+}
+
+export interface OrderedFake extends Renderer {
+  /** Draws in the order they started. */
+  started: { priority: "normal" | "low"; panel: Panel; normalWaiting: number }[];
+}
+
+/** A faithful fake Renderer: one draw at a time, `low` only when no `normal` waits; records the order. */
+export function orderedRenderer(delayMs: number): OrderedFake {
+  const started: OrderedFake["started"] = [];
+  const waitingNormal: (() => void)[] = [];
+  const waitingLow: (() => void)[] = [];
+  let busy = false;
+  const next = (): void => {
+    const go = waitingNormal.shift() ?? waitingLow.shift();
+    if (go) go();
+    else busy = false;
+  };
+  return {
+    started,
+    render: async (_html, panel, options) => {
+      const priority = options?.priority ?? "normal";
+      if (busy) {
+        await new Promise<void>((r) => (priority === "low" ? waitingLow : waitingNormal).push(r));
+      } else busy = true;
+      started.push({ priority, panel, normalWaiting: waitingNormal.length });
+      await new Promise((r) => setTimeout(r, delayMs));
+      next();
+      return {
+        raw1: new Uint8Array(Math.ceil(panel.w / 8) * panel.h),
+        gray: 0,
+        boxes: [],
+        overflow: [],
+      };
+    },
+    blockedRequests: () => 0,
+    close: () => Promise.resolve(),
+  };
 }
 
 // --- Chromium for tests -------------------------------------------------

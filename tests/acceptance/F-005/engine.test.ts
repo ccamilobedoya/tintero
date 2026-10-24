@@ -4,7 +4,6 @@ import type { Action } from "../../../contract/src/index.ts";
 import { zoneId, type Engine } from "../../../server/src/engine/index.ts";
 import {
   P124,
-  P200,
   V124,
   isBlack,
   launchChromium,
@@ -173,20 +172,25 @@ describe("CA23 un servicio avisa", () => {
   });
 });
 
-describe("CA17/CA25 revisión de letras de varios motores", () => {
-  it("dos motores sobre el mismo Renderer: el index con un panel nuevo no da busy", async () => {
+describe("CA27 la revisión de letras no frena las vistas", () => {
+  it("tres motores sobre el mismo Renderer real: el primer index de cada uno no da busy", async () => {
     const a = engine();
     const b = engine();
-    // Both start their theme glyph check with the first index of each.
-    await Promise.all([getViews(a, "local", P124), getViews(b, "local", P124)]);
+    const c = engine();
+    const first = await Promise.all([
+      a.index("local", P124),
+      b.index("local", P124),
+      c.index("local", P124),
+    ]);
+    for (const r of first) expect(r.ok, JSON.stringify(r.ok ? "ok" : r)).toBe(true);
     // Right away, without waiting for idle(): a new panel on each engine.
-    const [ra, rb] = await Promise.all([a.index("local", V124), b.index("local", V124)]);
-    expect(ra.ok, JSON.stringify(ra.ok ? "ok" : ra)).toBe(true);
-    expect(rb.ok, JSON.stringify(rb.ok ? "ok" : rb)).toBe(true);
-    const [rc, rd] = await Promise.all([a.index("local", P200), b.index("local", P200)]);
-    expect(rc.ok, JSON.stringify(rc.ok ? "ok" : rc)).toBe(true);
-    expect(rd.ok, JSON.stringify(rd.ok ? "ok" : rd)).toBe(true);
-  }, 120_000);
+    const more = await Promise.all([
+      a.index("local", V124),
+      b.index("local", V124),
+      c.index("local", V124),
+    ]);
+    for (const r of more) expect(r.ok, JSON.stringify(r.ok ? "ok" : r)).toBe(true);
+  }, 180_000);
 });
 
 describe("CA24 preparado antes de despertar", () => {

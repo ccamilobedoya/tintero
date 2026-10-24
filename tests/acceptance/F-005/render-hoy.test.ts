@@ -55,8 +55,9 @@ describe("CA6 Chromium real, nitidez", () => {
   }, 90_000);
 
   it("hoy en P124: 48 000 bytes, gray = 0, overflow = [], y es repetible", async () => {
-    // The view draw is the call with a full-panel image; the glyph check draws other sizes.
-    const full = () => cr.renderer.calls.filter((c) => c.out.raw1.length === 48_000);
+    // A view draw is a call whose page marks its blocks with data-fit; the glyph check
+    // (also panel-sized since the 2026-10-24 clarification) does not.
+    const full = () => cr.renderer.calls.filter((c) => c.html.includes("data-fit="));
     const n0 = full().length;
     const first = await drawn(P124, ["hoy"]);
     const call1 = full()[n0];
@@ -216,9 +217,7 @@ describe("CA10 otros ppp y panel vertical", () => {
 describe("Presupuesto de dibujo", () => {
   it("promedio de 5 dibujos de hoy en P124 tras uno de calentamiento: < 500 ms", async () => {
     await drawn(P124, ["hoy"]);
-    const full = cr.renderer.calls.filter(
-      (c) => c.out.raw1.length === 48_000 && c.html.length > 2000,
-    );
+    const full = cr.renderer.calls.filter((c) => c.html.includes("data-fit="));
     const html = full.at(-1)?.html ?? "";
     expect(html).not.toBe("");
     await cr.renderer.render(html, P124);
