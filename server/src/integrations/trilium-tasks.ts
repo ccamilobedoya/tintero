@@ -269,15 +269,18 @@ export function createTriliumTasks(options: {
     }
     flags.saveRunning = true;
     saving = (async () => {
-      do {
-        flags.saveAgain = false;
-        try {
-          await saveState(file, snapshot());
-        } catch {
-          log({ event: "state", ok: false, problem: "write" });
-        }
-      } while (again());
-      flags.saveRunning = false;
+      try {
+        do {
+          flags.saveAgain = false;
+          try {
+            await saveState(file, snapshot());
+          } catch {
+            log({ event: "state", ok: false, problem: "write" });
+          }
+        } while (again());
+      } finally {
+        flags.saveRunning = false;
+      }
     })();
   }
 
@@ -354,8 +357,12 @@ export function createTriliumTasks(options: {
       else fire(() => write(id));
       persist();
       log({ event: "write", result });
-    } catch {
-      log({ event: "write", result: "pending" });
+    } catch (error) {
+      log({
+        event: "write",
+        result: "pending",
+        code: error instanceof IntegrationHttpError ? error.code : "error",
+      });
     }
   }
 
@@ -431,7 +438,8 @@ export function createTriliumTasks(options: {
         persist();
       }
     } catch (error) {
-      readFailed(error);
+      if (error instanceof IntegrationHttpError) readFailed(error);
+      else log({ event: "defect", where: "cycle" }); // always logged, no message or stack
     }
   }
 

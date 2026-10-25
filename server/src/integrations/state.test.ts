@@ -1,4 +1,13 @@
-import { chmodSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -34,6 +43,29 @@ const raw = (text: string, mode = 0o600): string => {
   /* eslint-enable security/detect-non-literal-fs-filename */
   return file;
 };
+
+describe("saveState with a planted temporary name", () => {
+  it("does not follow a link at the temporary name and saves the state", async () => {
+    const file = join(dir, "state.json");
+    const target = join(dir, "target.txt");
+    /* eslint-disable security/detect-non-literal-fs-filename -- temporary test folder */
+    writeFileSync(target, "original");
+    symlinkSync(target, `${file}.tmp-${process.pid}`);
+    await saveState(file, sample());
+    expect(readFileSync(target, "utf8")).toBe("original");
+    expect(readdirSync(dir).sort()).toEqual(["state.json", "target.txt"]);
+    /* eslint-enable security/detect-non-literal-fs-filename */
+    expect(loadState(file, "tablero00001", NOW)).toEqual({ state: sample() });
+  });
+
+  it("replaces a leftover regular file of the same name", async () => {
+    const file = join(dir, "state.json");
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- temporary test folder
+    writeFileSync(`${file}.tmp-${process.pid}`, "old");
+    await saveState(file, sample());
+    expect(loadState(file, "tablero00001", NOW)).toEqual({ state: sample() });
+  });
+});
 
 describe("saveState / loadState", () => {
   it("round-trips with mode 600 and no temporary file left", async () => {

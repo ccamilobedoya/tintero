@@ -1,11 +1,10 @@
 // Saved state of an integration (F-009 vuelta 2, ADR-0044): pending marks and the last good read.
 // It holds task titles, so it is private (mode 600), capped on load and written atomically.
-import { closeSync, fstatSync, openSync } from "node:fs";
+import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 import { open, rename, rm } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { Task } from "../engine/config.ts";
 import { validDateTime } from "../engine/dates.ts";
-import { readCapped } from "../tls.ts";
 
 export interface SavedState {
   version: 1;
@@ -79,7 +78,7 @@ export function loadState(
   boardNoteId: string,
   now: Date,
 ): { state: SavedState | null; problem?: StateProblem } {
-  let size: number;
+  let parsed: unknown;
   try {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- path from the owner's configuration
     const fd = openSync(file, "r");
@@ -87,21 +86,23 @@ export function loadState(
       const stat = fstatSync(fd);
       if (!stat.isFile()) return { state: null, problem: "bad-json" };
       if ((stat.mode & 0o077) !== 0) return { state: null, problem: "permissions" };
-      size = stat.size;
+      if (stat.size > MAX_STATE_BYTES) return { state: null, problem: "too-large" };
+      // Same descriptor that was measured, capped while reading.
+      const buffer = Buffer.alloc(MAX_STATE_BYTES + 1);
+      let total = 0;
+      for (;;) {
+        const n = readSync(fd, buffer, total, MAX_STATE_BYTES + 1 - total, null);
+        if (n === 0) break;
+        total += n;
+        if (total > MAX_STATE_BYTES) return { state: null, problem: "too-large" };
+      }
+      parsed = JSON.parse(buffer.subarray(0, total).toString("utf8"));
     } finally {
       closeSync(fd);
     }
   } catch (error) {
     const missing = (error as NodeJS.ErrnoException).code === "ENOENT";
     return { state: null, problem: missing ? "missing" : "bad-json" };
-  }
-  if (size > MAX_STATE_BYTES) return { state: null, problem: "too-large" };
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readCapped(file, MAX_STATE_BYTES).toString("utf8"));
-  } catch (error) {
-    const big = error instanceof Error && error.message === "file too large";
-    return { state: null, problem: big ? "too-large" : "bad-json" };
   }
   const state = shape(parsed);
   if (state === undefined) return { state: null, problem: "bad-json" };
@@ -117,7 +118,8 @@ export async function saveState(file: string, state: SavedState): Promise<void> 
   const temp = `${file}.tmp-${process.pid}`;
   try {
     /* eslint-disable security/detect-non-literal-fs-filename -- path from the owner's configuration */
-    const handle = await open(temp, "w", 0o600);
+    await rm(temp, { force: true }); // a leftover of the same name (a link is removed, not followed)
+    const handle = await open(temp, "wx", 0o600);
     try {
       await handle.chmod(0o600);
       await handle.writeFile(JSON.stringify(state), "utf8");

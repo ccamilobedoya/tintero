@@ -17,7 +17,7 @@ npm run server -- --views config/views.example.json --data config/data.example.j
 ```
 
 - `--views` (≤ 64 KiB) y `--data` (≤ 512 KiB) van **juntos** (si falta uno, sale con 2); un error en los archivos sale con 2 y un mensaje con la ruta JSON del campo (nunca el valor). Sin ellos, el servidor sigue con la demostración de F-003.
-- Sin `--chromium`, el servidor arranca su propio contenedor (`startChromium()`: imagen `CHROMIUM_IMAGE` de `tools/images.conf`, letras de `server/fonts/`, solo escucha en `127.0.0.1`) y lo detiene al salir (Ctrl+C / SIGTERM). Necesita Docker. `--chromium` solo acepta `http://127.0.0.1:<puerto>` (excepción de CDP en `docs/seguridad.md`).
+- Sin `--chromium`, el servidor arranca su propio contenedor (`startChromiumService()`: imagen `CHROMIUM_IMAGE` de `tools/images.conf`, letras de `server/fonts/`, solo escucha en `127.0.0.1`) y lo detiene al salir (Ctrl+C / SIGTERM). Necesita Docker. `--chromium` solo acepta `http://127.0.0.1:<puerto>` (excepción de CDP en `docs/seguridad.md`).
 - Cada dibujo escribe una línea `{ "ts", "render", "ms", "ok" }` (más `overflow` o `tooSmall` si los hay), sin contenido.
 - Los dibujos se hacen cuando hay información nueva (`setSource`, una acción) o antes de que la pantalla despierte (cada 30 s se llama a `prewarm`); `503 busy` + `Retry-After: 5` solo es la red de seguridad.
 
@@ -130,7 +130,19 @@ git pull && npm ci && systemctl --user restart tintero
 ```
 
 - El servicio usa `--instance servicio` (en `TINTERO_ARGS`; 1 a 32 caracteres `a-z`, `0-9`, `-`; si no casa, sale con 2). Con `--instance`, al arrancar su Chromium el servidor borra solo los contenedores con las etiquetas `tintero.chromium=1` **y** `tintero.instance=<nombre>` que haya dejado un choque (registra `{ event: "chromium", action: "orphans", count }`). Sin `--instance`, o con `--chromium` (uno externo), no borra nada.
-- **Tras reiniciar la máquina:** `systemctl --user is-active tintero` debe dar `active`, y `docker ps --filter label=tintero.chromium=1 --filter label=tintero.instance=servicio -q | wc -l` debe dar `1`.
+- **Una instancia por nombre:** dos procesos con la **misma** `--instance` se borrarían el Chromium entre sí al arrancar (cada uno borra los contenedores de esa instancia). Cada proceso que corra a la vez usa su propio nombre.
+- **Si `docker ps` falla durante la limpieza** de huérfanos, el arranque se aborta; con el servicio, systemd lo reintenta (F-010).
+- **Recuperación sin reiniciar el proceso (F-011):** sin `--chromium`, si Docker no responde al arrancar el servidor **espera y reintenta** (1, 2, 4… hasta 60 s entre intentos, sin fin; registra `{ event: "docker", ok: false }` y luego una por hora, y `ok: true` con `waitedS` al volver) y **empieza a escuchar cuando Chromium está listo**. Si su Chromium muere, lo relanza (`{ event: "chromium", action: "restart" }`); mientras tanto las vistas contestan `503 busy`. El contenedor se arranca con `--pull never`: la imagen de `tools/images.conf` tiene que estar en la máquina; si no, registra `{ event: "chromium", action: "start", ok: false, code: "image-missing" }` (una vez por hora) y sigue esperando. Un error sin atrapar (`uncaughtException` / `unhandledRejection`) registra `{ event: "fatal", kind }` (sin mensaje ni pila), hace el apagado ordenado (tope de 30 s) y sale con **1**: systemd lo levanta a los 5 s. `tools/prueba-recuperacion` comprueba en vivo `kill -9`, la muerte de Chromium y (con `--trilium`) la caída de Trilium.
+
+### Lista de chequeo del apagón real (la corre el dueño)
+
+Con el servicio instalado y arrancado, reinicia la máquina (corta la sesión de Claude) y, al volver:
+
+1. [ ] `systemctl --user is-active tintero` da `active`.
+2. [ ] `docker ps --filter label=tintero.chromium=1 --filter label=tintero.instance=servicio -q | wc -l` da `1` (un solo Chromium).
+3. [ ] El emulador, apuntando al servicio, recibe una vista (`GET /api/v1/index` da 200 y la vista se dibuja).
+4. [ ] La vista de tareas muestra primero lo guardado (el último estado de F-009) y, pasados unos minutos, lo de Trilium.
+5. [ ] `journalctl --user -u tintero` muestra, como mucho, una línea `docker ok: false` por hora mientras Docker tardó, y ningún arranque fallido repetido cada 5 s.
 
 ## Código (`src/`)
 

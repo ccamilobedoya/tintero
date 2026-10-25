@@ -1,16 +1,173 @@
 import type { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { describe, expect, it } from "vitest";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { chromium } from "playwright-core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CHROMIUM_LABEL,
   INSTANCE_NAME,
   cdpBase,
+  chromiumRenderer,
   chromiumDockerArgs,
   parseContainerIds,
   priorityQueue,
   removeOrphanChromium,
+  startChromiumService,
   stopContainer,
+  waitForDocker,
 } from "./chromium.ts";
+
+// A fake `docker` in a temporary folder: `version` fails the first FAKE_FAILS times (counted in a
+// file), `image inspect` fails, everything else succeeds quietly. Every call is written down.
+let fakeDir: string;
+beforeEach(() => {
+  fakeDir = mkdtempSync(join(tmpdir(), "tintero-fakedocker-"));
+  /* eslint-disable security/detect-non-literal-fs-filename -- temporary test folder */
+  writeFileSync(
+    join(fakeDir, "docker"),
+    [
+      "#!/bin/bash",
+      'echo "$*" >> "$FAKE_DIR/calls"',
+      'if [ "$1" = version ]; then',
+      '  n=$(cat "$FAKE_DIR/count" 2>/dev/null || echo 0)',
+      '  echo $((n+1)) > "$FAKE_DIR/count"',
+      '  [ "$n" -lt "$FAKE_FAILS" ] && exit 1',
+      "  echo 29.0; exit 0",
+      "fi",
+      '[ "$1" = image ] && [ -z "$FAKE_IMAGE_OK" ] && exit 1',
+      '[ "$1" = run ] && [ -n "$FAKE_RUN_FAILS" ] && exit 1',
+      "exit 0",
+      "",
+    ].join("\n"),
+  );
+  chmodSync(join(fakeDir, "docker"), 0o755);
+  /* eslint-enable security/detect-non-literal-fs-filename */
+  vi.stubEnv("PATH", `${fakeDir}:${process.env.PATH ?? ""}`);
+  vi.stubEnv("FAKE_DIR", fakeDir);
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+  rmSync(fakeDir, { recursive: true, force: true });
+});
+const calls = (): string[] =>
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- temporary test folder
+  readFileSync(join(fakeDir, "calls"), "utf8").trim().split("\n");
+
+describe("waitForDocker", () => {
+  it("retries with 1, 2 and 4 s waits and logs one failure and one recovery", async () => {
+    vi.stubEnv("FAKE_FAILS", "3");
+    const sleeps: number[] = [];
+    const lines: Record<string, unknown>[] = [];
+    await waitForDocker({
+      log: (l) => lines.push(l),
+      sleep: (ms) => {
+        sleeps.push(ms);
+        return Promise.resolve();
+      },
+    });
+    expect(calls().filter((c) => c.startsWith("version"))).toHaveLength(4);
+    expect(sleeps).toEqual([1000, 2000, 4000]);
+    expect(lines).toEqual([
+      expect.objectContaining({ event: "docker", ok: false }),
+      expect.objectContaining({ event: "docker", ok: true, waitedS: 0 }),
+    ]);
+  });
+
+  it("caps the wait at 60 s, logs once per hour and ends with the signal", async () => {
+    vi.stubEnv("FAKE_FAILS", "1000");
+    const start = Date.parse("2026-10-25T10:00:00Z");
+    let now = start;
+    const sleeps: number[] = [];
+    const lines: Record<string, unknown>[] = [];
+    const controller = new AbortController();
+    const done = waitForDocker({
+      log: (l) => lines.push(l),
+      clock: () => new Date(now),
+      signal: controller.signal,
+      sleep: (ms) => {
+        sleeps.push(ms);
+        now += ms;
+        if (sleeps.length === 75) controller.abort();
+        return Promise.resolve();
+      },
+    });
+    await expect(done).rejects.toThrow();
+    expect(sleeps.slice(0, 9)).toEqual([1000, 2000, 4000, 8000, 16000, 32000, 60000, 60000, 60000]);
+    expect(Math.max(...sleeps)).toBe(60000);
+    const fails = lines.filter((l) => l.ok === false);
+    expect(fails).toHaveLength(2); // ~79 min of waiting: the first and one more after an hour
+    expect(lines.some((l) => l.ok === true)).toBe(false);
+  });
+});
+
+describe("startChromiumService without the image", () => {
+  it("never pulls or runs: it says image-missing and waits", async () => {
+    vi.stubEnv("FAKE_FAILS", "0");
+    const lines: Record<string, unknown>[] = [];
+    const image = "tintero-imagen-que-no-existe:0";
+    let slept = 0;
+    await expect(
+      startChromiumService({
+        image,
+        log: (l) => lines.push(l),
+        sleep: () => {
+          if (++slept > 1) return Promise.reject(new Error("end of test"));
+          return Promise.resolve();
+        },
+      }),
+    ).rejects.toThrow("end of test");
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        event: "chromium",
+        action: "start",
+        ok: false,
+        code: "image-missing",
+      }),
+    );
+    expect(lines.filter((l) => l.code === "image-missing")).toHaveLength(1); // once per hour
+    const all = calls();
+    expect(all.some((c) => c.startsWith("pull") || c.startsWith("run"))).toBe(false);
+    expect(all.some((c) => c.startsWith("image inspect") && c.includes(image))).toBe(true);
+  });
+});
+
+describe("startChromiumService with a failing run", () => {
+  it("removes its own container (rm -f <name>) after every failed run", async () => {
+    vi.stubEnv("FAKE_FAILS", "0");
+    vi.stubEnv("FAKE_IMAGE_OK", "1");
+    vi.stubEnv("FAKE_RUN_FAILS", "1");
+    let slept = 0;
+    await expect(
+      startChromiumService({
+        image: "img:0",
+        sleep: () => {
+          if (++slept > 2) return Promise.reject(new Error("end of test"));
+          return Promise.resolve();
+        },
+      }),
+    ).rejects.toThrow("end of test");
+    const all = calls();
+    const runs = all.filter((c) => c.startsWith("run"));
+    expect(runs.length).toBeGreaterThanOrEqual(2);
+    for (const run of runs) {
+      const name = /--name (tintero-chromium-[0-9a-f]{8})/.exec(run)?.[1];
+      expect(name).toBeDefined();
+      expect(all).toContain(`rm -f ${name ?? ""}`);
+    }
+  });
+});
+
+describe("pull never", () => {
+  it("is placed before the image", () => {
+    const args = chromiumDockerArgs("tintero-chromium-x", 0, "/f", "img@sha256:abc");
+    const at = args.indexOf("--pull");
+    expect(at).toBeGreaterThan(-1);
+    expect(args[at + 1]).toBe("never");
+    expect(at + 1).toBeLessThan(args.indexOf("img@sha256:abc"));
+  });
+});
 
 describe("priorityQueue", () => {
   const sleep = (ms: number): Promise<void> =>
@@ -186,6 +343,35 @@ describe("stopContainer", () => {
     }) as unknown as typeof spawn;
     await stopContainer("other; rm", fake);
     expect(launched).toBe(0);
+  });
+});
+
+describe("chromiumRenderer with a frozen Chromium", () => {
+  it("rejects a timed-out drawing even if closing the context never answers", async () => {
+    const never = (): Promise<void> => new Promise(() => undefined);
+    const context = {
+      route: () => Promise.resolve(),
+      newPage: () => Promise.resolve({ setContent: never }),
+      close: never,
+    };
+    const browser = {
+      isConnected: () => true,
+      newContext: () => Promise.resolve(context),
+      close: never,
+    };
+    const spy = vi.spyOn(chromium, "connectOverCDP").mockResolvedValue(browser as never);
+    try {
+      const renderer = await chromiumRenderer("http://127.0.0.1:1", {
+        timeoutMs: 50,
+        closeTimeoutMs: 50,
+      });
+      const started = Date.now();
+      await expect(renderer.render("<p>x</p>", { w: 10, h: 10 } as never)).rejects.toThrow();
+      expect(Date.now() - started).toBeLessThan(2_000);
+      await renderer.close();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

@@ -15,10 +15,11 @@ import {
   createEngine,
   loadDataFile,
   loadViewsConfig,
-  startChromium,
+  startChromiumService,
   type Engine,
 } from "./engine/index.ts";
 import { startServer } from "./index.ts";
+import { installFatalHandlers } from "./fatal.ts";
 import { logEngine } from "./log.ts";
 import { shutdown, type ShutdownStep } from "./shutdown.ts";
 
@@ -68,6 +69,17 @@ const steps = (): ShutdownStep[] => [
   { name: "engine", run: () => engine?.close(), timeoutMs: 5000 },
   { name: "chromium", run: () => stopChromium?.(), timeoutMs: 25_000 },
 ];
+const server: { close?: () => Promise<void> } = {};
+const allSteps = (): ShutdownStep[] => [
+  { name: "server", run: () => server.close?.(), timeoutMs: 3000 },
+  ...steps(),
+];
+// An error nobody caught: one line, ordered shutdown, exit 1 (systemd restarts the service).
+installFatalHandlers({
+  log: logEngine,
+  shutdown: () => shutdown(allSteps()),
+  exit: (code) => process.exit(code),
+});
 if (options.views !== undefined && options.data !== undefined) {
   let loaded;
   try {
@@ -101,18 +113,20 @@ if (options.views !== undefined && options.data !== undefined) {
     }
   }
   try {
-    let endpoint = options.chromium;
-    if (endpoint === undefined) {
-      const started = await startChromium({
+    let renderer;
+    if (options.chromium !== undefined) renderer = await chromiumRenderer(options.chromium);
+    else {
+      // Waits for Docker and for a Chromium that answers; relaunches it if it dies (F-011).
+      const service = await startChromiumService({
         log: logEngine,
         ...(options.instance === undefined ? {} : { instance: options.instance }),
       });
-      stopChromium = () => started.stop();
-      endpoint = started.endpoint;
+      stopChromium = () => service.stop();
+      renderer = service.renderer;
     }
     engine = createEngine({
       ...loaded,
-      renderer: await chromiumRenderer(endpoint),
+      renderer,
       nextWakeS: options.config.nextWakeS,
       log: logEngine,
       onToggle: (change) => tasks?.onToggle(change),
@@ -147,13 +161,14 @@ try {
   );
   process.exit(2);
 }
+server.close = () => running.close();
 console.log(JSON.stringify({ listening: running.url }));
 
 let stopping = false;
 const stop = (): void => {
   if (stopping) return;
   stopping = true;
-  shutdown([{ name: "server", run: () => running.close(), timeoutMs: 3000 }, ...steps()])
+  shutdown(allSteps())
     .catch(() => undefined) // shutdown does not reject; exit either way
     .finally(() => {
       process.exit(0);
