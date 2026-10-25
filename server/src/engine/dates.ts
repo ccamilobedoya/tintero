@@ -147,7 +147,10 @@ export function staleLabel(
 ): string | undefined {
   if (readAt === undefined || now.getTime() - readAt.getTime() <= STALE_AFTER_MS) return undefined;
   const local = localParts(readAt, timeZone);
-  return `sin datos desde ${hhmm(local.hour * 60 + local.minute)}`;
+  const time = hhmm(local.hour * 60 + local.minute);
+  const today = localParts(now, timeZone).day;
+  if (dayKey(local.day) === dayKey(today)) return `sin datos desde ${time}`;
+  return `sin datos desde ${pad(local.day.d)}/${pad(local.day.m)} ${time}`;
 }
 
 export const daysInMonth = (y: number, m: number): number =>

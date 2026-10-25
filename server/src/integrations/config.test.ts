@@ -57,9 +57,12 @@ describe("loadIntegrations", () => {
     expect(errorOf(wrap({ ...good, token: "secreto-1" }))).toContain(
       "/integrations/trilium-tareas/token",
     );
-    expect(errorOf(wrap({ ...good, columns: { Hecho: "closed", "Por hacer": "todo" } }))).toContain(
-      "/integrations/trilium-tareas/columns/Hecho",
+    const byPosition = errorOf(
+      wrap({ ...good, columns: { "Por hacer": "todo", Hecho: "closed" } }),
     );
+    expect(byPosition).toContain("/integrations/trilium-tareas/columns/1");
+    expect(byPosition).not.toContain("Hecho");
+    expect(byPosition).not.toContain("closed");
     expect(errorOf(wrap({ ...good, columns: { A: "todo", B: "doing" } }))).toContain("/columns");
     expect(errorOf(wrap({ ...good, columns: { A: "done", B: "doing" } }))).toContain("/columns");
     const bad = errorOf(wrap({ ...good, baseUrl: "http://192.168.1.10:8080/etapi" }));

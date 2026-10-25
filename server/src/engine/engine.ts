@@ -354,7 +354,8 @@ export function createEngine(options: EngineOptions): Engine {
       });
     });
     pending.set(key, done);
-    void pump();
+    // pump handles its own failures; a rejection here must not stop the process.
+    pump().catch(() => undefined);
     return { key, done };
   }
 

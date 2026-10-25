@@ -1,7 +1,8 @@
 // `npm run server -- [--port N] [--host 127.0.0.1] [--next-wake-s N] [--headers-timeout-ms N]
 //   [--tls-cert F --tls-key F --client-ca F --devices F] [--max-panels N] [--max-connections N]
 //   [--views F --data F [--chromium http://127.0.0.1:N] [--integrations F]]`
-import { accessSync, constants } from "node:fs";
+import { accessSync, constants, statSync } from "node:fs";
+import { dirname } from "node:path";
 import { parseOptions, UsageError } from "./args.ts";
 import { checkAgainstData, loadIntegrations } from "./integrations/config.ts";
 import { guardedHttp, IntegrationHttpError, parseBase } from "./integrations/http.ts";
@@ -24,6 +25,20 @@ const USAGE =
   "usage: server [--port N] [--host 127.0.0.1] [--next-wake-s N] [--headers-timeout-ms N]\n" +
   "  [--tls-cert F --tls-key F --client-ca F --devices F] [--max-panels N] [--max-connections N]\n" +
   "  [--views F --data F [--chromium http://127.0.0.1:N] [--integrations F]]";
+
+/** The folder of the state file must exist and be writable (ADR-0044); exits like any config error. */
+function checkStateFolder(stateFile: string): void {
+  const folder = dirname(stateFile);
+  try {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- path from the owner's configuration
+    if (!statSync(folder).isDirectory()) throw new Error("not a folder");
+    accessSync(folder, constants.W_OK | constants.X_OK);
+  } catch {
+    throw new ConfigError(
+      "integrations: /integrations/trilium-tareas/stateFile: folder must exist and be writable",
+    );
+  }
+}
 
 let options;
 try {
@@ -69,6 +84,7 @@ if (options.views !== undefined && options.data !== undefined) {
       checkAgainstData(file, loaded.data);
       const config = file.integrations["trilium-tareas"];
       if (config !== undefined) {
+        if (config.stateFile !== undefined) checkStateFolder(config.stateFile);
         const http = guardedHttp(parseBase(config.baseUrl), config.keyFile, triliumTasksManifest, {
           allowWrite: config.allowWrite,
           log: logEngine,
@@ -132,12 +148,11 @@ let stopping = false;
 const stop = (): void => {
   if (stopping) return;
   stopping = true;
-  void shutdown([
-    { name: "server", run: () => running.close(), timeoutMs: 3000 },
-    ...steps(),
-  ]).finally(() => {
-    process.exit(0);
-  });
+  shutdown([{ name: "server", run: () => running.close(), timeoutMs: 3000 }, ...steps()])
+    .catch(() => undefined) // shutdown does not reject; exit either way
+    .finally(() => {
+      process.exit(0);
+    });
 };
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);

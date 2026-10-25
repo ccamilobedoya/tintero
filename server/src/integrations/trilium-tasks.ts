@@ -6,6 +6,7 @@ import { validDate, validDateTime } from "../engine/dates.ts";
 import type { TriliumTasksConfig } from "./config.ts";
 import { IntegrationHttpError, type GuardedHttp } from "./http.ts";
 import type { Manifest } from "./manifest.ts";
+import { loadState, saveState, type SavedState } from "./state.ts";
 
 type Log = (line: Record<string, unknown>) => void;
 
@@ -13,6 +14,7 @@ const INTEGRATION = "trilium-tareas";
 const MAX_TASKS = 500;
 const OLD_DONE_MS = 26 * 3_600_000;
 const EXPIRE_MS = 24 * 3_600_000;
+const FAIL_LOG_EVERY_MS = 60 * 60_000;
 const ID = /^[A-Za-z0-9_]{1,32}$/;
 
 interface Attribute {
@@ -178,7 +180,9 @@ export interface TriliumTasks {
   start(): void;
   cycle(): Promise<void>;
   onToggle(change: ToggleChange): void;
+  /** Waits for the queue to be empty and for the state file to be written. */
   idle(): Promise<void>;
+  /** Stops the timer, starts nothing more and waits only for the call in progress. */
   stop(): Promise<void>;
 }
 
@@ -186,6 +190,8 @@ interface Pending {
   next: string;
   since: Date;
 }
+
+const parseTime = (text: string): Date => new Date(text);
 
 export function createTriliumTasks(options: {
   http: GuardedHttp;
@@ -195,7 +201,7 @@ export function createTriliumTasks(options: {
   clock?: () => Date;
   log?: Log;
 }): TriliumTasks {
-  const { http, config, manifest, engine } = options;
+  const { config, manifest, engine } = options;
   const clock = options.clock ?? ((): Date => new Date());
   const rawLog = options.log ?? ((): void => undefined);
   const log: Log = (line) => {
@@ -204,56 +210,198 @@ export function createTriliumTasks(options: {
 
   const known = new Map<string, string>(); // last status known in Trilium
   const pending = new Map<string, Pending>();
+  let lastKey = ""; // what the saved result looked like (tasks + statuses)
   let timer: NodeJS.Timeout | undefined;
-  let stopped = false;
+  // Flags changed from several async paths live in one object (control-flow narrowing).
+  const flags = { stopped: false, saveAgain: false, saveRunning: false };
 
-  // Everything that calls Trilium runs here, one thing at a time.
-  let tail: Promise<void> = Promise.resolve();
-  let active = 0;
-  function enqueue(job: () => Promise<void>): Promise<void> {
-    active++;
-    const run = tail.then(job).catch(() => undefined);
-    tail = run.finally(() => {
-      active--;
-    });
-    return run;
-  }
-  const idle = async (): Promise<void> => {
-    while (active > 0) await tail;
+  // After stop() nothing new goes out: an in-flight markStage cannot send its PATCH.
+  const http: GuardedHttp = {
+    request: (method, path, body) =>
+      flags.stopped
+        ? Promise.reject(new IntegrationHttpError("network"))
+        : options.http.request(method, path, body),
   };
 
   const columnOf = (stage: Stage): string | undefined =>
     Object.entries(config.columns).find(([, s]) => s === stage)?.[0];
 
+  /** Puts the local marks on top of what was read. */
+  const overlay = (tasks: Task[]): Task[] =>
+    tasks.map((task) => {
+      const p = pending.get(task.id);
+      const stage = p === undefined ? undefined : config.columns[p.next];
+      if (p === undefined || stage === undefined) return task;
+      const rest: Task = { ...task };
+      delete rest.doneAt;
+      return {
+        ...rest,
+        stage,
+        done: stage === "done",
+        ...(stage === "done" ? { doneAt: p.since.toISOString() } : {}),
+      };
+    });
+
+  // ---- saved state: one write at a time, one more at the end if something changed meanwhile ----
+  let saving: Promise<void> = Promise.resolve();
+  const again = (): boolean => flags.saveAgain;
+  const isStopped = (): boolean => flags.stopped;
+  function snapshot(): SavedState {
+    return {
+      version: 1,
+      boardNoteId: config.boardNoteId,
+      savedAt: clock().toISOString(),
+      lastGood:
+        lastGood === null ? null : { readAt: lastGood.readAt.toISOString(), tasks: lastGood.tasks },
+      statuses: Object.fromEntries(known),
+      pending: Object.fromEntries(
+        [...pending].map(([id, p]) => [id, { next: p.next, since: p.since.toISOString() }]),
+      ),
+    };
+  }
+  function persist(): void {
+    const file = config.stateFile;
+    if (file === undefined) return;
+    if (flags.saveRunning) {
+      flags.saveAgain = true;
+      return;
+    }
+    flags.saveRunning = true;
+    saving = (async () => {
+      do {
+        flags.saveAgain = false;
+        try {
+          await saveState(file, snapshot());
+        } catch {
+          log({ event: "state", ok: false, problem: "write" });
+        }
+      } while (again());
+      flags.saveRunning = false;
+    })();
+  }
+
+  // ---- start: recover what was saved ----
+  function recover(): { readAt: Date; tasks: Task[] } | null {
+    const file = config.stateFile;
+    if (file === undefined) return null;
+    const { state, problem } = loadState(file, config.boardNoteId, clock());
+    if (problem !== undefined && problem !== "missing") {
+      log({ event: "state", ok: false, problem });
+    }
+    if (state === null) return null;
+    for (const [id, status] of Object.entries(state.statuses)) known.set(id, status);
+    for (const [id, p] of Object.entries(state.pending)) {
+      if (known.has(id) && Object.hasOwn(config.columns, p.next)) {
+        pending.set(id, { next: p.next, since: parseTime(p.since) });
+      }
+    }
+    if (state.lastGood === null) return null;
+    const good = { readAt: parseTime(state.lastGood.readAt), tasks: state.lastGood.tasks };
+    lastKey = JSON.stringify([good.tasks, Object.fromEntries(known)]);
+    return good;
+  }
+  let lastGood = recover();
+  let first = true;
+  if (lastGood !== null) {
+    const result = engine.setSource(config.source, overlay(lastGood.tasks), {
+      readAt: lastGood.readAt,
+    });
+    if (result.ok) first = false;
+    else {
+      log({ event: "state", ok: false, problem: "bad-json" });
+      lastGood = null;
+      lastKey = "";
+    }
+  }
+  if (first) engine.setSource(config.source, [], { readAt: clock() });
+
+  // ---- the queue: everything that calls Trilium runs here, one thing at a time ----
+  let tail: Promise<void> = Promise.resolve();
+  let active = 0;
+  function enqueue(job: () => Promise<void>): Promise<void> {
+    active++;
+    const run = tail.then(() => (flags.stopped ? undefined : job())).catch(() => undefined);
+    tail = run.finally(() => {
+      active--;
+    });
+    return run;
+  }
+  const fire = (job: () => Promise<void>): void => {
+    enqueue(job).catch(() => undefined); // enqueue never rejects; this keeps it explicit
+  };
+  const idle = async (): Promise<void> => {
+    for (;;) {
+      while (active > 0) await tail;
+      await saving;
+      if (active === 0 && !flags.saveRunning) return;
+    }
+  };
+
   async function write(id: string): Promise<void> {
     const wanted = pending.get(id);
     const current = known.get(id);
-    if (wanted === undefined || current === undefined) return;
+    if (flags.stopped || wanted === undefined || current === undefined) return;
     if (wanted.next === current) {
       pending.delete(id);
+      persist();
       return;
     }
     try {
       const result = await markStage(http, id, current, wanted.next);
       if (result === "written") known.set(id, wanted.next);
       if (pending.get(id) === wanted) pending.delete(id);
-      else void enqueue(() => write(id));
+      else fire(() => write(id));
+      persist();
       log({ event: "write", result });
     } catch {
       log({ event: "write", result: "pending" });
     }
   }
 
+  // Read failures are logged once, then once per hour, then once when it is back.
+  let failingSince: Date | undefined;
+  let lastFailLog: Date | undefined;
+  function readFailed(error: unknown): void {
+    const now = clock();
+    if (failingSince === undefined) failingSince = now;
+    else if (
+      lastFailLog !== undefined &&
+      now.getTime() - lastFailLog.getTime() < FAIL_LOG_EVERY_MS
+    ) {
+      return;
+    }
+    lastFailLog = now;
+    log({
+      event: "read",
+      ok: false,
+      code: error instanceof IntegrationHttpError ? error.code : "error",
+    });
+  }
+  function readSucceeded(): void {
+    if (failingSince === undefined) return;
+    log({
+      event: "read",
+      ok: true,
+      downS: Math.round((clock().getTime() - failingSince.getTime()) / 1000),
+    });
+    failingSince = undefined;
+    lastFailLog = undefined;
+  }
+
   async function runCycle(): Promise<void> {
     try {
       const now = clock();
+      let expired = false;
       for (const [id, p] of [...pending]) {
         if (now.getTime() - p.since.getTime() > EXPIRE_MS) {
           pending.delete(id);
+          expired = true;
           log({ event: "write", result: "expired" });
         }
       }
+      if (expired) persist();
       for (const id of [...pending.keys()]) await write(id);
+      if (flags.stopped) return;
       const { tasks, statuses } = await readBoard(
         http,
         config.boardNoteId,
@@ -261,39 +409,38 @@ export function createTriliumTasks(options: {
         clock(),
         rawLog,
       );
+      if (isStopped()) return;
+      readSucceeded();
       for (const [id, status] of statuses) known.set(id, status);
-      const shown = tasks.map((task) => {
-        const p = pending.get(task.id);
-        const stage = p === undefined ? undefined : config.columns[p.next];
-        if (p === undefined || stage === undefined) return task;
-        const rest: Task = { ...task };
-        delete rest.doneAt;
-        return {
-          ...rest,
-          stage,
-          done: stage === "done",
-          ...(stage === "done" ? { doneAt: p.since.toISOString() } : {}),
-        };
-      });
-      engine.setSource(config.source, shown, { readAt: clock() });
+      let forgot = false;
+      for (const id of [...known.keys()]) {
+        if (statuses.has(id)) continue;
+        known.delete(id);
+        forgot = true;
+        if (pending.delete(id)) log({ event: "write", result: "gone" });
+      }
+      const readAt = clock();
+      engine.setSource(config.source, overlay(tasks), { readAt });
+      const key = JSON.stringify([tasks, Object.fromEntries(known)]);
+      if (key !== lastKey || forgot) {
+        lastKey = key;
+        lastGood = { readAt, tasks };
+        persist();
+      }
     } catch (error) {
-      log({
-        event: "read",
-        ok: false,
-        code: error instanceof IntegrationHttpError ? error.code : "error",
-      });
+      readFailed(error);
     }
   }
 
-  engine.setSource(config.source, [], { readAt: clock() });
-
   const schedule = (): void => {
-    if (stopped) return;
-    void enqueue(runCycle).then(() => {
-      if (stopped) return;
-      timer = setTimeout(schedule, manifest.pollS * 1000);
-      timer.unref();
-    });
+    if (flags.stopped) return;
+    enqueue(runCycle)
+      .then(() => {
+        if (flags.stopped) return;
+        timer = setTimeout(schedule, manifest.pollS * 1000);
+        timer.unref();
+      })
+      .catch(() => undefined);
   };
 
   return {
@@ -307,13 +454,15 @@ export function createTriliumTasks(options: {
         return;
       }
       pending.set(change.taskId, { next, since: clock() });
-      void enqueue(() => write(change.taskId));
+      persist();
+      fire(() => write(change.taskId));
     },
     idle,
     async stop() {
-      stopped = true;
+      flags.stopped = true;
       if (timer) clearTimeout(timer);
-      await idle();
+      while (active > 0) await tail;
+      await saving;
     },
   };
 }

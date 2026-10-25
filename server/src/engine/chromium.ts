@@ -173,7 +173,7 @@ async function answers(endpoint: string): Promise<boolean> {
     const base = cdpBase(endpoint);
     // nosemgrep: react-insecure-request -- CDP local (docs/seguridad.md)
     const response = await fetch(`${base}/json/version`, { signal: AbortSignal.timeout(2000) });
-    void response.body?.cancel();
+    response.body?.cancel().catch(() => undefined);
     return response.ok;
   } catch {
     return false;

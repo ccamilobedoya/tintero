@@ -17,6 +17,8 @@ export interface TriliumTasksConfig {
   boardNoteId: string;
   allowWrite: boolean;
   columns: Record<string, Stage>;
+  /** Absolute path of the saved state (ADR-0044); without it everything lives in memory. */
+  stateFile?: string;
 }
 
 export interface IntegrationsFile {
@@ -62,10 +64,10 @@ function parseColumns(value: unknown, pointer: string): Record<string, Stage> {
   const entries = Object.entries(value);
   if (entries.length < 1 || entries.length > 10) fail(pointer, "must have 1 to 10 columns");
   const out: [string, Stage][] = [];
-  for (const [name, stage] of entries) {
-    const at = `${pointer}/${name.replaceAll("~", "~0").replaceAll("/", "~1")}`;
-    if (name.length < 1 || name.length > 40)
-      fail(pointer, "column names must have 1 to 40 characters");
+  for (const [index, [name, stage]] of entries.entries()) {
+    // R8: the pointer uses the position, never the column name (S6).
+    const at = `${pointer}/${index}`;
+    if (name.length < 1 || name.length > 40) fail(at, "column name must have 1 to 40 characters");
     if (typeof stage !== "string" || !STAGES.includes(stage)) {
       fail(at, "must be todo, doing or done");
     }
@@ -86,6 +88,7 @@ function parseTasks(value: unknown): TriliumTasksConfig {
     "boardNoteId",
     "allowWrite",
     "columns",
+    "stateFile",
   ]);
   const source = text(own(obj, "source"), `${p}/source`, 1, 64);
   const baseUrl = text(own(obj, "baseUrl"), `${p}/baseUrl`, 1, 300);
@@ -105,7 +108,20 @@ function parseTasks(value: unknown): TriliumTasksConfig {
     own(obj, "columns") === undefined
       ? { ...DEFAULT_COLUMNS }
       : parseColumns(own(obj, "columns"), `${p}/columns`);
-  return { source, baseUrl, keyFile, boardNoteId, allowWrite: allowWrite as boolean, columns };
+  const result: TriliumTasksConfig = {
+    source,
+    baseUrl,
+    keyFile,
+    boardNoteId,
+    allowWrite: allowWrite as boolean,
+    columns,
+  };
+  if (own(obj, "stateFile") !== undefined) {
+    const stateFile = text(own(obj, "stateFile"), `${p}/stateFile`, 1, 4096);
+    if (!isAbsolute(stateFile)) fail(`${p}/stateFile`, "must be an absolute path");
+    result.stateFile = stateFile;
+  }
+  return result;
 }
 
 export function parseIntegrations(raw: string): IntegrationsFile {

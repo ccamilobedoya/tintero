@@ -102,6 +102,14 @@ function checkPath(path: string): void {
   if (!path.startsWith("/") || BAD_PATH.test(path)) throw new IntegrationHttpError("bad-path");
 }
 
+/** R7: the prefix matches the path itself, or the path followed by `/` or `?`. */
+function matchesPrefix(path: string, prefix: string): boolean {
+  const bare = prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
+  if (!path.startsWith(bare)) return false;
+  const rest = path.slice(bare.length);
+  return rest === "" || rest.startsWith("/") || rest.startsWith("?");
+}
+
 export function guardedHttp(
   base: URL,
   keyFile: string,
@@ -122,7 +130,8 @@ export function guardedHttp(
   async function readBody(response: Response): Promise<string> {
     const declared = Number(response.headers.get("content-length"));
     if (Number.isFinite(declared) && declared > maxBytes) {
-      void response.body?.cancel();
+      // A failed cancel changes nothing; the error below is what matters.
+      response.body?.cancel().catch(() => undefined);
       throw new IntegrationHttpError("too-large");
     }
     if (!response.body) return "";
@@ -134,7 +143,7 @@ export function guardedHttp(
       if (done) break;
       total += value.byteLength;
       if (total > maxBytes) {
-        void reader.cancel();
+        reader.cancel().catch(() => undefined); // a failed cancel changes nothing
         throw new IntegrationHttpError("too-large");
       }
       chunks.push(value);
@@ -146,7 +155,7 @@ export function guardedHttp(
     async request(method, path, body) {
       checkPath(path);
       const allowed = manifest.routes.some(
-        (route) => route.method === method && path.startsWith(route.prefix),
+        (route) => route.method === method && matchesPrefix(path, route.prefix),
       );
       if (!allowed) throw new IntegrationHttpError("route");
       if (method === "PATCH" && !(manifest.writes && options.allowWrite === true)) {
@@ -181,7 +190,7 @@ export function guardedHttp(
         }
         status = response.status;
         if (status < 200 || status > 299) {
-          void response.body?.cancel();
+          response.body?.cancel().catch(() => undefined); // body never read; a failed cancel changes nothing
           throw new IntegrationHttpError("status", status);
         }
         let text: string;
