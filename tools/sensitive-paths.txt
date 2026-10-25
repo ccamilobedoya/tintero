@@ -15,6 +15,7 @@ package.json
 server/src/auth/**
 server/src/vault/**
 server/src/integrations/http/**
+server/src/integrations/http.ts
 server/src/protocol/**
 server/src/gateway/**
 
