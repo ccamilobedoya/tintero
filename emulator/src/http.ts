@@ -20,7 +20,7 @@ export interface HttpResult {
   body: Buffer;
 }
 
-function deviceHeaders(config: EmulatorConfig): Record<string, string> {
+function deviceHeaders(config: EmulatorConfig, view: string | null): Record<string, string> {
   const headers: Record<string, string> = {
     "Tintero-Protocol": String(PROTOCOL_VERSION),
     "Tintero-Firmware": config.firmware,
@@ -30,11 +30,14 @@ function deviceHeaders(config: EmulatorConfig): Record<string, string> {
   };
   if (config.batteryMv !== undefined) headers["Tintero-Battery-mV"] = String(config.batteryMv);
   if (config.rssi !== undefined) headers["Tintero-RSSI"] = String(config.rssi);
+  if (view !== null) headers["Tintero-View"] = view;
   return headers;
 }
 
 export class HttpClient {
   readonly records: RequestRecord[] = [];
+  /** The view on screen, sent as `Tintero-View` in every request (ADR-0036); null before the first. */
+  view: string | null = null;
   private readonly sockets = new Set<Socket>();
   private readonly config: EmulatorConfig;
   private readonly base: URL;
@@ -88,7 +91,7 @@ export class HttpClient {
   ): Promise<HttpResult> {
     const record: RequestRecord = { method, path, status: "error", bytes: 0 };
     this.records.push(record);
-    const headers = deviceHeaders(this.config);
+    const headers = deviceHeaders(this.config, this.view);
     if (payload !== undefined) {
       headers["Content-Type"] = "application/json";
       headers["Content-Length"] = String(Buffer.byteLength(payload));

@@ -27,6 +27,15 @@
       },
       "minItems": 0,
       "maxItems": 48
+    },
+    "focus": {
+      "type": "object",
+      "required": ["ring", "pad", "dash"],
+      "properties": {
+        "ring": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "pad": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "dash": { "type": "integer", "minimum": 0, "maximum": 64 }
+      }
     }
   }
 }

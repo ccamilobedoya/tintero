@@ -7,6 +7,7 @@ import { html, type Raw } from "../html.ts";
 import { fontCss } from "../theme.ts";
 import {
   groupHeader,
+  innerW,
   groupTasks,
   isTooSmall,
   moreRow,
@@ -22,7 +23,6 @@ const EMPTY: Record<Stage, string> = {
   todo: "Nada por hacer.",
   done: "Nada hecho hoy.",
 };
-const STRIP_PAD = 4;
 
 type Kind = "lead" | "card" | "row";
 
@@ -44,8 +44,9 @@ const stagesOf = (value: unknown): Stage[] => {
 
 function heights(context: BlockContext, kind: Kind): { h: number; gap: number } {
   const m = context.metrics;
-  if (kind === "lead") return { h: 2 * m.leadLine + m.metaLine, gap: m.gap };
-  if (kind === "card") return { h: 2 * m.cardLine + m.metaLine, gap: m.gap };
+  const pad = 2 * m.focusPad;
+  if (kind === "lead") return { h: 2 * m.leadLine + m.metaLine + pad, gap: m.focusGap };
+  if (kind === "card") return { h: 2 * m.cardLine + m.metaLine + pad, gap: m.focusGap };
   return { h: m.row, gap: 0 };
 }
 
@@ -162,7 +163,7 @@ function stripHtml(context: BlockContext, plan: Plan, y: number): Raw {
   const right = lead && context.stale !== undefined ? context.stale : String(plan.count);
   return html`<div
       class="a"
-      style="left:0;top:${y}px;width:${context.w}px;height:${m.strip}px;padding:0 ${STRIP_PAD}px;display:grid;grid-template-columns:minmax(0,1fr) max-content;column-gap:${m.gap}px;line-height:${m.strip}px;letter-spacing:1px;${fontCss(m.font.detail, true)}${lead ? ";background:#000;color:#fff" : ""}"
+      style="left:0;top:${y}px;width:${context.w}px;height:${m.strip}px;padding:0 ${m.focusPad}px;display:grid;grid-template-columns:minmax(0,1fr) max-content;column-gap:${m.gap}px;line-height:${m.strip}px;letter-spacing:1px;${fontCss(m.font.detail, true)}${lead ? ";background:#000;color:#fff" : ""}"
     >
       <span class="t">${LABEL[plan.stage]}</span><span style="white-space:nowrap">${right}</span>
     </div>
@@ -176,6 +177,7 @@ function stripHtml(context: BlockContext, plan: Plan, y: number): Raw {
     }`;
 }
 
+/** `top` is the offset of the box inside the zone, `focusPad` included. */
 function checkbox(context: BlockContext, task: Task, top: number): Raw {
   const m = context.metrics;
   const stage = stageOf(task);
@@ -188,21 +190,33 @@ function checkbox(context: BlockContext, task: Task, top: number): Raw {
       : html``;
   return html`<span
     class="a"
-    style="left:0;top:${top}px;width:${m.box}px;height:${m.box}px;border:${m.boxBorder}px solid #000;background:${stage === "done" ? "#000" : "#fff"}"
+    style="left:${m.focusPad}px;top:${top}px;width:${m.box}px;height:${m.box}px;border:${m.boxBorder}px solid #000;background:${stage === "done" ? "#000" : "#fff"}"
     >${half}</span
   >`;
 }
+
+/** Done tasks are struck through with a stroke as thick as the rules (ADR-0049). */
+const strike = (context: BlockContext, task: Task): string =>
+  stageOf(task) === "done"
+    ? `text-decoration:line-through;text-decoration-thickness:${context.metrics.line}px;`
+    : "";
 
 const overdue = (context: BlockContext, task: Task): boolean =>
   task.due !== undefined && task.due < dayKey(context.today);
 
 /** `25 oct`; before today: bold, white on black, 3 px before the text and 2 px inside the line. */
-function dueHtml(context: BlockContext, task: Task, line: number, extra: string): Raw {
+function dueHtml(
+  context: BlockContext,
+  task: Task,
+  line: number,
+  extra: string,
+  marginTop = 2,
+): Raw {
   if (task.due === undefined) return html``;
   const text = shortDay(task.due, MONTHS);
   if (!overdue(context, task)) return html`<span style="${extra}">${text}</span>`;
   return html`<span
-    style="${extra}display:inline-block;vertical-align:top;margin-top:2px;height:${line - 4}px;line-height:${line - 4}px;padding-left:3px;background:#000;color:#fff;font-weight:700"
+    style="${extra}display:inline-block;vertical-align:top;margin-top:${marginTop}px;height:${line - 4}px;line-height:${line - 4}px;padding-left:3px;background:#000;color:#fff;font-weight:700"
     >${text}</span
   >`;
 }
@@ -212,8 +226,10 @@ function bigRow(context: BlockContext, plan: Plan, task: Task, y: number, h: num
   const readonly = context.source.readonly;
   const line = plan.kind === "lead" ? m.leadLine : m.cardLine;
   const zone = context.focus(task.id, readonly ? "open" : "toggle", context.w, h);
-  const first = readonly ? 0 : m.box + m.gap;
-  const deco = stageOf(task) === "done" ? "text-decoration:line-through;" : "";
+  const pad = m.focusPad;
+  const first = pad + (readonly ? 0 : m.box + m.gap);
+  const textW = Math.max(1, context.w - pad - first);
+  const deco = strike(context, task);
   const bits = [task.category, task.due].filter((x) => x !== undefined);
   const meta =
     bits.length === 0
@@ -225,15 +241,15 @@ function bigRow(context: BlockContext, plan: Plan, task: Task, y: number, h: num
     ${zone === undefined ? html`` : html` data-zone="${zone}"`}
     style="left:0;top:${y}px;width:${context.w}px;height:${h}px"
   >
-    ${readonly ? html`` : checkbox(context, task, Math.floor((line - m.box) / 2))}
+    ${readonly ? html`` : checkbox(context, task, pad + Math.floor((line - m.box) / 2))}
     <span
       class="a"
-      style="left:${first}px;top:0;width:${context.w - first}px;height:${2 * line}px;line-height:${line}px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;${deco}${fontCss(plan.kind === "lead" ? m.font.title : m.font.text)}"
+      style="left:${first}px;top:${pad}px;width:${textW}px;height:${2 * line}px;line-height:${line}px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;${deco}${fontCss(plan.kind === "lead" ? m.font.title : m.font.text)}"
       >${task.title}</span
     >
     <span
       class="a t"
-      style="left:${first}px;top:${2 * line}px;width:${context.w - first}px;height:${m.metaLine}px;line-height:${m.metaLine}px;white-space:pre;${fontCss(m.font.detail)}"
+      style="left:${first}px;top:${pad + 2 * line}px;width:${textW}px;height:${m.metaLine}px;line-height:${m.metaLine}px;white-space:pre;${fontCss(m.font.detail)}"
       >${meta}</span
     >
   </div>`;
@@ -244,23 +260,26 @@ function smallRow(context: BlockContext, task: Task, y: number): Raw {
   const h = m.row;
   const readonly = context.source.readonly;
   const zone = context.focus(task.id, readonly ? "open" : "toggle", context.w, h);
+  const pad = m.focusPad;
+  const ih = h - 2 * pad;
   const first = readonly ? 0 : m.box + m.gap;
-  const deco = stageOf(task) === "done" ? "text-decoration:line-through;" : "";
+  const deco = strike(context, task);
   const due = dueHtml(
     context,
     task,
-    h,
-    `grid-column:3;margin-left:${m.gap}px;white-space:nowrap;line-height:${h}px;align-self:start;${fontCss(m.font.detail, overdue(context, task))};`,
+    ih,
+    `grid-column:3;margin-left:${m.gap}px;white-space:nowrap;line-height:${ih}px;align-self:start;${fontCss(m.font.detail, overdue(context, task))};`,
+    3,
   );
   return html`<div
     class="a"
     data-fit="${context.area}"
     ${zone === undefined ? html`` : html` data-zone="${zone}"`}
-    style="left:0;top:${y}px;width:${context.w}px;height:${h}px;display:grid;grid-template-columns:${first}px minmax(0,1fr) max-content;align-items:center"
+    style="left:0;top:${y}px;width:${context.w}px;height:${h}px;padding:${pad}px;display:grid;grid-template-columns:${first}px minmax(0,1fr) max-content;align-items:center"
   >
-    ${readonly ? html`` : checkbox(context, task, Math.floor((h - m.box) / 2))}<span
+    ${readonly ? html`` : checkbox(context, task, pad + Math.floor((ih - m.box) / 2))}<span
       class="t"
-      style="grid-column:2;line-height:${h}px;${deco}${fontCss(m.font.text)}"
+      style="grid-column:2;line-height:${ih}px;${deco}${fontCss(m.font.text)}"
       >${task.title}</span
     >${due}
   </div>`;
@@ -271,7 +290,7 @@ function emptyRow(context: BlockContext, stage: Stage, y: number): Raw {
   return html`<div
     class="a t"
     data-fit="${context.area}"
-    style="left:0;top:${y}px;width:${context.w}px;height:${m.row}px;line-height:${m.row}px;${fontCss(m.font.text)}"
+    style="left:${m.focusPad}px;top:${y}px;width:${innerW(context)}px;height:${m.row}px;line-height:${m.row}px;${fontCss(m.font.text)}"
   >
     ${stage === "doing" ? EMPTY.doing : stage === "todo" ? EMPTY.todo : EMPTY.done}
   </div>`;

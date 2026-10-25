@@ -1,0 +1,5 @@
+{
+  "view": "todo",
+  "hash": "9f2c1a7b",
+  "zones": [{ "id": "t1", "x": 8, "y": 72, "w": 476, "h": 30, "act": "toggle" }]
+}

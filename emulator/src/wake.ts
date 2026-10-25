@@ -47,6 +47,7 @@ export async function runWake(config: EmulatorConfig): Promise<WakeReport> {
   const ctx: Ctx = { config, client, flash, errors };
   try {
     await flash.init();
+    client.view = (await flash.readState()).current;
     const downloaded: string[] = [];
     const nextWakeS = await wake(ctx, downloaded);
     if (errors.some((error) => error.code !== "network")) await postLog(ctx);

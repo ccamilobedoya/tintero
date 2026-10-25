@@ -3,7 +3,7 @@ import { daysInMonth, eventStart, MONTHS_LONG, weekday } from "../dates.ts";
 import { html } from "../html.ts";
 import { fontCss } from "../theme.ts";
 import { mmToPx } from "../units.ts";
-import { isTooSmall, noFit, titleRow } from "./common.ts";
+import { innerW, isTooSmall, noFit, titleRow } from "./common.ts";
 import type { Block } from "./types.ts";
 
 const LETTERS = ["L", "M", "M", "J", "V", "S", "D"];
@@ -20,7 +20,7 @@ export const monthCalendar: Block = (context) => {
           height: metrics.groupRow,
           html: html`<div
             class="a t"
-            style="left:0;top:0;width:${context.w}px;height:${metrics.groupRow}px;line-height:${metrics.groupRow}px;${fontCss(metrics.font.detail, true)}"
+            style="left:${metrics.focusPad}px;top:0;width:${innerW(context)}px;height:${metrics.groupRow}px;line-height:${metrics.groupRow}px;${fontCss(metrics.font.detail, true)}"
           >
             ${`${MONTHS_LONG[today.m - 1] ?? ""} ${today.y}`}
           </div>`,
@@ -32,8 +32,8 @@ export const monthCalendar: Block = (context) => {
   const weeks = Math.ceil((offset + total) / 7);
   const top = header.height + weekdays;
   const rowH = Math.max(1, Math.floor((context.h - top) / weeks));
-  const colW = Math.max(1, Math.floor(context.w / 7));
-  const left = Math.floor((context.w - 7 * colW) / 2);
+  const colW = Math.max(1, Math.floor(innerW(context) / 7));
+  const left = metrics.focusPad + Math.floor((innerW(context) - 7 * colW) / 2);
 
   const withEvents = new Set<number>();
   for (const event of source.items) {
@@ -42,7 +42,7 @@ export const monthCalendar: Block = (context) => {
   }
 
   const text = metrics.font.text;
-  const innerW = Math.min(colW - 2, text.px * 2);
+  const numW = Math.min(colW - 2, text.px * 2);
   const innerH = Math.min(rowH, Math.round(text.px * 1.5));
   const letters = LETTERS.map(
     (letter, i) =>
@@ -60,12 +60,12 @@ export const monthCalendar: Block = (context) => {
     const y = top + Math.floor(slotIndex / 7) * rowH;
     const isToday = day === today.d;
     const style =
-      `display:block;width:${innerW}px;height:${innerH}px;line-height:${innerH}px;text-align:center;` +
+      `display:block;width:${numW}px;height:${innerH}px;line-height:${innerH}px;text-align:center;` +
       (isToday ? "background:#000;color:#fff;" : "") +
       (withEvents.has(day) ? "text-decoration:underline;" : "");
     return html`<div
       class="a"
-      style="left:${x}px;top:${y}px;width:${colW}px;height:${rowH}px;display:flex;align-items:center;justify-content:center;${fontCss(text)}"
+      style="left:${x}px;top:${y}px;width:${colW}px;height:${rowH}px;padding:${Math.max(0, Math.floor((rowH - innerH) / 2))}px 0 0 ${Math.max(0, Math.floor((colW - numW) / 2))}px;${fontCss(text)}"
     >
       <span style="${style}">${day}</span>
     </div>`;

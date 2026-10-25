@@ -44,6 +44,13 @@ export const ZonesResponseSchema = Type.Object({
   view: Type.String({ pattern: ID_PATTERN }),
   hash: Type.String({ pattern: HASH_PATTERN }),
   zones: Type.Array(ZoneSchema, { minItems: 0, maxItems: LIMITS.maxZones }),
+  focus: Type.Optional(
+    Type.Object({
+      ring: int(1, LIMITS.maxFocusRing),
+      pad: int(1, LIMITS.maxFocusPad),
+      dash: int(0, LIMITS.maxFocusDash),
+    }),
+  ),
 });
 
 const ActionSchema = Type.Object({
@@ -104,6 +111,7 @@ export const DeviceHeadersSchema = Type.Object({
   rssi: Type.Optional(int(-120, 0)),
   formats: Type.Array(Type.Union([Type.Literal("raw1"), Type.Literal("png1")]), { minItems: 1 }),
   panel: PanelSchema,
+  view: Type.Optional(Type.String({ pattern: ID_PATTERN })),
 });
 
 export type Panel = Type.Static<typeof PanelSchema>;

@@ -183,8 +183,15 @@ export async function paint(ctx: Ctx, state: DeviceState): Promise<DeviceState> 
   }
   const zone = view.zones.zones.find((candidate) => candidate.id === state.focus);
   const next: DeviceState = { current: state.current, focus: zone?.id ?? null };
-  const raw1 = renderScreen(view.raw1, panel, zone);
+  const raw1 = renderScreen(
+    view.raw1,
+    panel,
+    zone,
+    view.zones.focus?.ring ?? 3,
+    view.zones.focus?.dash ?? 0,
+  );
   await ctx.flash.writeScreen(raw1, encodePng1(raw1, panel));
   await ctx.flash.writeState(next);
+  ctx.client.view = next.current;
   return next;
 }

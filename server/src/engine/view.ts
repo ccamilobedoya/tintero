@@ -30,6 +30,23 @@ export function zoneId(viewId: string, sourceId: string, itemId: string): string
 const gridFor = (def: ViewDef, panel: Panel): Grid =>
   panel.h > panel.w && def.portrait !== undefined ? def.portrait : def.grid;
 
+/** The stand-in source of a block that takes none (`calibration`). */
+const NO_SOURCE: Source = { type: "tasks", readonly: true, items: [] };
+
+const ceil8 = (n: number): number => Math.ceil(n / LIMITS.zoneAlign) * LIMITS.zoneAlign;
+const floor8 = (n: number): number => Math.floor(n / LIMITS.zoneAlign) * LIMITS.zoneAlign;
+
+/** Focus column of an area (F-008): byte-aligned, `focusPad` wider than the content margin. */
+export function focusColumn(
+  x: number,
+  w: number,
+  metrics: { margin: number; focusPad: number },
+): { x: number; w: number } {
+  const z0 = ceil8(x + metrics.margin - metrics.focusPad);
+  const z1 = floor8(x + w - metrics.margin + metrics.focusPad);
+  return { x: z0, w: Math.max(1, z1 - z0) };
+}
+
 function bar(panel: Panel, title: string, dateText: string): Raw {
   const m = themeMetrics(panel);
   return html`<div
@@ -98,9 +115,19 @@ export function buildView(def: ViewDef, input: Input): BuiltView {
     const rect = rects.find((r) => r.area === area);
     // eslint-disable-next-line security/detect-object-injection -- area names were validated against the grid
     const slot = def.slots[area];
-    const source = slot === undefined ? undefined : sources[slot.source];
+    const sourceId = slot?.source;
+    const source =
+      slot === undefined
+        ? undefined
+        : sourceId === undefined
+          ? NO_SOURCE
+          : Object.hasOwn(sources, sourceId)
+            ? // eslint-disable-next-line security/detect-object-injection -- guarded by hasOwn
+              sources[sourceId]
+            : undefined;
     if (rect === undefined || slot === undefined || source === undefined) continue;
-    const w = Math.max(1, rect.w - 2 * metrics.margin);
+    const column = focusColumn(rect.x, rect.w, metrics);
+    const w = column.w;
     const h = Math.max(1, rect.h - 2 * metrics.margin);
     const context: BlockContext = {
       panel,
@@ -115,8 +142,11 @@ export function buildView(def: ViewDef, input: Input): BuiltView {
       timeZone: config.timezone,
       today,
       stale:
-        stale !== undefined && Object.hasOwn(stale, slot.source) ? stale[slot.source] : undefined,
-      focus: newFocus(def.id, slot.source, zones),
+        stale !== undefined && sourceId !== undefined && Object.hasOwn(stale, sourceId)
+          ? // eslint-disable-next-line security/detect-object-injection -- guarded by hasOwn
+            stale[sourceId]
+          : undefined,
+      focus: newFocus(def.id, sourceId ?? "", zones),
     };
     const result = BLOCKS[slot.block](context);
     hidden.set(area, result.hidden);
@@ -130,7 +160,7 @@ export function buildView(def: ViewDef, input: Input): BuiltView {
         <div
           class="a"
           data-fit="${area}"
-          style="left:${metrics.margin}px;top:${metrics.margin}px;width:${w}px;height:${h}px;overflow:hidden"
+          style="left:${column.x - rect.x}px;top:${metrics.margin}px;width:${w}px;height:${h}px;overflow:hidden"
         >
           ${result.html}
         </div>
@@ -153,7 +183,8 @@ export function buildDetailView(input: Input & { sourceId: string; itemId: strin
   const today = localParts(at, config.timezone).day;
   const grid: Grid = { columns: [100], rows: [100], areas: [["detalle"]] };
   const rect = slotRects(grid, panel)[0];
-  const w = Math.max(1, (rect?.w ?? panel.w) - 2 * metrics.margin);
+  const column = focusColumn(rect?.x ?? 0, rect?.w ?? panel.w, metrics);
+  const w = column.w;
   const h = Math.max(1, (rect?.h ?? panel.h) - 2 * metrics.margin);
   const found = Object.hasOwn(sources, input.sourceId) ? sources[input.sourceId] : undefined;
   const inner = detailBody({
@@ -168,7 +199,7 @@ export function buildDetailView(input: Input & { sourceId: string; itemId: strin
   const body = html`${bar(panel, "Detalle", shortDate(today))}
     <div
       class="a"
-      style="left:${metrics.margin}px;top:${(rect?.y ?? 0) + metrics.margin}px;width:${w}px;height:${h}px"
+      style="left:${column.x}px;top:${(rect?.y ?? 0) + metrics.margin}px;width:${w}px;height:${h}px"
     >
       ${inner}
     </div>`;

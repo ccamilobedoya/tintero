@@ -16,6 +16,7 @@ export type {
   ZonesResponse,
 } from "./schemas.ts";
 export {
+  checkFocusBand,
   checkImage,
   crc32Hex,
   formatPanelHeader,

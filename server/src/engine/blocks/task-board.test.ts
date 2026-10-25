@@ -36,7 +36,7 @@ const ids = (view: string, built: { zones: { id: string }[] }) =>
     });
 
 describe("task-board layout", () => {
-  it("`hoy` shows the lead stage, 7 todo rows and 2 hidden", () => {
+  it("`hoy` shows the lead stage, 5 todo rows and 4 hidden (rows of 30 px)", () => {
     const built = buildView(def("hoy"), { panel: P124, config, sources: data.sources, at: AT });
     expect(ids("hoy", built)).toEqual([
       "b-01",
@@ -46,12 +46,10 @@ describe("task-board layout", () => {
       "b-05",
       "b-06",
       "b-07",
-      "b-08",
-      "b-09",
       "b-12",
       "b-13",
     ]);
-    expect(built.hidden).toEqual({ tareas: 2, hechas: 0, mes: 0 });
+    expect(built.hidden).toEqual({ tareas: 4, hechas: 0, mes: 0 });
     expect(built.tooSmall).toEqual([]);
     expect(built.html).toContain("EN PROGRESO");
     expect(built.html).toContain("HECHO HOY");
@@ -74,7 +72,7 @@ describe("task-board layout", () => {
   it("uses `portrait` in a vertical panel without `tooSmall`", () => {
     const built = buildView(def("hoy"), { panel: V124, config, sources: data.sources, at: AT });
     expect(built.tooSmall).toEqual([]);
-    expect(built.hidden.tareas).toBe(3);
+    expect(built.hidden.tareas).toBe(5);
   });
 
   it("an empty lead stage keeps its strip and the empty row", () => {

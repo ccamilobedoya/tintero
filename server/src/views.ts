@@ -15,14 +15,16 @@ const MIN_ZONE = 8;
 
 const unit = (panel: Panel): number => Math.max(1, Math.round(Math.min(panel.w, panel.h) / 24));
 
-/** A rectangle kept inside the panel and at least 8 px wide and high. */
+const align8 = (n: number): number => Math.floor(n / MIN_ZONE) * MIN_ZONE;
+
+/** A rectangle kept inside the panel, at least 8 px wide and high, with x and w byte aligned. */
 function rect(panel: Panel, x: number, y: number, w: number, h: number) {
-  const rx = Math.max(0, Math.min(x, panel.w - MIN_ZONE));
+  const rx = align8(Math.max(0, Math.min(x, panel.w - MIN_ZONE)));
   const ry = Math.max(0, Math.min(y, panel.h - MIN_ZONE));
   return {
     x: rx,
     y: ry,
-    w: Math.max(MIN_ZONE, Math.min(w, panel.w - rx)),
+    w: Math.max(MIN_ZONE, align8(Math.min(w, panel.w - rx))),
     h: Math.max(MIN_ZONE, Math.min(h, panel.h - ry)),
   };
 }

@@ -16,6 +16,7 @@ La primera línea de la salida es `{"listening":"http://127.0.0.1:<puerto>"}` (`
 npm run server -- --views config/views.example.json --data config/data.example.json [--chromium http://127.0.0.1:<puerto>]
 ```
 
+- `GET /api/v1/index` lee `Tintero-View` (la vista que muestra el aparato) y pone `full_refresh`; `GET /api/v1/views/{id}/zones` agrega `focus` (ver *Foco, banda y alineación*). Sin motor (demostración de F-003), `full_refresh` es siempre `false`.
 - `--views` (≤ 64 KiB) y `--data` (≤ 512 KiB) van **juntos** (si falta uno, sale con 2); un error en los archivos sale con 2 y un mensaje con la ruta JSON del campo (nunca el valor). Sin ellos, el servidor sigue con la demostración de F-003.
 - Sin `--chromium`, el servidor arranca su propio contenedor (`startChromiumService()`: imagen `CHROMIUM_IMAGE` de `tools/images.conf`, letras de `server/fonts/`, solo escucha en `127.0.0.1`) y lo detiene al salir (Ctrl+C / SIGTERM). Necesita Docker. `--chromium` solo acepta `http://127.0.0.1:<puerto>` (excepción de CDP en `docs/seguridad.md`).
 - Cada dibujo escribe una línea `{ "ts", "render", "ms", "ok" }` (más `overflow` o `tooSmall` si los hay), sin contenido.
@@ -52,13 +53,34 @@ npm run render -- --views config/tablero.views.example.json --data config/tabler
 - Zonas: una por tarea (`toggle`, o `open` si la fuente es `readonly`). `toggle` pasa la tarea a *Hecho* (con `doneAt` = reloj del motor) y, otra vez, la devuelve a su etapa anterior.
 - `setSource(id, items, { readAt })` recibe la hora de la última lectura buena.
 
+### Foco, banda y alineación (F-008, ADR-0048 a ADR-0050)
+
+Medidas del tema `base` (en `Metrics`; a 124 ppp / a 200 ppp): `focusRing` 0,6 mm (3 / 5 px), `focusDash` 8 px fijos (un byte), `focusPad` 1,2 mm (6 / 9 px), `focusGap` 0,6 mm (3 / 5 px), `row` 6,2 mm (30 / 49 px), `line` `max(2, 0,5 mm)` (2 / 4 px).
+
+- **Columna de foco.** Con `X`, `W` el rectángulo del área y `M` el margen: `Z0 = ceil8(X + M − focusPad)` y `Z1 = floor8(X + W − M + focusPad)`; el bloque recibe `w = Z1 − Z0` y se coloca en `Z0`. Toda zona ocupa el ancho entero de la columna, así `x` y `w` salen múltiplos de 8 (si no, el motor deja la zona fuera y registra `{ event: "zone-unaligned", view }`).
+- **La banda.** Por dentro de cada zona, `focusPad` px **en blanco** por los cuatro lados: casilla, texto y etiqueta empiezan a `focusPad` del borde. Lo que no es zona (franjas, encabezados, «+N más», filas de vacío, `month-calendar`, detalle) pone su texto desde `Z0 + focusPad`; los fondos negros y las rayas de las franjas van de `Z0` a `Z1 − 1`. Después de cada dibujo el motor llama a `checkFocusBand`: si una zona trae tinta en la banda, `RenderedView.bandInk` la lista y se registra `{ event: "focus-band-ink", view, count }` (sin textos).
+- **Altos.** Fila `row`: `row` (sin hueco entre filas). Fila que manda: `2·leadLine + metaLine + 2·focusPad` (86 px); `card`: `2·cardLine + metaLine + 2·focusPad` (72 px); filas de `issue-list`: `issueRow + 2·focusPad` y `issueDescRow + 2·focusPad`. Antes de cada fila que manda y de cada `card`: `focusGap`. La etiqueta de vencida mide `row − 2·focusPad − 4` y el tachado de las hechas, `line`.
+- **`full_refresh`.** El motor lo pone en `true` en el primer `index` de cada día local (zona horaria de la configuración) por aparato; tras reiniciar, el primer `index` da `true`.
+- **`Tintero-View`.** `index(device, panel, { view })` devuelve esa vista como `current` si está entre las del aparato (si no, la primera; el detalle recién abierto manda) y la dibuja antes que las demás.
+
+### Bloque `calibration` (F-008)
+
+Una hoja de prueba fija para decidir en el panel real, con el refresco rápido, los trazos y la letra de los detalles. No lleva `source` (si se pone, `ConfigError`), no tiene zonas, y el archivo de datos puede traer `"sources": {}`. Ejemplos: `config/calibracion.views.example.json` y `config/calibracion.data.example.json`.
+
+```bash
+npm run render -- --views config/calibracion.views.example.json --data config/calibracion.data.example.json \
+  --panel w=800,h=480,dpi=124,depth=1 --out /tmp/tintero-calibracion
+```
+
+Dibuja, desde la esquina del contenido: rayas de 1, 2 y 3 px (horizontales y verticales, en píxeles a propósito), siete líneas con `Ñandú pingüino ÁÉÍÓÚ 0123 22 oct` (Terminus 14 y 16 normal y negrita, DejaVu Sans 9 pt, 12 pt y 9 pt tachado), las tres casillas, la etiqueta `22 oct` y un anillo punteado y uno sólido de muestra (`Foco`, `Enviando`). Está pensada para el panel de 800 × 480 a 124 ppp (mide unos 75 mm de alto).
+
 ### Cómo se escribe un bloque nuevo
 
 Un bloque es una función `(context: BlockContext) => BlockResult` en `src/engine/blocks/<nombre>.ts`, registrada en `blocks/index.ts` y en `config.ts` (nombre, tipo de fuente y opciones). No sabe de dónde vienen los datos (ADR-0009): recibe los elementos de su fuente.
 
 1. **Su diseño.** Todo en unidades físicas del tema (`context.metrics`: márgenes, alto de fila, letras ya elegidas con `pickFont`; nunca píxeles fijos). El bloque es dueño de su diseño, incluido qué hace con el texto que no cabe (una línea con «…», varias líneas con tope…). El HTML se arma **solo** con la plantilla `html` de `html.ts` (escapa todo valor); nada de `url()`, `@font-face` ni scripts.
 2. **Su regla de «cabe».** Use `fitList` de `blocks/common.ts`: las filas tienen el alto de su diseño, un encabezado solo se pone si cabe con una fila suya y, si no cabe todo, se reserva al final la fila «+N más» (`moreRow`). Devuelva `hidden` = cuántos elementos no se mostraron. Si el espacio es más chico que el mínimo del bloque, devuelva `noFit(context)` (`tooSmall`).
-3. **Sus zonas.** Por cada fila con foco llame `context.focus(itemId, "toggle" | "open", w, h)` **en el orden de las filas** (es el orden de `Tab`) y ponga el id que devuelve en `data-zone`. El motor ya limita a 48 zonas y a ≥ 8 px, y mide la caja real del elemento. Si el bloque no tiene foco, no llame a `focus`.
+3. **Sus zonas.** Por cada fila con foco llame `context.focus(itemId, "toggle" | "open", w, h)` **en el orden de las filas** (es el orden de `Tab`) y ponga el id que devuelve en `data-zone`. El motor ya limita a 48 zonas y a ≥ 8 px, y mide la caja real del elemento. La zona ocupa el ancho entero de la columna (`context.w`) y todo lo visible de la fila va a `focusPad` de sus cuatro bordes (ver *Foco, banda y alineación*). Si el bloque no tiene foco, no llame a `focus`.
 4. **Revisión de desbordes.** Marque el contenedor y cada fila con `data-fit="<área>"` (`context.area`); el motor revisa después de dibujar que nada se salga a lo alto ni a lo ancho. Los textos con «…» no cuentan: se cortan a propósito dentro de su fila.
 5. Pruebas junto al código con el `Renderer` falso de `testing.ts`; `npm run render` muestra el resultado real.
 
