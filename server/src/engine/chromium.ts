@@ -306,11 +306,30 @@ interface ElementLike {
   clientWidth: number;
 }
 
+const CLOSE_TIMEOUT_MS = 2_000;
+
+/** Closes without ever hanging: a frozen Chromium never answers, so the wait has a cap. */
+async function closeBounded(
+  target: { close(): Promise<void> },
+  capMs = CLOSE_TIMEOUT_MS,
+): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  const cap = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, capMs);
+  });
+  try {
+    await Promise.race([target.close().catch(() => undefined), cap]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function chromiumRenderer(
   endpoint: string,
-  options: { timeoutMs?: number } = {},
+  options: { timeoutMs?: number; closeTimeoutMs?: number } = {},
 ): Promise<Renderer> {
   const timeoutMs = options.timeoutMs ?? 10_000;
+  const closeCapMs = options.closeTimeoutMs ?? CLOSE_TIMEOUT_MS;
   let browser = await connectCdp(endpoint);
   let blocked = 0;
 
@@ -322,7 +341,7 @@ export async function chromiumRenderer(
   const dropCached = async (): Promise<void> => {
     const old = cached;
     cached = undefined;
-    await old?.context.close().catch(() => undefined);
+    if (old !== undefined) await closeBounded(old.context, closeCapMs);
   };
 
   const pageFor = async (panel: Panel): Promise<Page> => {
@@ -343,7 +362,7 @@ export async function chromiumRenderer(
       cached = { w: panel.w, h: panel.h, context, page };
       return page;
     } catch (error) {
-      await context.close().catch(() => undefined);
+      await closeBounded(context, closeCapMs);
       throw error;
     }
   };
@@ -434,7 +453,7 @@ export async function chromiumRenderer(
     async close() {
       await enqueue(() => Promise.resolve(), "low"); // after everything already queued
       await dropCached();
-      await browser.close().catch(() => undefined);
+      await closeBounded(browser, closeCapMs);
     },
   };
 }
@@ -604,7 +623,7 @@ export async function startChromiumService(
   const reconnects = async (endpoint: string): Promise<boolean> => {
     try {
       const probe = await connectCdp(endpoint);
-      await probe.close().catch(() => undefined); // only a check; the connection is not needed
+      await closeBounded(probe); // only a check; the connection is not needed
       return true;
     } catch {
       return false;
@@ -614,7 +633,8 @@ export async function startChromiumService(
   /**
    * After a failed drawing: if a new connection fails (or `force`), replaces the container, alive
    * or not. One at a time. A failure here is logged as a defect and the next failed drawing tries
-   * again (the state is never left stuck).
+   * again (the state is never left stuck). Without `force` and without a current container (a
+   * relaunch that failed earlier) it also relaunches.
    */
   const supervise = (force = false): void => {
     if (restarting !== undefined || flags.stopped || flags.rendererClosed) return;
@@ -641,7 +661,7 @@ export async function startChromiumService(
       if (isUp()) upAt = clock();
     })()
       .catch(() => {
-        out({ event: "defect", where: "chromium-restart" });
+        if (!isStopped()) out({ event: "defect", where: "chromium-restart" });
       })
       .finally(() => {
         restarting = undefined;
