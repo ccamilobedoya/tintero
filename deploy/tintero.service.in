@@ -1,0 +1,18 @@
+# Tintero como servicio de systemd de usuario (F-010, ADR-0046). Plantilla: no editar a mano la copia
+# instalada; la genera tools/instalar-servicio desde la configuración local.
+[Unit]
+Description=Tintero
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=@TINTERO_DIR@
+ExecStart=@NODE@ server/src/main.ts @ARGS@
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=45
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

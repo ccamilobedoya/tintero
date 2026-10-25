@@ -8,6 +8,8 @@
 | El archivo que indique `TRILIUM_TOKEN_FILE` | El token de la API de Trilium | Una línea `TRILIUM_ETAPI_TOKEN=<token>` |
 | `~/.config/tintero/private-terms.txt` (o `$TINTERO_PRIVATE_TERMS`) | Términos que **nunca** pueden llegar al repo: nombres, servidores, direcciones, IDs de notas, rutas locales | Uno por línea; `#` para comentarios. Se comparan como palabra completa, sin distinguir mayúsculas |
 
+| `~/.config/tintero/local.env`, claves `TINTERO_DIR`, `TINTERO_NODE`, `TINTERO_ARGS` | El servicio de systemd de usuario (F-010, `tools/instalar-servicio`): carpeta del repo que corre el servicio, ruta absoluta de `node` y las opciones del servidor | Ver `config/local.env.example` |
+
 Todos con permisos **600** y la carpeta con **700**.
 
 ## Qué revisa la lista de términos privados

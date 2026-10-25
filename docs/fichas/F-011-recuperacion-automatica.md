@@ -1,0 +1,114 @@
+# F-011 · Recuperación automática completa
+
+**Estado:** **aprobada** · el dueño aprobó D1–D5 el 2026-10-25, al separar F-010 (lo mínimo) de esta ficha (el resto). Se programa después de F-010.
+**Modelo del programador:** sonnet
+**Dependencias nuevas permitidas:** ninguna.
+
+## Decisiones
+
+| # | Decisión | Aprobado |
+|---|----------|----------|
+| **D1** ✅ | Esperar en vez de salir | Si Docker no responde al arrancar, el servidor **espera y reintenta** dentro del proceso (1 s, 2 s, 4 s… hasta 60 s entre intentos, sin fin) en vez de salir con 2 y depender de los reinicios de systemd (F-010 D2). Así el registro dice una vez qué espera, no un arranque fallido cada 5 s. **Empieza a escuchar cuando Chromium está listo**: mientras tanto la pantalla no conecta y reintenta en su próximo despertar (no la tenemos despierta esperando un `503`). |
+| **D2** ✅ | Chromium que muere se relanza | Si el contenedor de Chromium que arrancó el servidor deja de existir o de responder, el servidor lo **relanza** (con la misma espera creciente) y el `Renderer` se conecta a la dirección nueva. Mientras tanto los dibujos fallan rápido y el motor contesta `503 busy` como siempre. Con `--chromium` (uno externo), solo se reconecta, como hoy. |
+| **D3** ✅ | Nada depende de internet | `docker run --pull never`: la imagen fijada por *digest* tiene que estar en la máquina; si no está, el servidor lo dice (`image-missing`, una vez por hora) y sigue esperando, en vez de intentar bajarla sin internet. |
+| **D4** ✅ | Un error fatal reinicia limpio | Si aun así ocurre un error sin atrapar (`uncaughtException` o `unhandledRejection`), el servidor registra una línea sin contenido, corre el apagado ordenado (con tope) y sale con **1**: systemd (F-010) lo levanta a los 5 s con estado limpio y el estado de F-009 en disco. |
+| **D5** ✅ | Prueba de apagón | `tools/prueba-recuperacion` hace en vivo lo que se puede sin apagar la máquina (matar el proceso con `kill -9`, matar Chromium, parar Trilium) y comprueba que todo vuelve. El **reinicio real** lo hace el dueño (corta la sesión de Claude), con una lista de chequeo en `server/README.md`. |
+
+## Listo para programar (se marca antes de pedir aprobación)
+- [x] Cada CA se puede comprobar con una prueba, con valores concretos.
+- [x] El contrato (interfaces, formatos, errores) está escrito.
+- [x] Los archivos a crear o tocar están listados.
+- [x] Presupuestos y reglas de seguridad que aplican, nombrados.
+- [x] Lo que queda fuera de alcance, escrito.
+- [x] **Nombres de archivos, rutas, puertos y URLs** que las pruebas necesiten, escritos.
+- [x] Toda **función que se pruebe tiene nombre y firma**, y todo **contador o medida** dice desde cuándo cuenta.
+
+## Contexto
+F-010 deja Tintero como servicio de usuario que arranca con la máquina, se reinicia si se cae y borra los Chromium huérfanos (etiqueta `tintero.chromium=1`). Esta ficha agrega lo que falta para que se recupere **sin reiniciar el proceso**: esperar a Docker, relanzar Chromium, no depender de internet, reiniciar limpio ante un error fatal, y las mejoras de la revisión de F-009. Aplican ADR-0031, ADR-0044, ADR-0045 y la excepción de CDP de `docs/seguridad.md`.
+
+## Alcance
+Espera de Docker, relanzamiento de Chromium y `--pull never` en `chromium.ts`; manejo de errores fatales; mejoras de F-009; prueba de recuperación en vivo y lista de chequeo del apagón.
+
+**Fuera de alcance:** F-012 (cómo llega la pantalla al servidor: Funnel, nombre público, CA real); avisos por Telegram (se conectan del lado del homelab, fuera del repo); varias copias del servidor.
+
+## Requisitos
+- R1. Sin cambios para quien arranca a mano, salvo que ya no sale con 2 cuando Docker no responde (espera). Las pruebas de aceptación de F-001 a F-010 pasan.
+- R2. **Mejoras de la revisión de F-009** (vuelta 2), en `server/src/integrations/{trilium-tasks,state}.ts`: (1) `persist` libera `saveRunning` en un `finally`; (2) `runCycle` separa los errores de red/HTTP (`IntegrationHttpError`) de los inesperados, y estos se registran **siempre** con `{ ts, integration, event: "defect", where: "cycle" }` (regla 12; sin mensaje ni pila); (3) la línea `pending` de una escritura fallida lleva su `code`; (4) `saveState` abre el temporal con `"wx"` (borrando antes un resto del mismo nombre), sin seguir enlaces; (5) `loadState` lee del mismo descriptor que midió.
+
+## Contrato
+
+### Docker y Chromium (`server/src/engine/chromium.ts`, zona sensible)
+```ts
+export interface ChromiumService {
+  renderer: Renderer;                 // el mismo Renderer de siempre, con la dirección que cambie
+  endpoint(): string | undefined;     // la actual; undefined mientras relanza
+  stop(): Promise<void>;              // para el contenedor y deja de relanzar
+}
+export function startChromiumService(options?: {
+  log?: (line: Record<string, unknown>) => void;
+  clock?: () => Date;
+  sleep?: (ms: number) => Promise<void>;   // las pruebas aceleran la espera
+  image?: string;                          // por defecto la de tools/images.conf
+}): Promise<ChromiumService>;               // resuelve cuando hay un Chromium que responde
+export function waitForDocker(options?: {
+  log?: (line: Record<string, unknown>) => void; clock?: () => Date;
+  sleep?: (ms: number) => Promise<void>; signal?: AbortSignal;
+}): Promise<void>;
+```
+- **`waitForDocker`**: corre `docker version --format {{.Server.Version}}` (tope 10 s); si falla, espera 1000, 2000, 4000, 8000, 16000, 32000, 60000, 60000… ms y reintenta, sin fin (o hasta `signal`). Registro: `{ ts, event: "docker", ok: false }` al primer fallo y luego una por hora (desde el primero); `{ ts, event: "docker", ok: true, waitedS }` cuando responde tras fallar.
+- **`startChromiumService`**: `waitForDocker`; `removeOrphanChromium` (F-010); antes de cada arranque mira la imagen con `docker image inspect <imagen>` (tope 10 s): si no está, no corre `run` y registra `{ event: "chromium", action: "start", ok: false, code: "image-missing" }` (una vez por hora mientras siga así); si arrancar falla por otra cosa, `code: "start"`. En ambos casos, misma espera creciente.
+- **Relanzar** (D2): cuando un dibujo falla y la reconexión de siempre también falla, el servicio mira si el contenedor sigue corriendo (`docker inspect -f {{.State.Running}} <nombre>`, tope 10 s). Si no, lo borra, registra `{ event: "chromium", action: "restart" }` y arranca otro con la espera creciente. Mientras relanza, `render` rechaza enseguida (el motor contesta `busy`). Un solo relanzamiento a la vez.
+- `chromiumDockerArgs` agrega `--pull`, `never` antes de la imagen (además de la etiqueta de F-010).
+
+### Servidor (`server/src/main.ts`, `server/src/fatal.ts`)
+- Sin `--chromium`: usa `startChromiumService` y **espera** a que resuelva antes de escuchar. Con `--chromium`: como hoy. La primera línea `{"listening": …}` sale cuando ya escucha.
+- `installFatalHandlers(options: { log, shutdown: () => Promise<void>, exit: (code: number) => void, clock?: () => Date })`: con `uncaughtException` o `unhandledRejection` registra `{ ts, event: "fatal", kind }` (sin mensaje ni pila), llama `shutdown()` con tope de **30 s** y luego `exit(1)`. Solo actúa la primera vez. SIGTERM sigue con el apagado ordenado y sale con 0.
+
+### Prueba y lista de chequeo (las escribe el arquitecto)
+- `tools/prueba-recuperacion [--trilium]`: con el servicio de F-010 corriendo, y tope de 60 s por paso, imprime `OK`/`FALLA`: 1) `kill -9` del proceso → `GET /api/v1/index` como el del emulador vuelve a dar 200; 2) `docker kill` del Chromium → exactamente un contenedor `tintero.chromium=1` corriendo y una vista se dibuja bien, **sin** que el proceso se haya reiniciado (mismo PID); 3) con `--trilium`, para y arranca el contenedor de Trilium → aparece una línea `read ok: true` en el registro. Sale con 0 solo si todo dio `OK`.
+- `server/README.md`: lista de chequeo del apagón real (tras reiniciar: servicio activo, un solo Chromium, el emulador recibe una vista, la vista de tareas muestra lo guardado y luego lo de Trilium).
+
+## Criterios de aceptación
+Las pruebas con Docker real usan la imagen fijada de `tools/images.conf`. «Docker falso» = una carpeta temporal fuera del repo con un ejecutable `docker` que falla (sale con 1) las primeras N veces que lo llaman con `version` (cuenta en un archivo), anota cada llamada en otro archivo, y en lo demás llama al `docker` real (ruta absoluta resuelta antes de cambiar `PATH`); la prueba lo pone primero en el `PATH` del proceso.
+
+- **CA1 (espera a Docker).** Con el Docker falso, N = 3, y `sleep` de prueba que no espera: `waitForDocker` resuelve tras **4** llamadas a `version`; las esperas pedidas fueron 1000, 2000 y 4000 ms; el registro tiene una línea `docker` `ok: false` y una `ok: true`. El servidor real con N = 2 no sale con 2: escribe `{"listening": …}` y contesta.
+- **CA2 (Chromium muere).** Con el servidor arrancado y una vista ya dibujada: `docker kill` del contenedor; las peticiones siguientes dan `200` o `503 busy` (nunca otra cosa ni una conexión cortada), y en ≤ **30 s** una vista nueva se dibuja bien, con el mismo proceso. Hay una línea `restart` y, al final, exactamente 1 contenedor con la etiqueta.
+- **CA3 (sin bajar imágenes).** `chromiumDockerArgs(...)` contiene `--pull`, `never` antes de la imagen. `startChromiumService({ image: "tintero-imagen-que-no-existe:0", sleep })` con el Docker falso: tras la primera espera hay una línea `{ event: "chromium", action: "start", ok: false, code: "image-missing" }`, y ninguna llamada anotada fue `pull` ni `run` con esa imagen.
+- **CA4 (error fatal).** `installFatalHandlers` con `log`, `shutdown` y `exit` falsos: un `unhandledRejection` → una línea con exactamente las claves `ts`, `event` (`"fatal"`) y `kind` (`"unhandledRejection"`); `shutdown` llamado una vez y luego `exit(1)`; un segundo evento no hace nada. Si `shutdown` no termina en 30 s (reloj de prueba), igual `exit(1)`.
+- **CA5 (mejoras de F-009).** (1) Con un `saveState` que lanza una vez, el siguiente cambio vuelve a guardar el archivo. (2) Con un `engine.setSource` que lanza, el ciclo deja `{ event: "defect", where: "cycle" }` en **cada** ciclo (tres ciclos seguidos → tres líneas), y no una línea `read ok: false`. (3) Una escritura que falla por red deja `{ event: "write", result: "pending", code: "network" }`. (4) Si `<stateFile>.tmp-<pid>` es un enlace simbólico a otro archivo, `saveState` no escribe en el destino del enlace y el estado queda bien guardado. (5) Las pruebas de estado de F-009 (CA17–CA20, CA23) siguen pasando.
+- **CA6 (regresión).** `npm run test:acceptance` (F-001 a F-010) pasa.
+- **CA7 (en vivo, lo corre el arquitecto).** Con el servicio de F-010 instalado y arrancado, `tools/prueba-recuperacion` sale con 0 (pasos 1 y 2). Resultado en *Resultado obtenido*.
+- **CA8 (apagón real, lo corre el dueño).** Tras un reinicio de la máquina, la lista de chequeo de `server/README.md` se cumple. Resultado en *Resultado obtenido* (si aún no se corrió, se dice).
+
+## Presupuestos
+Recuperación tras la muerte de Chromium ≤ 30 s sin reiniciar el proceso; espera entre intentos ≤ 60 s; un registro de fallo por hora como mucho mientras dure una caída (salvo `defect`, que es siempre).
+
+## Seguridad
+- [ ] Entradas externas con **límite de tamaño antes de parsear**: salida de `docker` (como hoy).
+- [ ] Servicios locales solo en **127.0.0.1** (sin cambios).
+- [ ] Dependencias nuevas: ninguna.
+- [ ] El contenedor de Chromium sigue con todo el endurecimiento de ADR-0031; `--pull never` no baja nada; `docker rm -f` solo sobre el contenedor propio o etiquetado.
+- [ ] Los registros de error fatal y de `defect` no llevan mensajes ni pilas.
+
+## Archivos
+**A crear:** `server/src/fatal.ts` (+ prueba), `tests/acceptance/F-011/`.
+**A tocar:** `server/src/engine/chromium.ts` (zona sensible), `server/src/main.ts`, `server/src/integrations/{trilium-tasks,state}.ts` (+ pruebas), `server/README.md`.
+**El arquitecto:** `tools/prueba-recuperacion`.
+
+## Resultado esperado
+Tintero espera a Docker sin rendirse, relanza Chromium si muere sin reiniciar el proceso, no necesita internet, y si algo raro lo tumba, vuelve en 5 s con lo que tenía guardado.
+
+## Terminado (se marca al cerrar)
+- [ ] Todos los CA pasan en la verificación (informe adjunto); CA7 y CA8 con su resultado en vivo.
+- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
+- [ ] `tools/check-scope` limpio para cada rol.
+- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
+- [ ] El dueño aprobó integrar.
+
+---
+
+## Resultado obtenido
+*(Lo llena el arquitecto al cerrar.)*
+
+## Resumen para aprobar
+*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
