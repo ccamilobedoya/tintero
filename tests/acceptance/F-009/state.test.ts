@@ -320,6 +320,35 @@ describe("CA21 cierre y olvido", () => {
   }, 30_000);
 });
 
+describe("CA23 la hora guardada no envejece", () => {
+  it("5 ciclos buenos sin cambios no mueven lastGood.readAt; a los 5 min sí", async () => {
+    await fresh();
+    const file = stateFile();
+    const r = mk({ stateFile: file });
+    const readAtOf = (now = NOW): string | undefined => load(file, now).state?.lastGood?.readAt;
+    for (const hhmm of ["17:00", "17:01", "17:02", "17:03", "17:04"]) {
+      r.clock.set("2026-10-24T" + hhmm + ":00Z");
+      await r.tt.cycle();
+      await r.tt.idle();
+      await sleep(150);
+    }
+    await waitFor(() => readAtOf() !== undefined, 5000, "archivo tras el primer ciclo");
+    expect(readAtOf("2026-10-24T17:04:00Z")).toBe("2026-10-24T17:00:00.000Z");
+
+    r.clock.set("2026-10-24T17:05:00Z");
+    await r.tt.cycle();
+    await waitFor(
+      () => readAtOf("2026-10-24T17:05:00Z") === "2026-10-24T17:05:00.000Z",
+      5000,
+      "readAt 17:05Z en el archivo",
+    );
+    await r.tt.stop();
+
+    const b = mk({ stateFile: file, now: "2026-10-24T17:06:00Z" });
+    expect(b.calls[0]?.readAt).toEqual(at("2026-10-24T17:05:00Z"));
+  }, 30_000);
+});
+
 describe("CA22 registro sin inundar y día en el aviso", () => {
   it("65 ciclos caídos → 2 líneas; al volver una línea ok con downS 3900", async () => {
     await fresh();
