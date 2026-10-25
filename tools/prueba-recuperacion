@@ -5,7 +5,8 @@
 #   3) (--trilium) reinicia el contenedor de Trilium → la integración vuelve a leer (read ok:true).
 # Lee de la configuración local ($TINTERO_LOCAL_ENV o ~/.config/tintero/local.env):
 #   TINTERO_ARGS (de ahí salen --port e --instance), y opcionales TINTERO_EMULATOR_ARGS
-#   (p. ej. --ca/--cert/--key si el servicio usa TLS) y TINTERO_TRILIUM_CONTAINER (para --trilium).
+#   (p. ej. --ca/--cert/--key si el servicio usa TLS), TINTERO_EMULATOR_SERVER (la URL pública, con TLS)
+#   y TINTERO_TRILIUM_CONTAINER (para --trilium).
 # Sale con 0 solo si todos los pasos dan OK. No usa sudo; no abre nada a internet.
 set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel)" || exit 2
@@ -23,7 +24,10 @@ PORT="$(sed -nE 's/.*--port[ =]([0-9]{1,5}).*/\1/p' <<<"$ARGS")"
 INSTANCE="$(sed -nE 's/.*--instance[ =]([a-z0-9-]{1,32}).*/\1/p' <<<"$ARGS")"
 [ -n "$PORT" ] && [ -n "$INSTANCE" ] || { echo "TINTERO_ARGS necesita --port y --instance" >&2; exit 2; }
 SCHEME=http; [ -n "$EMU_ARGS" ] && SCHEME=https
-SERVER="$SCHEME://127.0.0.1:$PORT"
+SERVER="$(value TINTERO_EMULATOR_SERVER)"
+# Con TLS, el certificado del servidor es del nombre público: el emulador entra por ese nombre.
+[[ -z "$SERVER" ]] && SERVER="$SCHEME://127.0.0.1:$PORT"
+[[ "$SERVER" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]] || { echo "TINTERO_EMULATOR_SERVER inválido" >&2; exit 2; }
 STORE="$(mktemp -d)"; trap 'rm -rf "$STORE"' EXIT
 systemctl --user is-active --quiet tintero || { echo "El servicio tintero no está activo" >&2; exit 2; }
 
