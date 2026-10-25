@@ -87,6 +87,12 @@ export interface FakeEtapi {
   requests: Recorded[];
   offline: boolean;
   delayMs: number;
+  /** Sends the headers and half of the board note, then goes quiet. */
+  cutMidway: boolean;
+  /** Answers 500 to `GET /notes/<card>` (not to the board nor the search). */
+  failCardGets: boolean;
+  /** Takes a card off the board (as if deleted from Trilium). */
+  removeCard(noteId: string): void;
   /** Replaces the body of every answer (status 200). `length: false` sends it chunked. */
   override: { body: string | Buffer; length: boolean } | undefined;
   /** Changes the value of an own label (as if done from Trilium). */
@@ -135,6 +141,12 @@ export async function startFakeEtapi(): Promise<FakeEtapi> {
     requests,
     offline: false,
     delayMs: 0,
+    cutMidway: false,
+    failCardGets: false,
+    removeCard(noteId) {
+      const at = data.findIndex((c) => c.noteId === noteId);
+      if (at >= 0) data.splice(at, 1);
+    },
     override: undefined,
     setLabel(noteId, name, value) {
       const found = data.find((c) => c.noteId === noteId)?.attrs.find((a) => a.name === name);
@@ -190,6 +202,11 @@ export async function startFakeEtapi(): Promise<FakeEtapi> {
       return;
     }
     const note = /^\/etapi\/notes\/([A-Za-z0-9_]+)$/.exec(path)?.[1];
+    if (req.method === "GET" && note === BOARD && fake.cutMidway) {
+      res.writeHead(200, { "content-type": "application/json", "content-length": 1000 });
+      res.write(" ".repeat(500)); // the rest never arrives
+      return;
+    }
     if (req.method === "GET" && note === BOARD) {
       json(res, 200, {
         noteId: BOARD,
@@ -198,6 +215,10 @@ export async function startFakeEtapi(): Promise<FakeEtapi> {
         childNoteIds: data.map((c) => c.noteId),
         attributes: [],
       });
+      return;
+    }
+    if (req.method === "GET" && note !== undefined && fake.failCardGets) {
+      json(res, 500, { status: 500, code: "INTERNAL", message: "x" });
       return;
     }
     if (req.method === "GET" && note !== undefined) {

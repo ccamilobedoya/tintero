@@ -6,7 +6,8 @@
       "baseUrl": "http://127.0.0.1:8080/etapi",
       "keyFile": "/ruta/privada/trilium.token",
       "boardNoteId": "IdDeLaNotaDelTablero",
-      "allowWrite": false
+      "allowWrite": false,
+      "stateFile": "/ruta/privada/tintero-tareas.estado.json"
     }
   }
 }

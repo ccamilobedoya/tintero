@@ -1,3 +1,4 @@
+import { chmodSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadDataFile, loadViewsConfig, type DataFile, type Task } from "../engine/config.ts";
@@ -8,6 +9,7 @@ import { zoneId } from "../engine/view.ts";
 import { DEFAULT_COLUMNS, type TriliumTasksConfig } from "./config.ts";
 import { guardedHttp, type GuardedHttp } from "./http.ts";
 import { triliumTasksManifest } from "./manifest.ts";
+import { loadState, saveState } from "./state.ts";
 import { BOARD, startFakeEtapi, TOKEN, type FakeEtapi } from "./testing.ts";
 import { createTriliumTasks, markStage, readBoard, type TriliumTasks } from "./trilium-tasks.ts";
 
@@ -126,8 +128,8 @@ interface Rig {
 }
 
 let counter = 0;
-function rig(config: Partial<TriliumTasksConfig> = {}, http = clientFor()): Rig {
-  const clock = { now: NOW };
+function rig(config: Partial<TriliumTasksConfig> = {}, http = clientFor(), start = NOW): Rig {
+  const clock = { now: start };
   const lines: Record<string, unknown>[] = [];
   const calls: Rig["calls"] = [];
   // eslint-disable-next-line prefer-const -- the engine callback needs it before it is created
@@ -325,9 +327,171 @@ describe("createTriliumTasks", () => {
     }
   });
 
-  it("stop() waits for the queue and stops the timer", async () => {
+  it("saves the state, and a new integration comes back with the last read and the mark", async () => {
+    const stateFile = join(fake.dir, "state.json");
+    const r = rig({ stateFile });
+    await r.tasks.cycle();
+    await r.tasks.idle();
+    const saved = loadState(stateFile, BOARD, NOW).state;
+    expect(saved?.lastGood?.readAt).toBe("2026-10-24T17:00:00.000Z");
+    fake.offline = true;
+    r.clock.now = new Date("2026-10-24T17:01:00Z");
+    r.toggle("a", "tarjeta00001");
+    await r.tasks.idle();
+    expect(loadState(stateFile, BOARD, r.clock.now).state?.pending.tarjeta00001?.next).toBe(
+      "Hecho",
+    );
+    await r.tasks.stop();
+
+    const again = rig({ stateFile }, clientFor(), new Date("2026-10-24T17:30:00Z"));
+    expect(again.calls[0]?.readAt).toEqual(NOW);
+    expect(again.calls[0]?.items.map((t) => t.id)).toHaveLength(4);
+    expect(again.calls[0]?.items.find((t) => t.id === "tarjeta00001")?.stage).toBe("done");
+    fake.offline = false;
+    await again.tasks.cycle();
+    expect(fake.patches().map((p) => p.body)).toEqual(['{"value":"Hecho"}']);
+    await again.tasks.idle();
+    expect(loadState(stateFile, BOARD, again.clock.now).state?.pending).toEqual({});
+  });
+
+  it("keeps the saved read time for 5 min on an unchanged board, then refreshes it", async () => {
+    const stateFile = join(fake.dir, "state.json");
+    const r = rig({ stateFile });
+    const savedAt = (): string | undefined =>
+      loadState(stateFile, BOARD, r.clock.now).state?.lastGood?.readAt;
+    for (const minute of ["00", "01", "02", "03", "04"]) {
+      r.clock.now = new Date(`2026-10-24T17:${minute}:00Z`);
+      await r.tasks.cycle();
+      await r.tasks.idle();
+    }
+    expect(savedAt()).toBe("2026-10-24T17:00:00.000Z");
+    r.clock.now = new Date("2026-10-24T17:05:00Z");
+    await r.tasks.cycle();
+    await r.tasks.idle();
+    expect(savedAt()).toBe("2026-10-24T17:05:00.000Z");
+    await r.tasks.stop();
+    const again = rig({ stateFile }, clientFor(), new Date("2026-10-24T17:06:00Z"));
+    expect(again.calls[0]?.readAt).toEqual(new Date("2026-10-24T17:05:00Z"));
+  });
+
+  it("discards a read over 24 h old and expires a mark that was pending while off", async () => {
+    const stateFile = join(fake.dir, "state.json");
+    await saveState(stateFile, {
+      version: 1,
+      boardNoteId: BOARD,
+      savedAt: "2026-10-23T16:59:30.000Z",
+      lastGood: { readAt: "2026-10-23T16:59:00.000Z", tasks: [] },
+      statuses: { tarjeta00001: "Por hacer" },
+      pending: { tarjeta00001: { next: "Hecho", since: "2026-10-23T16:59:30.000Z" } },
+    });
+    const r = rig({ stateFile });
+    expect(r.calls).toEqual([{ items: [], readAt: NOW }]);
+    await r.tasks.cycle();
+    expect(r.lines).toContainEqual(expect.objectContaining({ result: "expired" }));
+    expect(fake.patches()).toHaveLength(0);
+  });
+
+  it("starts clean with a damaged file and then rewrites it", async () => {
+    const stateFile = join(fake.dir, "state.json");
+    const cases: [string, number, string][] = [
+      ["{", 0o600, "bad-json"],
+      ["x".repeat(1_048_577), 0o600, "too-large"],
+      ["{}", 0o644, "permissions"],
+    ];
+    for (const [text, mode, problem] of cases) {
+      /* eslint-disable security/detect-non-literal-fs-filename -- temporary test folder */
+      writeFileSync(stateFile, text);
+      chmodSync(stateFile, mode);
+      /* eslint-enable security/detect-non-literal-fs-filename */
+      const r = rig({ stateFile });
+      expect(r.calls).toEqual([{ items: [], readAt: NOW }]);
+      expect(r.lines).toContainEqual(expect.objectContaining({ event: "state", problem }));
+      await r.tasks.cycle();
+      await r.tasks.idle();
+      expect(loadState(stateFile, BOARD, NOW).problem).toBeUndefined();
+      expect(statSync(stateFile).mode & 0o777).toBe(0o600); // eslint-disable-line security/detect-non-literal-fs-filename -- temporary test folder
+    }
+  });
+
+  it("leaves only the state file after many quick changes", async () => {
+    const stateFile = join(fake.dir, "state.json");
+    const r = rig({ stateFile });
+    await r.tasks.cycle();
+    for (let i = 0; i < 50; i++) r.toggle("a", "tarjeta00001");
+    await r.tasks.idle();
+    expect(readdirSync(fake.dir).filter((f) => f.includes(".tmp-"))).toEqual([]); // eslint-disable-line security/detect-non-literal-fs-filename -- temporary test folder
+    expect(loadState(stateFile, BOARD, NOW).problem).toBeUndefined();
+  });
+
+  it("never writes a state file without stateFile", async () => {
     const r = rig();
+    await r.tasks.cycle();
+    r.toggle("a", "tarjeta00001");
+    await r.tasks.idle();
+    expect(readdirSync(fake.dir).sort()).toEqual(["key.txt"]); // eslint-disable-line security/detect-non-literal-fs-filename -- temporary test folder
+  });
+
+  it("stop() ends fast, sends at most one more request and keeps what was not written", async () => {
+    const stateFile = join(fake.dir, "state.json");
+    const r = rig(
+      { stateFile },
+      guardedHttp(new URL(fake.baseUrl), fake.keyFile, triliumTasksManifest, {
+        allowWrite: true,
+        timeoutMs: 5000,
+      }),
+    );
+    await r.tasks.cycle();
+    fake.delayMs = 600;
+    for (const id of ["tarjeta00001", "tarjeta00002", "tarjeta00003"]) r.toggle("a", id);
+    fake.requests.length = 0;
+    await r.tasks.stop();
+    expect(fake.requests.length).toBeLessThanOrEqual(1);
+    const pending = loadState(stateFile, BOARD, NOW).state?.pending ?? {};
+    expect(Object.keys(pending).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("forgets tasks that left the board, with their pending marks", async () => {
+    const r = rig();
+    await r.tasks.cycle();
+    fake.failCardGets = true;
+    r.toggle("a", "tarjeta00001");
+    await r.tasks.idle();
+    fake.removeCard("tarjeta00001");
+    await r.tasks.cycle();
+    expect(r.lines).toContainEqual(expect.objectContaining({ event: "write", result: "gone" }));
+    expect(r.calls.at(-1)?.items.map((t) => t.id)).not.toContain("tarjeta00001");
+    fake.failCardGets = false;
+    fake.requests.length = 0;
+    await r.tasks.cycle();
+    expect(fake.patches()).toHaveLength(0);
+  });
+
+  it("logs a failing read once, hourly, and once when it is back", async () => {
+    const r = rig();
+    await r.tasks.cycle();
+    fake.offline = true;
+    for (let m = 1; m <= 65; m++) {
+      r.clock.now = new Date(Date.parse("2026-10-24T17:00:00Z") + m * 60_000);
+      await r.tasks.cycle();
+    }
+    const fails = r.lines.filter((l) => l.event === "read" && l.ok === false);
+    expect(fails.map((l) => l.ts)).toEqual([
+      "2026-10-24T17:01:00.000Z",
+      "2026-10-24T18:01:00.000Z",
+    ]);
+    fake.offline = false;
+    r.clock.now = new Date("2026-10-24T18:06:00Z");
+    await r.tasks.cycle();
+    expect(r.lines.filter((l) => l.event === "read" && l.ok === true)).toEqual([
+      expect.objectContaining({ downS: 3900 }),
+    ]);
+  });
+
+  it("stop() stops the timer and starts nothing more", async () => {
+    const r = rig();
+    await r.tasks.cycle();
     r.tasks.start();
+    await r.tasks.idle();
     await r.tasks.stop();
     const seen = fake.requests.length;
     expect(seen).toBeGreaterThanOrEqual(2);

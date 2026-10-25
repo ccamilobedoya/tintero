@@ -25,6 +25,44 @@ async function codeOf(run: () => unknown): Promise<HttpErrorCode | undefined> {
   return undefined;
 }
 
+describe("guardedHttp: routes by segment (R7)", () => {
+  it("accepts the route itself, followed by / or ?, and nothing else", async () => {
+    expect(await codeOf(() => make().request("GET", "/notesXYZ"))).toBe("route");
+    expect(await codeOf(() => make({ allowWrite: true }).request("PATCH", "/attributesX/1"))).toBe(
+      "route",
+    );
+    expect(fake.requests).toHaveLength(0);
+    for (const path of ["/notes", "/notes/x", "/notes?search=%23status"]) {
+      expect(await codeOf(() => make().request("GET", path))).not.toBe("route");
+    }
+  });
+});
+
+describe("guardedHttp: no loose rejections (R6)", () => {
+  it("timeout, too-large and status leave no unhandled rejection", async () => {
+    const loose: unknown[] = [];
+    const onLoose = (reason: unknown): void => {
+      loose.push(reason);
+    };
+    process.on("unhandledRejection", onLoose);
+    try {
+      fake.cutMidway = true;
+      expect(
+        await codeOf(() => make({ timeoutMs: 200 }).request("GET", "/notes/tablero00001")),
+      ).toBe("timeout");
+      fake.cutMidway = false;
+      fake.override = { body: Buffer.alloc(1_048_577, 32), length: false };
+      expect(await codeOf(() => make().request("GET", "/notes/x"))).toBe("too-large");
+      fake.override = undefined;
+      expect(await codeOf(() => make().request("GET", "/notes/nada"))).toBe("status");
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    } finally {
+      process.off("unhandledRejection", onLoose);
+    }
+    expect(loose).toEqual([]);
+  });
+});
+
 describe("guardedHttp: origin", () => {
   it("rejects hosts that are not allowed, without calling", () => {
     const port = new URL(fake.baseUrl).port;
