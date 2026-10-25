@@ -1,6 +1,6 @@
 # F-012 · La pantalla real llega al servidor (Funnel en un nodo propio)
 
-**Estado:** **en curso** · **aprobada la opción A** por el dueño el 2026-10-25 («Funnel aparte en un nodo propio»); D1–D5 son el detalle de esa opción. Se hace después de F-010. **Tiene pasos del dueño** (consola de Tailscale y token de Trilium): ver *Pasos del dueño*.
+**Estado:** **cerrada** · el dueño aprobó integrar el 2026-10-25 · **aprobada la opción A** por el dueño el 2026-10-25 («Funnel aparte en un nodo propio»); D1–D5 son el detalle de esa opción. Se hace después de F-010. **Tiene pasos del dueño** (consola de Tailscale y token de Trilium): ver *Pasos del dueño*.
 **Modelo del programador:** no hay programador (no cambia código del servidor): las plantillas y el instalador los escribe el arquitecto, el verificador prueba las plantillas, y los CA en vivo los corren el arquitecto y el dueño.
 **Dependencias nuevas permitidas:** ninguna de npm; una **imagen de contenedor** nueva, `tailscale/tailscale`, fijada por *digest* en `tools/images.conf`.
 
@@ -89,16 +89,38 @@ Una imagen `raw1` de 800 × 480 son unos 48 KB: muy por debajo de los límites d
 El emulador, y después la pantalla, entran por `https://tintero.<tailnet>.ts.net` con su certificado y reciben sus vistas, sin publicar el nombre del servidor de la casa y sin que nada se rompa en el tailnet.
 
 ## Terminado (se marca al cerrar)
-- [ ] CA1 pasa en la verificación; CA2–CA7 con su resultado en vivo.
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] CA1 pasa en la verificación; CA2–CA7 con su resultado en vivo.
+- [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
+- [x] `tools/check-scope` limpio para cada rol.
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
+- [x] El dueño aprobó integrar (2026-10-25).
 
 ---
 
 ## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+- **Del lado del arquitecto:** plantillas `deploy/funnel/`, `tools/instalar-funnel`, imagen `tailscale/tailscale` 1.104.2 fijada por *digest*, guía `firmware/README.md`, ADR-0047; fuera del repo: CA real, certificado del servidor para el nombre público del nodo, pantalla `p1` en la lista de aparatos, configuración real (vistas, datos, integraciones con el token del dueño), servicio de F-010 con TLS y certificado por pantalla, y la carpeta de configuración local agregada al respaldo cifrado (no estaba).
+- **Pasos del dueño 1–5 hechos** (política, llave, token, `docker compose up -d`, celular).
+- **Hallazgo en vivo:** el primer arranque del nodo falló: con `cap_drop: ALL`, root no puede escribir la carpeta de estado (700, del usuario) y Tailscale quedó con estado en memoria, trabado antes de entrar (la llave no se gastó). **Arreglo:** el nodo corre como el usuario dueño de la carpeta (`user`), y el instalador se niega a generarlo como root. Probado aparte, sin llave ni Funnel.
+- **CA1:** 13 pruebas del verificador, **CUMPLE** (también tras las mejoras de la revisión).
+- **CA2 (en vivo):** el nodo `tintero` entró con `tag:tintero`; el servidor sigue con su IP y su nombre.
+- **CA3 (en vivo):** en los autoritativos, el nombre del nodo resuelve y el del servidor da **NXDOMAIN** (a los 0 y 12 min). El chequeo de las 24 h queda programado.
+- **CA4 (en vivo):** por los dos relays públicos: con `p1` → 200 (0,8–4 s); sin certificado y con otra CA → se corta el TLS; con una pantalla válida no listada → 404 vacío. El emulador, por la URL pública, bajó el índice, las dos imágenes y sus zonas en una conexión. Por el tailnet (servidor → nodo → Tintero), 200.
+- **CA5:** el servidor sigue sin `AllowFunnel` propio. **CA6:** el dueño abrió Trilium desde el celular con el Funnel encendido: funciona. **CA7:** tras reiniciar el contenedor con la llave ya vacía, el nodo volvió solo y la URL pública dio 200.
+- **Integración en vivo:** el tablero real de Trilium ya se dibuja (lectura cada 60 s). `tools/prueba-recuperacion` por la URL pública: OK en los dos pasos, tras corregir la prueba para que obligue a dibujar después de matar Chromium (Tintero nota que murió cuando necesita dibujar; con todo en caché no lo necesita).
+- **Revisión** (juicio): sin bloqueantes; 7 mejoras, **todas aplicadas** por el arquitecto: el instalador rechaza carpetas dentro del repo o ajenas, exige la llave en 600 y valida las rutas para YAML; topes de procesos, memoria y registros en el contenedor; nota de que `tag:tintero` no necesita salida al tailnet; tiempos de espera y límites de tamaño en la guía del ESP32; comentario de la prueba y tabla de la documentación.
+- **Costo en agentes:** USD 0,44 (verificador 0,25, revisor 0,15, integrador 0,04).
 
 ## Resumen para aprobar
-*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
+
+## Para aprobar · F-012 · La pantalla real llega al servidor (Funnel en un nodo propio)
+
+**Qué cambió:** Tintero ya se puede alcanzar desde internet por el nombre público de su **propio nodo de Tailscale**, con certificado por pantalla, sin publicar el nombre del servidor de la casa. El tablero real de Trilium ya está en la pantalla. Todo listo para conectar el ESP32 (guía en `firmware/README.md`; lo privado, en la nota de pasos).
+
+**Criterios:** CA1 automático + CA2–CA7 en vivo pasan (CA3 de las 24 h, programado)
+
+**Revisión:** sin bloqueantes; 7 mejoras aplicadas · zonas sensibles: `tools/`, `deploy/`
+**Dependencias nuevas:** imagen `tailscale/tailscale` fijada por *digest*
+
+**Riesgos o pendientes:** chequeo de DNS a las 24 h (programado). Los topes nuevos ya están aplicados: el dueño reinició el nodo y volvió sin llave (comprobado: usuario 1000, 128 procesos, 256 MB, registros 3 × 5 MB; URL pública 200; el servidor sigue en NXDOMAIN).
+
+**Decisión que se pide:** integrar a `main` (aprobado el 2026-10-25).
