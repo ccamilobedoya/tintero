@@ -7,7 +7,8 @@
 #   TINTERO_ARGS (de ahí salen --port e --instance), y opcionales TINTERO_EMULATOR_ARGS
 #   (p. ej. --ca/--cert/--key si el servicio usa TLS), TINTERO_EMULATOR_SERVER (la URL pública, con TLS)
 #   y TINTERO_TRILIUM_CONTAINER (para --trilium).
-# Sale con 0 solo si todos los pasos dan OK. No usa sudo; no abre nada a internet.
+# Sale con 0 solo si todos los pasos dan OK. No usa sudo ni abre nada nuevo a internet (con TLS, el
+# emulador entra por la URL pública que ya publica el nodo de F-012).
 set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel)" || exit 2
 ENV_FILE="${TINTERO_LOCAL_ENV:-$HOME/.config/tintero/local.env}"
@@ -65,7 +66,8 @@ step_chromium() {
   [ -n "$id" ] || return 1
   docker kill "$id" >/dev/null || return 1
   # Tintero nota que Chromium murió cuando necesita dibujar: con las vistas en caché no hace falta.
-  # Un panel que no está en caché (vertical, con un ppp poco común) obliga a dibujar.
+  # Un panel que no está en caché (vertical, con un ppp poco común) obliga a dibujar. Son a lo sumo 50
+  # variantes y la caché del motor tiene tope (256 vistas, las más viejas salen primero).
   views_ok --panel "w=480,h=800,dpi=$((100 + RANDOM % 50)),depth=1" && [ "$(containers)" -eq 1 ] && [ "$(main_pid)" = "$pid" ]
 }
 step_trilium() {

@@ -19,6 +19,8 @@ El certificado del servidor se valida con fechas. Sin hora (el ESP32 arranca en 
 ### 3. Conexión
 - `https://<nombre-público>/` en el puerto **443**. El nombre (SNI) tiene que ser el del certificado del servidor.
 - **Una petición a la vez** (nunca en paralelo); se puede reusar la conexión dentro de una despertada.
+- **Tiempos de espera en toda petición** (conexión y lectura; p. ej. 10 s y 20 s): si el servidor no responde, dormir y probar en la próxima despertada.
+- **Límites antes de leer** (entrada externa): rechazar un `Content-Length` mayor que el esperado (índice ≤ 2048 bytes, zonas ≤ 4096, imagen = `bytes` del índice) y acotar `next_wake_s` a 30–86 400 s.
 
 ### 4. Cabeceras en **cada** petición
 | Cabecera | Valor |
