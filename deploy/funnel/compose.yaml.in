@@ -1,0 +1,28 @@
+# Nodo de Tailscale propio de Tintero (F-012, ADR-0047). Plantilla: la rellena tools/instalar-funnel.
+# Publica solo el 443 de este nodo, reenviado tal cual a Tintero en 127.0.0.1 (Tintero termina el TLS).
+name: tintero-funnel
+services:
+  tintero-funnel:
+    image: @TAILSCALE_IMAGE@
+    network_mode: host # para reenviar a 127.0.0.1 del servidor
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/tailscale
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    env_file:
+      - @AUTHKEY_FILE@ # una línea TS_AUTHKEY=<llave>; solo se usa en el primer ingreso
+    environment:
+      TS_HOSTNAME: tintero
+      TS_USERSPACE: "true" # sin interfaz de red: no toca la red ni el Tailscale del servidor
+      TS_ACCEPT_DNS: "false" # no toca el DNS del servidor
+      TS_AUTH_ONCE: "true" # con la identidad guardada, no vuelve a usar la llave
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_EXTRA_ARGS: --advertise-tags=tag:tintero
+      TS_TAILSCALED_EXTRA_ARGS: --port=0 # UDP automático: no choca con el Tailscale del servidor
+      TS_SERVE_CONFIG: /config/serve.json
+    volumes:
+      - ./state:/var/lib/tailscale
+      - ./config:/config:ro # la carpeta, no el archivo, para que detecte cambios

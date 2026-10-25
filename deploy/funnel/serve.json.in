@@ -1,0 +1,4 @@
+{
+  "TCP": { "443": { "TCPForward": "127.0.0.1:@TINTERO_TLS_PORT@" } },
+  "AllowFunnel": { "${TS_CERT_DOMAIN}:443": true }
+}

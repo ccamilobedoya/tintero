@@ -14,26 +14,30 @@ const MAX_ENV_BYTES = 16_384;
 
 export class InstallError extends Error {}
 
-/** KEY=VALUE lines; the file is never executed. Missing keys or unsafe values throw. */
-export function parseServiceEnv(text: string): Record<Key, string> {
+/** KEY=VALUE lines for the given keys; the file is never executed. Missing keys or unsafe values throw. */
+export function parseKeys<K extends string>(text: string, keys: readonly K[]): Record<K, string> {
   const values = new Map<string, string>();
   for (const raw of text.split("\n")) {
     const match = /^([A-Z_]+)=(.*)$/.exec(raw.replace(/\r$/, ""));
     if (match?.[1] !== undefined && match[2] !== undefined) values.set(match[1], match[2].trim());
   }
-  const missing = KEYS.filter((key) => (values.get(key) ?? "") === "");
+  const missing = keys.filter((key) => (values.get(key) ?? "") === "");
   if (missing.length > 0) {
     throw new InstallError(`Falta en la configuración local: ${missing.join(", ")}`);
   }
-  const out = {} as Record<Key, string>;
-  for (const key of KEYS) {
+  const out = {} as Record<K, string>;
+  for (const key of keys) {
     const value = values.get(key) ?? "";
     // A newline (or a stray marker) would inject lines into the unit; systemd expands % and $.
     if (/[\r\n\0@%$]/.test(value)) throw new InstallError(`Valor no permitido en ${key}`);
-    // eslint-disable-next-line security/detect-object-injection -- key is one of three literals
+    // eslint-disable-next-line security/detect-object-injection -- key is one of the given literals
     out[key] = value;
   }
   return out;
+}
+
+export function parseServiceEnv(text: string): Record<Key, string> {
+  return parseKeys(text, KEYS);
 }
 
 export function renderUnit(template: string, env: Record<Key, string>): string {
@@ -45,7 +49,7 @@ export function renderUnit(template: string, env: Record<Key, string>): string {
   return unit;
 }
 
-function readEnv(file: string): string {
+export function readEnv(file: string): string {
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- local config chosen by the owner
   if (!existsSync(file)) throw new InstallError("No existe la configuración local");
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- local config chosen by the owner

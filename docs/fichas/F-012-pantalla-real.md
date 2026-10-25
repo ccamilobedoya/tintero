@@ -1,6 +1,6 @@
 # F-012 · La pantalla real llega al servidor (Funnel en un nodo propio)
 
-**Estado:** **aprobada la opción A** por el dueño el 2026-10-25 («Funnel aparte en un nodo propio»); D1–D5 son el detalle de esa opción. Se hace después de F-010. **Tiene pasos del dueño** (consola de Tailscale y token de Trilium): ver *Pasos del dueño*.
+**Estado:** **en curso** · **aprobada la opción A** por el dueño el 2026-10-25 («Funnel aparte en un nodo propio»); D1–D5 son el detalle de esa opción. Se hace después de F-010. **Tiene pasos del dueño** (consola de Tailscale y token de Trilium): ver *Pasos del dueño*.
 **Modelo del programador:** no hay programador (no cambia código del servidor): las plantillas y el instalador los escribe el arquitecto, el verificador prueba las plantillas, y los CA en vivo los corren el arquitecto y el dueño.
 **Dependencias nuevas permitidas:** ninguna de npm; una **imagen de contenedor** nueva, `tailscale/tailscale`, fijada por *digest* en `tools/images.conf`.
 
@@ -41,7 +41,7 @@ Plantillas del nodo (`deploy/funnel/`), instalador, imagen fijada, CA y certific
    ]
    ```
    Si la política tiene reglas de acceso restringidas (no el «todo permitido» por defecto), agregar también que el servidor pueda llegar a `tag:tintero:443` (para las pruebas desde la casa).
-2. **Llave de acceso** (consola → *Settings* → *Keys* → *Generate auth key*): no reutilizable, **no efímera**, preaprobada, con la etiqueta `tag:tintero`, vencimiento de 1 día (solo sirve para el primer ingreso). Guardarla en el servidor en el archivo que diga el arquitecto, con permisos 600 (el arquitecto da el comando exacto). Si es más cómodo, pasársela al arquitecto: vence en un día y deja de servir apenas el nodo entra.
+2. **Llave de acceso** (consola → *Settings* → *Keys* → *Generate auth key*): no reutilizable, **no efímera**, preaprobada, con la etiqueta `tag:tintero`, vencimiento de 1 día (solo sirve para el primer ingreso). Guardarla en el servidor en el archivo que diga el arquitecto, como una línea `TS_AUTHKEY=<llave>`, con permisos 600 (el arquitecto da el comando exacto). Si es más cómodo, pasársela al arquitecto: vence en un día y deja de servir apenas el nodo entra.
 3. **Token de Trilium para Tintero** (Trilium → *Opciones* → *ETAPI* → *Crear token*, nombre `tintero`), guardado igual, en el archivo que diga el arquitecto (`server/README.md`, F-009).
 4. **Abrir el Funnel** cuando el arquitecto avise: `docker compose up -d` en la carpeta del nodo (un comando). Para cerrarlo: `docker compose down`.
 5. **Probar desde el celular** que Trilium sigue abriendo, con el Funnel encendido (CA6).
@@ -49,7 +49,7 @@ Plantillas del nodo (`deploy/funnel/`), instalador, imagen fijada, CA y certific
 ## Contrato
 
 ### Plantillas (`deploy/funnel/`, las escribe el arquitecto)
-- `compose.yaml.in`: servicio `tintero-funnel`, imagen `@TAILSCALE_IMAGE@` (de `tools/images.conf`), `network_mode: host`, `restart: unless-stopped`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, `read_only: true` con `tmpfs` para `/tmp` y `/var/run/tailscale`. Entorno: `TS_HOSTNAME=tintero`, `TS_USERSPACE=true`, `TS_ACCEPT_DNS=false`, `TS_AUTH_ONCE=true`, `TS_STATE_DIR=/var/lib/tailscale`, `TS_EXTRA_ARGS=--advertise-tags=tag:tintero`, `TS_TAILSCALED_EXTRA_ARGS=--port=0`, `TS_SERVE_CONFIG=/config/serve.json`, y `TS_AUTHKEY` leída de un archivo (`TS_AUTHKEY=file:/run/secrets/authkey` o el mecanismo equivalente de la imagen, montado de solo lectura). Volúmenes: `./state:/var/lib/tailscale`, `./config:/config:ro` (la carpeta, no el archivo, como pide la imagen).
+- `compose.yaml.in`: servicio `tintero-funnel`, imagen `@TAILSCALE_IMAGE@` (de `tools/images.conf`), `network_mode: host`, `restart: unless-stopped`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, `read_only: true` con `tmpfs` para `/tmp` y `/var/run/tailscale`. Entorno: `TS_HOSTNAME=tintero`, `TS_USERSPACE=true`, `TS_ACCEPT_DNS=false`, `TS_AUTH_ONCE=true`, `TS_STATE_DIR=/var/lib/tailscale`, `TS_EXTRA_ARGS=--advertise-tags=tag:tintero`, `TS_TAILSCALED_EXTRA_ARGS=--port=0`, `TS_SERVE_CONFIG=/config/serve.json`, y la llave por `env_file` (`@AUTHKEY_FILE@`: un archivo fuera del repo con una línea `TS_AUTHKEY=<llave>`; con `TS_AUTH_ONCE` solo se usa en el primer ingreso, y después se puede dejar en `TS_AUTHKEY=`). *(Aclaración del 2026-10-25: `env_file` es seguro en Compose; leer la llave «desde un archivo» dependía de la imagen.)* Volúmenes: `./state:/var/lib/tailscale`, `./config:/config:ro` (la carpeta, no el archivo, como pide la imagen).
 - `serve.json.in`: `{"TCP": {"443": {"TCPForward": "127.0.0.1:@TINTERO_TLS_PORT@"}}, "AllowFunnel": {"${TS_CERT_DOMAIN}:443": true}}`.
 - `tools/instalar-funnel [--dry-run]`: lee `TINTERO_FUNNEL_DIR`, `TINTERO_TLS_PORT` (1024–65535) y `TINTERO_AUTHKEY_FILE` de la configuración local; mismas reglas que `tools/instalar-servicio` (≤ 16 KiB, sin saltos ni `@`, sale con 2 y nombra la clave que falta). Escribe la carpeta del nodo (700) con `compose.yaml` y `config/serve.json` (600). **No** arranca nada. Con `--dry-run` imprime los dos archivos.
 
@@ -77,7 +77,7 @@ Una imagen `raw1` de 800 × 480 son unos 48 KB: muy por debajo de los límites d
 - [ ] Nada privado en el repo: plantillas con marcadores; nombres reales en la nota privada del proyecto.
 
 ## Archivos
-**El arquitecto:** `deploy/funnel/{compose.yaml.in,serve.json.in,README.md}`, `tools/instalar-funnel` (+ prueba), `tools/images.conf` (imagen de Tailscale), `config/local.env.example` y `docs/configuracion-local.md` (claves nuevas), ADR-0047, `server/README.md` (cómo se publica), y fuera del repo: PKI, configuración real, carpeta del nodo.
+**El arquitecto:** `deploy/funnel/{compose.yaml.in,serve.json.in,README.md}`, `tools/instalar-funnel` (+ prueba), `firmware/README.md` (qué necesita el ESP32, sin datos reales), `tools/images.conf` (imagen de Tailscale), `config/local.env.example` y `docs/configuracion-local.md` (claves nuevas), ADR-0047, `server/README.md` (cómo se publica), y fuera del repo: PKI, configuración real, carpeta del nodo.
 **Verificador:** `tests/acceptance/F-012/` (CA1).
 
 ## Para el firmware (lo que el dueño necesita al terminar)
