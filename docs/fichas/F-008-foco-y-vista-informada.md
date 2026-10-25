@@ -1,6 +1,6 @@
 # F-008 · Foco limpio en el panel y vista informada
 
-**Estado:** aprobada · el dueño la aprobó el 2026-10-25 con el foco **punteado** (D1–D4 y D6; ADR-0048 a ADR-0050; `Tintero-View` ya estaba aprobada como idea en ADR-0036)
+**Estado:** **cerrada** · integrada el 2026-10-25 (el dueño pidió dejarla en el servidor para probarla en vivo: integración preaprobada si salía limpia) · aprobada el 2026-10-25 con el foco **punteado** (D1–D4 y D6; ADR-0048 a ADR-0050; `Tintero-View` ya estaba aprobada como idea en ADR-0036)
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna.
 
@@ -179,16 +179,53 @@ Reloj fijo **`2026-10-24T17:00:00Z`** salvo que se diga otra cosa. Paneles `P124
 Con el servidor al día, el aparato recibe zonas alineadas y una banda limpia: su anillo punteado de 3 px nunca toca contenido y sale con una sola ventana parcial por zona. Marcar una tarea la pasa a *Hecho hoy* con el foco encima; la pantalla vuelve a la vista que el dueño eligió aunque despierte; una vez al día el panel se limpia con el refresco lento. La vista `calibracion` permite decidir en el panel la letra y los grosores.
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto).
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Todos los CA pasan en la verificación (informe adjunto).
+- [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
+- [x] `tools/check-scope` limpio para cada rol.
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas *(al integrar)*.
+- [x] El dueño aprobó integrar (2026-10-25, preaprobado para probar en vivo).
 
 ---
 
-## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+## Resultado obtenido (2026-10-25)
+
+**Qué se hizo:** contrato con `unaligned`, `focus_pad`, `focus: { ring, pad, dash }`, `checkFocusBand` y la cabecera `Tintero-View`; columna de foco alineada a 8 px y banda blanca en todos los bloques con zonas, filas de 30 px, tachado de 2 px; el motor descarta zonas sin alinear y revisa la banda en cada dibujo; `full_refresh` en el primer índice del día por aparato; `Tintero-View` decide `current` y se dibuja primero; bloque `calibration` con sus ejemplos; emulador con `Tintero-View`, anillo punteado y foco que sigue a la zona; zonas de la demostración de F-003 en x = 16; `server/README.md`, `contract/README.md` y `firmware/README.md` (sección *Foco y acciones*).
+
+| CA | Resultado |
+|----|-----------|
+| CA1–CA11 | ✅ PASAN (pruebas escritas antes del código) |
+| CA12 | ✅ 553 de 554 pruebas de aceptación; la restante (F-007 CA6) solo necesita `tools/revisar` antes, como siempre |
+
+**Vueltas**
+- Pruebas: 2 pasadas. El verificador encontró dos errores de la ficha: «negro = bit 0» (es bit 1, como en F-001) y una lista incompleta de pruebas anteriores que cambian; se corrigió la ficha.
+- Programación: 1 vuelta. Verificador y programador corrieron **en paralelo** (independientes, ninguno ve lo del otro) para ganar tiempo.
+- Verificación: 1 vuelta, con una aclaración del arquitecto: `jira` queda `tooSmall` en `hoy` vertical con los datos de demostración de F-005 (F-005 CA10).
+- Revisión: `tools/revisar` salida 3 (zona sensible: contrato) → revisor «juicio» Sonnet: **aprobado con 3 mejoras**, sin bloqueantes.
+
+**Decisiones del arquitecto en la verificación:** se acepta un reintento único tras `busy` en el ayudante de las pruebas (es lo que el protocolo define para el aparato) y el presupuesto de CA4 por mediana (≈300 ms; la media sube por picos de la máquina cargada).
+
+**Mejoras anotadas (no bloquean)**
+- `contract/README.md`: decir que `unaligned` y `focus_pad` endurecen la validación v1 de zonas.
+- Emulador: descartar un `current` guardado que no cumpla el patrón antes de mandarlo como `Tintero-View`.
+- `fullDay` vive en memoria: tras reiniciar, el primer índice pide el refresco lento (ya dicho en ADR-0050).
+- eslint propio para `tests/**` (83 avisos de seguridad repetidos en pruebas de fichas anteriores tapan hallazgos reales).
+- Filas más altas: `jira` `tooSmall` en `V124` y el mes del tablero `tooSmall` en `P200`; la hoja `calibracion` desborda a 200 ppp. El panel real (124 ppp, horizontal) no se afecta.
+- Calibración: el texto «Foco» toca su anillo de muestra.
+- De antes, sin elegir: recordar en disco las acciones vistas (`seen`); quitar la etiqueta de vencida de las tareas hechas.
+
+**Costo de agentes:** USD 7,77 (verificador 3,10 · programador 4,50 · revisor 0,15 · integrador 0,02).
 
 ## Resumen para aprobar
-*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
+
+## Para aprobar · F-008 · Foco limpio en el panel y vista informada
+
+**Qué cambió:** el servidor manda zonas que el ESP32 puede enmarcar sin tocar nada: alineadas a 8 px, con 6 px en blanco por dentro y el estilo del anillo (`focus: { ring: 3, pad: 6, dash: 8 }`). Dice una vez al día cuándo limpiar con el refresco lento, respeta la vista que muestra el aparato (`Tintero-View`) y trae una vista `calibracion` para decidir letras y grosores en el panel.
+
+**Criterios:** 12 de 12 pasan · vueltas: verificación 1, revisión 1 (juicio)
+
+**Revisión:** 3 mejoras anotadas · zonas sensibles: contrato (compatibilidad v1 revisada)
+**Dependencias nuevas:** ninguna
+
+**Riesgos o pendientes:** en *Hoy* caben 5 tareas por hacer en vez de 7; el firmware debe dibujar el anillo punteado según `focus`.
+
+**Decisión que se pide:** integrar a `main` (preaprobada por el dueño para probar en vivo)
