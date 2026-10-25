@@ -6,6 +6,7 @@
 - `config/`: Ejemplos de configuración local con valores de relleno. Los valores reales van fuera del repo (ver docs/configuracion-local.md).
 - `contract/`: Contrato versionado entre el servidor, el emulador y el firmware (F-001). Los esquemas se escriben una sola vez con TypeBox (`src/schemas.ts`); de ellos salen los tipos, los validadores, los JSON Schema y el OpenAPI.
 - `deploy/`: Plantillas para correr Tintero como servicio (F-010): la unidad de systemd de usuario (`tintero.service.in`). La rellena e instala `tools/instalar-servicio` con las rutas de la configuración local; aquí no va nada real (ADR-0023).
+- `deploy/funnel/`: Plantillas del nodo de Tailscale propio de Tintero (F-012, ADR-0047): un contenedor `tailscale/tailscale` que entra al tailnet como el aparato `tintero` y abre Funnel **solo en ese nodo** (TCP 443 → Tintero en `127.0.0.1`), así no se publica el nombre del servidor. Las rellena `tools/instalar-funnel` con la configuración local; aquí no va nada real (ADR-0023).
 - `docs/`: Documentación del repo: fichas, decisiones (ADR), plantillas, proceso, seguridad, lecciones y métricas.
 - `docs/decisiones/`: Registros de decisión (ADR): una página por decisión tomada, con contexto, opciones y consecuencias. Obligan a todos los agentes.
 - `docs/fichas/`: Especificaciones aprobadas por el dueño (F-NNN). La plantilla está en PLANTILLA.md; se publican en Trilium con tools/publicar-ficha.
