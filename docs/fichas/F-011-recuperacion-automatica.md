@@ -82,6 +82,20 @@ Las pruebas con Docker real usan la imagen fijada de `tools/images.conf`. «Dock
 - **CA7 (en vivo, lo corre el arquitecto).** Con el servicio de F-010 instalado y arrancado, `tools/prueba-recuperacion` sale con 0 (pasos 1 y 2). Resultado en *Resultado obtenido*.
 - **CA8 (apagón real, lo corre el dueño).** Tras un reinicio de la máquina, la lista de chequeo de `server/README.md` se cumple. Resultado en *Resultado obtenido* (si aún no se corrió, se dice).
 
+## Vuelta 2 · huecos de recuperación hallados en la revisión (2026-10-25)
+
+La vuelta 1 cumplió CA1–CA6 y la revisión no tuvo bloqueantes, pero cuatro de sus mejoras son huecos de lo que el dueño pidió (que el servidor se recupere solo), así que se arreglan antes de integrar. Lo de arriba sigue valiendo salvo donde se dice **reemplaza**.
+
+- R4. **Relanzar nunca queda muerto en silencio:** si el relanzamiento falla por algo inesperado, se registra `{ ts, event: "defect", where: "chromium-restart" }` (sin mensaje ni pila) y el siguiente dibujo que falle vuelve a intentar relanzar (el estado no queda trabado). Ningún `.catch(() => undefined)` en el camino del relanzamiento, salvo al cerrar un contenedor o conexión vieja, con comentario de por qué.
+- R5. **Espera también entre relanzamientos seguidos:** si Chromium muere otra vez antes de 60 s desde el último relanzamiento, la espera creciente sigue (no vuelve a cero): un Chromium que muere al nacer se reintenta a 1 s, 2 s, 4 s… hasta 60 s. La espera vuelve a cero tras 60 s de funcionar bien.
+- R6. **Sin restos de un `docker run` fallido:** si `docker run` falla o se pasa de tiempo, se hace `docker rm -f <nombre>` del contenedor propio (con o sin instancia) antes de reintentar.
+- R7. **Vivo pero sordo también se relanza** (**reemplaza** «mira si el contenedor sigue corriendo»): cuando un dibujo falla y la reconexión también falla, el servicio relanza **siempre**: borra su contenedor (`docker rm -f <nombre>`, esté corriendo o no) y arranca otro. Un Chromium vivo con el CDP roto ya no deja la pantalla sin dibujar.
+- Nota (no se arregla): `renderer.close()` durante un arranque deja una conexión abierta hasta `stop()`; un SIGTERM y un error fatal a la vez pueden correr el apagado dos veces (sin efecto práctico).
+
+**Criterios nuevos:**
+- **CA9 (vivo pero sordo).** Con el servidor arrancado (instancia propia de la prueba, `--port 0`) y una vista dibujada: `docker pause` de su contenedor; las peticiones siguientes dan `200` o `503 busy`, y en ≤ **45 s** una vista nueva se dibuja bien con el **mismo proceso**; al final hay exactamente 1 contenedor de esa instancia, distinto del pausado, y el pausado ya no existe. Hay una línea `restart`.
+- **CA10 (sin restos de un `run` fallido).** Con el Docker falso haciendo que `run` falle (sale con 1 tras crear el contenedor, o tarda más que el tope), tras dos intentos fallidos no queda **ningún** contenedor con el nombre de esos intentos, y el Docker falso registró un `rm -f <nombre>` por cada uno.
+
 ## Presupuestos
 Recuperación tras la muerte de Chromium ≤ 30 s sin reiniciar el proceso; espera entre intentos ≤ 60 s; un registro de fallo por hora como mucho mientras dure una caída (salvo `defect`, que es siempre).
 
