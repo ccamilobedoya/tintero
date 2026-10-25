@@ -3,11 +3,13 @@ import { EventEmitter } from "node:events";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { chromium } from "playwright-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CHROMIUM_LABEL,
   INSTANCE_NAME,
   cdpBase,
+  chromiumRenderer,
   chromiumDockerArgs,
   parseContainerIds,
   priorityQueue,
@@ -341,6 +343,35 @@ describe("stopContainer", () => {
     }) as unknown as typeof spawn;
     await stopContainer("other; rm", fake);
     expect(launched).toBe(0);
+  });
+});
+
+describe("chromiumRenderer with a frozen Chromium", () => {
+  it("rejects a timed-out drawing even if closing the context never answers", async () => {
+    const never = (): Promise<void> => new Promise(() => undefined);
+    const context = {
+      route: () => Promise.resolve(),
+      newPage: () => Promise.resolve({ setContent: never }),
+      close: never,
+    };
+    const browser = {
+      isConnected: () => true,
+      newContext: () => Promise.resolve(context),
+      close: never,
+    };
+    const spy = vi.spyOn(chromium, "connectOverCDP").mockResolvedValue(browser as never);
+    try {
+      const renderer = await chromiumRenderer("http://127.0.0.1:1", {
+        timeoutMs: 50,
+        closeTimeoutMs: 50,
+      });
+      const started = Date.now();
+      await expect(renderer.render("<p>x</p>", { w: 10, h: 10 } as never)).rejects.toThrow();
+      expect(Date.now() - started).toBeLessThan(2_000);
+      await renderer.close();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
