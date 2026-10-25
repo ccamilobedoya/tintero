@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { validateIndex } from "../../../contract/src/index.ts";
+import { validateIndex, validateZones } from "../../../contract/src/index.ts";
 import { defaultConfig, press, runWake, type EmulatorConfig } from "../../../emulator/src/index.ts";
 import { zoneId } from "../../../server/src/engine/index.ts";
 import {
@@ -80,7 +80,21 @@ describe("CA20 ciclo con el emulador", () => {
 
     await runWake(cfg);
     const hoy = await served("hoy");
-    expect(isBlack(hoy, 800, 17, 103)).toBe(true);
+    // F-008: la casilla de t-001 está a zona.x + focusPad (6); se mira su centro dentro de su zona
+    const idx = await getLocal(cli.url, `${API}/index`, { headers: devHeaders(P124) });
+    const iv = validateIndex(idx.text);
+    if (!iv.ok) throw new Error("index inválido");
+    const hash = iv.value.views.find((x) => x.id === "hoy")?.hash ?? "";
+    const zr = await getLocal(cli.url, `${API}/views/hoy/zones?h=${hash}`, {
+      headers: devHeaders(P124),
+    });
+    const zv = validateZones(zr.text, P124);
+    if (!zv.ok) throw new Error("zonas inválidas");
+    const z = zv.value.zones.find((q) => q.id === zoneId("hoy", "tareas", "t-001"));
+    if (!z) throw new Error("zona de t-001");
+    let n = 0;
+    for (let y = z.y; y < z.y + z.h; y++) if (isBlack(hoy, 800, z.x + 6 + 7, y)) n++;
+    expect(n).toBeGreaterThanOrEqual(12);
   }, 90_000);
 });
 

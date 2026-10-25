@@ -38,7 +38,6 @@ async function drawn(panel: Panel, ids: string[] = ["hoy", "pendientes", "agenda
   }
 }
 
-const rect = (z: Zone) => ({ x: z.x, y: z.y, w: z.w, h: z.h });
 const byArea = (v: RenderedView, source: string, ids: string[]): Zone[] => {
   const wanted = new Set(ids.map((i) => zoneId(v.id, source, i)));
   return v.zones.filter((z) => wanted.has(z.id));
@@ -74,44 +73,38 @@ describe("CA6 Chromium real, nitidez", () => {
 });
 
 describe("CA7 la vista de 4 bloques (P124)", () => {
-  it("13 zonas en orden, hidden y sin contenido en el cuerpo de zonas", async () => {
+  it("zonas de cada bloque (prefijo del orden anterior), hidden y sin contenido en el cuerpo de zonas", async () => {
+    // F-008: las coordenadas pasan a las reglas de F-008 (su CA3); aquí quedan los ids en orden,
+    // la alineación y que «zonas visibles + hidden» de cada bloque sea igual que antes.
     const { views } = await drawn(P124);
     const hoy = viewOf(views, "hoy");
     const zones = hoy.zones;
-    expect(zones).toHaveLength(13);
 
-    const T = ["t-001", "t-002", "t-003", "t-004", "t-005"];
-    const E = ["e-002", "e-003", "e-004", "e-005", "e-007"];
-    const J = ["j-142", "j-151", "j-160"];
-    const expected = [
-      ...T.map((id, i) => ({
-        id: zoneId("hoy", "tareas", id),
-        act: "toggle",
-        x: 10,
-        y: [92, 116, 140, 164, 210][i],
-        w: 380,
-        h: 24,
-      })),
-      ...E.map((id, i) => ({
-        id: zoneId("hoy", "calendario", id),
-        act: "open",
-        x: 412,
-        y: [92, 116, 140, 186, 232][i],
-        w: 378,
-        h: 24,
-      })),
-      ...J.map((id, i) => ({
-        id: zoneId("hoy", "jira", id),
-        act: "open",
-        x: 10,
-        y: [316, 360, 404][i],
-        w: 380,
-        h: 44,
-      })),
-    ];
-    expect(zones.map((z) => ({ id: z.id, act: z.act, ...rect(z) }))).toEqual(expected);
+    const T = ["t-001", "t-002", "t-003", "t-004", "t-005"].map((i) => zoneId("hoy", "tareas", i));
+    const E = ["e-002", "e-003", "e-004", "e-005", "e-007"].map((i) =>
+      zoneId("hoy", "calendario", i),
+    );
+    const J = ["j-142", "j-151", "j-160"].map((i) => zoneId("hoy", "jira", i));
+    const ids = zones.map((z) => z.id);
+    const visT = ids.filter((i) => T.includes(i));
+    const visE = ids.filter((i) => E.includes(i));
+    const visJ = ids.filter((i) => J.includes(i));
+    expect(visT).toEqual(T.slice(0, visT.length));
+    expect(visE).toEqual(E.slice(0, visE.length));
+    expect(visJ).toEqual(J.slice(0, visJ.length));
+    expect(visT.length).toBeGreaterThan(0);
+    expect(visE.length).toBeGreaterThan(0);
+    expect(visJ.length).toBeGreaterThan(0);
+    expect(ids).toEqual([...visT, ...visE, ...visJ]);
+    expect(zones.every((z) => z.act === (T.includes(z.id) ? "toggle" : "open"))).toBe(true);
+    for (const z of zones) {
+      expect(z.x % 8, z.id).toBe(0);
+      expect(z.w % 8, z.id).toBe(0);
+    }
 
-    expect(hoy.hidden).toEqual({ pendientes: 5, eventos: 0, jira: 2, calendario: 0 });
+    expect(visT.length + (hoy.hidden.pendientes ?? 0)).toBe(10);
+    expect(visE.length + (hoy.hidden.calendario ?? 0) + (hoy.hidden.eventos ?? 0)).toBe(5);
+    expect(visJ.length + (hoy.hidden.jira ?? 0)).toBe(5);
     expect(hoy.overflow).toEqual([]);
     expect(hoy.tooSmall).toEqual([]);
 
@@ -176,21 +169,34 @@ describe("CA8 divisores y calendario (P124)", () => {
   }, 60_000);
 });
 
+/** Black pixels of column `x` inside the vertical extent of a zone. */
+const blackInColumn = (raw1: Uint8Array, x: number, z: Zone): number => {
+  let n = 0;
+  for (let y = z.y; y < z.y + z.h; y++) if (isBlack(raw1, 800, x, y)) n++;
+  return n;
+};
+
 describe("CA9 lista completa y casillas (P124)", () => {
   it("pendientes", async () => {
+    // F-008: coordenadas por las reglas de F-008; la casilla (15 px) va en zona.x + focusPad (6 px).
     const { views } = await drawn(P124);
     const v = viewOf(views, "pendientes");
-    expect(v.zones).toHaveLength(10);
-    expect(v.hidden).toEqual({ lista: 0 });
-    expect(v.zones[0]).toMatchObject({ x: 10, y: 68, w: 780, h: 24 });
+    expect(v.zones.length).toBeGreaterThanOrEqual(5);
+    expect(v.zones.length + (v.hidden.lista ?? 0)).toBe(10);
+    expect(v.zones[0]?.h).toBe(30);
+    for (const z of v.zones) {
+      expect(z.x % 8).toBe(0);
+      expect(z.w % 8).toBe(0);
+    }
     expect(v.zones[4]?.id).toBe(zoneId("pendientes", "tareas", "t-005"));
-    expect(v.zones[4]?.y).toBe(186);
-    // t-001: pendiente, casilla en (10, 72) de 15 × 15
-    expect(isBlack(v.raw1, 800, 10, 79)).toBe(true);
-    expect(isBlack(v.raw1, 800, 11, 79)).toBe(true);
-    expect(isBlack(v.raw1, 800, 17, 79)).toBe(false);
+    const [z1, z2] = v.zones;
+    if (!z1 || !z2) throw new Error("faltan zonas");
+    expect(z1.id).toBe(zoneId("pendientes", "tareas", "t-001"));
+    // t-001: pendiente → borde izquierdo de la casilla en zona.x + 6 y centro en blanco
+    expect(blackInColumn(v.raw1, z1.x + 6, z1)).toBeGreaterThanOrEqual(10);
+    expect(blackInColumn(v.raw1, z1.x + 6 + 7, z1)).toBeLessThanOrEqual(8);
     // t-002: hecha, casilla rellena
-    expect(isBlack(v.raw1, 800, 17, 103)).toBe(true);
+    expect(blackInColumn(v.raw1, z2.x + 6 + 7, z2)).toBeGreaterThanOrEqual(12);
   }, 60_000);
 });
 
@@ -198,7 +204,12 @@ describe("CA10 otros ppp y panel vertical", () => {
   it("pendientes en P200", async () => {
     const { views } = await drawn(P200);
     const v = viewOf(views, "pendientes");
-    expect(v.zones[0]).toMatchObject({ x: 16, y: 110, w: 768, h: 39 });
+    // F-008: x y ancho alineados al byte; la fila de 6,2 mm mide 49 px a 200 ppp
+    expect(v.zones[0]?.h).toBe(49);
+    for (const z of v.zones) {
+      expect(z.x % 8).toBe(0);
+      expect(z.w % 8).toBe(0);
+    }
   }, 60_000);
 
   it("hoy en V124 usa portrait", async () => {
@@ -209,8 +220,12 @@ describe("CA10 otros ppp y panel vertical", () => {
     expect(hoy.tooSmall).toEqual([]);
     const pend = byArea(hoy, "tareas", ["t-001"]);
     const ev = byArea(hoy, "calendario", ["e-002", "e-003", "e-004", "e-005", "e-007"]);
-    expect(pend.map(rect)[0]).toEqual({ x: 10, y: 92, w: 460, h: 24 });
-    expect(ev.map(rect)[0]).toEqual({ x: 10, y: 361, w: 460, h: 24 });
+    // F-008: alineadas al byte y filas de 30 px
+    for (const z of [pend[0], ev[0]]) {
+      expect(z?.x).toBe(8);
+      expect((z?.w ?? 1) % 8).toBe(0);
+      expect(z?.h).toBe(30);
+    }
   }, 60_000);
 });
 

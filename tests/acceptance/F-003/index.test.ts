@@ -66,10 +66,11 @@ describe("CA2 / D2 vistas de demostración en 800 × 480", () => {
     expect(z.view).toBe("demo");
     expect(z.hash).toBe(h);
     expect(z.zones).toEqual([
-      { id: "c1", x: 20, y: 40, w: 120, h: 40, act: "toggle" },
-      { id: "c2", x: 20, y: 100, w: 120, h: 40, act: "toggle" },
-      { id: "c3", x: 20, y: 160, w: 120, h: 40, act: "toggle" },
-      { id: "abrir", x: 20, y: 220, w: 120, h: 40, act: "open" },
+      // F-008: zonas alineadas al byte, x = 16 (antes 20)
+      { id: "c1", x: 16, y: 40, w: 120, h: 40, act: "toggle" },
+      { id: "c2", x: 16, y: 100, w: 120, h: 40, act: "toggle" },
+      { id: "c3", x: 16, y: 160, w: 120, h: 40, act: "toggle" },
+      { id: "abrir", x: 16, y: 220, w: 120, h: 40, act: "open" },
     ]);
     const img = await getImage(app, "demo", h);
     // 2 px black border around the panel

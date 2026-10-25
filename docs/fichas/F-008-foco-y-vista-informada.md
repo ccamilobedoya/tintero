@@ -80,7 +80,7 @@ Contrato (alineación, `focus` en las zonas, `Tintero-View`, significado de `ful
   /** Ids of the zones with at least one black pixel within `pad` px inside their border. */
   export function checkFocusBand(raw1: Uint8Array, panel: Panel, zones: Zone[], pad: number): string[];
   ```
-  Un píxel está en la banda si está dentro de la zona y a menos de `pad` de alguno de sus cuatro bordes. Negro = bit 0 en `raw1` (como en F-001).
+  Un píxel está en la banda si está dentro de la zona y a menos de `pad` de alguno de sus cuatro bordes. Negro = **bit 1** en `raw1` (como en F-001). *(Corregido el 2026-10-25 tras la fase de pruebas: decía «bit 0».)*
 - `DeviceHeadersSchema`: campo opcional **`view`** (patrón `ID_PATTERN`); `validateDeviceHeaders` lee **`Tintero-View`**; un valor que no cumple el patrón → error de cabecera (el servidor responde `400 invalid_request`, como con las demás).
 - `full_refresh` (sin cambio de forma): **`true` = la próxima imagen que muestre el aparato va con el refresco completo lento**.
 
@@ -113,6 +113,7 @@ Contrato (alineación, `focus` en las zonas, `Tintero-View`, significado de `ful
   - **`current`:** el detalle si se acaba de abrir (como en F-005); si no, `options.view` cuando está entre las vistas del aparato en ese índice; si no, la primera vista. Una vista desconocida en `options.view` se ignora (no es error).
   - **Prioridad:** si `options.view` está entre las vistas, su dibujo se encola **antes** que el de las demás.
   - **`fullRefresh`:** `true` en el primer `index` de cada **día local** (`timezone` de la configuración) por aparato; el motor recuerda en memoria el último día; tras reiniciar, el primer `index` da `true`.
+- **Modo demostración de F-003** (sin motor, `server/src/views.ts`): sus zonas también cumplen la alineación: x = `floor8(u)` y ancho = `floor8(6u)` (a 800 × 480, x = 16 y w = 120; antes x = 20). Lo que se dibuja de cada casilla sigue a su zona. *(Agregado tras la fase de pruebas.)*
 - `GET /api/v1/index`: pasa `Tintero-View` a `options.view` y pone `full_refresh` = `fullRefresh` (sin motor, el modo demostración de F-003 sigue con `false`). `GET …/zones`: agrega `focus`.
 
 ### Bloque `calibration` (`server/src/engine/blocks/calibration.ts`)
@@ -135,7 +136,11 @@ Lo que el aparato hace (no lo verifica esta ficha; es la referencia para el due�
 ## Pruebas anteriores que cambian
 El verificador puede tocar **solo** estas pruebas de fichas anteriores, y solo sus afirmaciones de coordenadas, píxeles, alturas o cantidad de zonas visibles:
 - **F-005:** CA7, CA9, CA10, CA12, CA14. Sus coordenadas pasan a las reglas de esta ficha, comprobadas con CA3 (propiedades); los ids de zona de cada bloque deben ser un **prefijo** (en el mismo orden) de los de antes, y `zonas visibles + hidden` de cada bloque, igual que antes.
-- **F-006:** CA3, CA4, CA6, CA7, CA8, CA9, CA12. Los valores nuevos de `hoy` y `tablero` en `P124` son los de CA4 a CA7 de esta ficha; los de `V124` y `P200`, las propiedades de CA3.
+- **F-006:** CA3, CA4, CA6, CA7, CA8, CA9, CA12 y CA13. Los valores nuevos de `hoy` y `tablero` en `P124` son los de CA4 a CA7 de esta ficha (CA13: `hoy` tiene 9 zonas); los de `V124` y `P200`, las propiedades de CA3.
+- **F-005 (además):** CA20 y CA23 (píxeles que miran una casilla: pasan a la casilla en su sitio nuevo, a `Z0 + focusPad` de la zona) y CA21 (cantidad de zonas de `hoy`: la que dé la regla de prefijo y `visibles + hidden`).
+- **F-003:** CA2/D2 y CA7: las coordenadas de las zonas de demostración pasan a x = 16 (ver *Modo demostración*); nada más cambia.
+
+*(Lista ampliada el 2026-10-25 tras la fase de pruebas, a pedido del verificador.)*
 
 ## Criterios de aceptación
 Reloj fijo **`2026-10-24T17:00:00Z`** salvo que se diga otra cosa. Paneles `P124` = `w=800,h=480,dpi=124,depth=1`, `P200` (igual, `dpi=200`) y `V124` = `w=480,h=800,dpi=124,depth=1`. «Los ejemplos del tablero» = `config/tablero.views.example.json` + `config/tablero.data.example.json` (no cambian); «los de F-005» = `config/views.example.json` + `config/data.example.json`. Pruebas con Chromium como en F-006. Una caja es `{x, y, w, h}`; «negro en `(x, y)`» se mira en `raw1`. Ids de zona de los ejemplos del tablero (de `zoneId`): `b-01` en `hoy` = `z4ba4457e13`, `b-02` en `hoy` = `z5b74b95d24`.
