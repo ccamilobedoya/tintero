@@ -1,4 +1,4 @@
-import { chmodSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadDataFile, loadViewsConfig, type DataFile, type Task } from "../engine/config.ts";
@@ -485,6 +485,74 @@ describe("createTriliumTasks", () => {
     expect(r.lines.filter((l) => l.event === "read" && l.ok === true)).toEqual([
       expect.objectContaining({ downS: 3900 }),
     ]);
+  });
+
+  it("saves again after a failed write (the flag is released)", async () => {
+    const stateFile = join(fake.dir, "state.json");
+    const blocker = `${stateFile}.tmp-${process.pid}`;
+    /* eslint-disable security/detect-non-literal-fs-filename -- temporary test folder */
+    mkdirSync(blocker); // saveState cannot clear a folder: it throws once
+    const r = rig({ stateFile });
+    await r.tasks.cycle();
+    await r.tasks.idle();
+    expect(r.lines).toContainEqual(
+      expect.objectContaining({ event: "state", ok: false, problem: "write" }),
+    );
+    expect(readdirSync(fake.dir)).not.toContain("state.json");
+    rmSync(blocker, { recursive: true });
+    r.toggle("a", "tarjeta00001");
+    await r.tasks.idle();
+    expect(readdirSync(fake.dir)).toContain("state.json");
+    /* eslint-enable security/detect-non-literal-fs-filename */
+    expect(loadState(stateFile, BOARD, NOW).problem).toBeUndefined();
+  });
+
+  it("logs a defect in every cycle when something unexpected throws, and no read failure", async () => {
+    const lines: Record<string, unknown>[] = [];
+    let calls = 0;
+    const tasks = createTriliumTasks({
+      http: clientFor(),
+      config: {
+        source: "tablero",
+        baseUrl: fake.baseUrl,
+        keyFile: fake.keyFile,
+        boardNoteId: BOARD,
+        allowWrite: true,
+        columns: DEFAULT_COLUMNS,
+      },
+      manifest: triliumTasksManifest,
+      engine: {
+        setSource() {
+          if (++calls > 1) throw new Error("secret message with Comprar pilas");
+          return { ok: true } as ReturnType<Engine["setSource"]>;
+        },
+      },
+      clock: () => NOW,
+      log: (l) => lines.push(l),
+    });
+    for (let i = 0; i < 3; i++) await tasks.cycle();
+    const defects = lines.filter((l) => l.event === "defect");
+    expect(defects).toHaveLength(3);
+    for (const d of defects) {
+      expect(d).toEqual({
+        ts: NOW.toISOString(),
+        integration: "trilium-tareas",
+        event: "defect",
+        where: "cycle",
+      });
+    }
+    expect(lines.filter((l) => l.event === "read")).toEqual([]);
+  });
+
+  it("a write that fails by network leaves its code in the pending line", async () => {
+    const r = rig();
+    await r.tasks.cycle();
+    fake.offline = true;
+    r.toggle("a", "tarjeta00001");
+    await r.tasks.idle();
+    expect(r.lines).toContainEqual(
+      expect.objectContaining({ event: "write", result: "pending", code: "network" }),
+    );
   });
 
   it("stop() stops the timer and starts nothing more", async () => {

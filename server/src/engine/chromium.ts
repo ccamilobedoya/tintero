@@ -120,6 +120,8 @@ export function chromiumDockerArgs(
     `type=bind,source=${fontsDir},target=/tintero/fonts,readonly`,
     "-e",
     "FONTCONFIG_FILE=/tintero/fonts/fonts.conf",
+    "--pull",
+    "never",
     image,
     "--font-render-hinting=full",
     "--disable-font-subpixel-positioning",
@@ -253,19 +255,24 @@ export async function startChromium(
     log?: (line: Record<string, unknown>) => void;
   } = {},
 ): Promise<{ endpoint: string; name: string; stop(): Promise<void> }> {
-  const port = options.port ?? 0;
-  if (!Number.isInteger(port) || port < 0 || port > 65_535) throw new Error("invalid port");
-  const name = `tintero-chromium-${randomBytes(4).toString("hex")}`;
-  if (!CONTAINER_NAME.test(name)) throw new Error("invalid container name");
-  const fontsDir = fileURLToPath(new URL("../../fonts", import.meta.url));
   const { instance } = options;
   if (instance !== undefined) {
     await removeOrphanChromium(instance, { ...(options.log ? { log: options.log } : {}) });
   }
-  await docker(
-    chromiumDockerArgs(name, port, fontsDir, chromiumImage(), instance),
-    START_TIMEOUT_MS,
-  );
+  return runChromium(chromiumImage(), options.port ?? 0, instance);
+}
+
+/** Starts one container and waits for its Chromium to answer; stops it if it never does. */
+async function runChromium(
+  image: string,
+  port: number,
+  instance?: string,
+): Promise<{ endpoint: string; name: string; stop(): Promise<void> }> {
+  if (!Number.isInteger(port) || port < 0 || port > 65_535) throw new Error("invalid port");
+  const name = `tintero-chromium-${randomBytes(4).toString("hex")}`;
+  if (!CONTAINER_NAME.test(name)) throw new Error("invalid container name");
+  const fontsDir = fileURLToPath(new URL("../../fonts", import.meta.url));
+  await docker(chromiumDockerArgs(name, port, fontsDir, image, instance), START_TIMEOUT_MS);
   const stop = (): Promise<void> => stopContainer(name);
   try {
     const mapped = (await docker(["port", name, "9222/tcp"])).split("\n")[0] ?? "";
@@ -422,6 +429,231 @@ export async function chromiumRenderer(
       await enqueue(() => Promise.resolve(), "low"); // after everything already queued
       await dropCached();
       await browser.close().catch(() => undefined);
+    },
+  };
+}
+
+// ---- Recovery (F-011): wait for Docker, relaunch Chromium, never pull images ----
+
+type LogFn = (line: Record<string, unknown>) => void;
+const HOUR_MS = 3_600_000;
+const BACKOFF_MAX_MS = 60_000;
+const PROBE_TIMEOUT_MS = 10_000;
+
+/** 1000, 2000, 4000 … 60000, 60000 … ms for the n-th failed attempt (0-based). */
+const backoff = (attempt: number): number =>
+  Math.min(1000 * 2 ** Math.min(attempt, 10), BACKOFF_MAX_MS);
+
+/** Sleeps `ms`, or resolves early when the signal aborts. */
+async function sleepUnless(
+  sleepFn: (ms: number) => Promise<void>,
+  ms: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (signal === undefined) return sleepFn(ms);
+  if (signal.aborted) return;
+  let onAbort: (() => void) | undefined;
+  const aborted = new Promise<void>((resolve) => {
+    onAbort = resolve;
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    await Promise.race([sleepFn(ms), aborted]);
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
+}
+
+/** Waits (without end, or until `signal`) for the Docker daemon to answer. */
+export async function waitForDocker(
+  options: {
+    log?: LogFn;
+    clock?: () => Date;
+    sleep?: (ms: number) => Promise<void>;
+    signal?: AbortSignal;
+  } = {},
+): Promise<void> {
+  const clock = options.clock ?? ((): Date => new Date());
+  const sleepFn = options.sleep ?? sleep;
+  let firstFail: Date | undefined;
+  let lastLog: Date | undefined;
+  for (let attempt = 0; ; attempt++) {
+    if (options.signal?.aborted) throw new Error("aborted");
+    try {
+      await docker(["version", "--format", "{{.Server.Version}}"], PROBE_TIMEOUT_MS);
+      if (firstFail !== undefined) {
+        options.log?.({
+          ts: clock().toISOString(),
+          event: "docker",
+          ok: true,
+          waitedS: Math.round((clock().getTime() - firstFail.getTime()) / 1000),
+        });
+      }
+      return;
+    } catch {
+      const now = clock();
+      firstFail ??= now;
+      if (lastLog === undefined || now.getTime() - lastLog.getTime() >= HOUR_MS) {
+        lastLog = now;
+        options.log?.({ ts: now.toISOString(), event: "docker", ok: false });
+      }
+    }
+    await sleepUnless(sleepFn, backoff(attempt), options.signal);
+  }
+}
+
+export interface ChromiumService {
+  renderer: Renderer;
+  /** The current address; undefined while Chromium is being relaunched. */
+  endpoint(): string | undefined;
+  /** Stops the container and stops relaunching. */
+  stop(): Promise<void>;
+}
+
+export async function startChromiumService(
+  options: {
+    log?: LogFn;
+    clock?: () => Date;
+    sleep?: (ms: number) => Promise<void>;
+    image?: string;
+    /** Instance name: its orphan containers are removed before each start (F-010). */
+    instance?: string;
+  } = {},
+): Promise<ChromiumService> {
+  const clock = options.clock ?? ((): Date => new Date());
+  const sleepFn = options.sleep ?? sleep;
+  const image = options.image ?? chromiumImage();
+  const { instance } = options;
+  const stopper = new AbortController();
+  const out: LogFn = (line) => options.log?.({ ts: clock().toISOString(), ...line });
+
+  let container: { endpoint: string; name: string; stop(): Promise<void> } | undefined;
+  let inner: Renderer | undefined;
+  let blockedBefore = 0; // blocked requests of renderers already replaced
+  // Changed from several async paths: one object keeps control-flow narrowing honest.
+  const flags = { stopped: false, rendererClosed: false };
+  let restarting: Promise<void> | undefined;
+
+  // A start failure is logged the first time and then once per hour while the same code lasts.
+  let failCode: string | undefined;
+  let failLogged = clock();
+  const startFailed = (code: string): void => {
+    const now = clock();
+    if (failCode === code && now.getTime() - failLogged.getTime() < HOUR_MS) return;
+    failCode = code;
+    failLogged = now;
+    out({ event: "chromium", action: "start", ok: false, code });
+  };
+
+  /** Docker, then a container, then a renderer; repeats with growing waits until it works. */
+  const bringUp = async (): Promise<void> => {
+    await waitForDocker({
+      ...(options.log ? { log: options.log } : {}),
+      clock,
+      sleep: sleepFn,
+      signal: stopper.signal,
+    });
+    for (let attempt = 0; !flags.stopped; attempt++) {
+      let code = "start";
+      try {
+        if (instance !== undefined) {
+          await removeOrphanChromium(instance, options.log ? { log: options.log } : {});
+        }
+        try {
+          await docker(["image", "inspect", "--format", "{{.Id}}", image], PROBE_TIMEOUT_MS);
+        } catch {
+          code = "image-missing";
+          throw new Error("image missing");
+        }
+        const started = await runChromium(image, 0, instance);
+        try {
+          const renderer = await chromiumRenderer(started.endpoint);
+          if (isStopped()) {
+            await renderer.close().catch(() => undefined);
+            await started.stop();
+            return;
+          }
+          container = started;
+          inner = renderer;
+          failCode = undefined;
+          return;
+        } catch (error) {
+          await started.stop();
+          throw error;
+        }
+      } catch {
+        startFailed(code);
+      }
+      await sleepUnless(sleepFn, backoff(attempt), stopper.signal);
+    }
+  };
+  const isStopped = (): boolean => flags.stopped;
+
+  /** Looks at the container; if it is gone, replaces it. One at a time. */
+  const supervise = (): void => {
+    if (restarting !== undefined || flags.stopped || flags.rendererClosed) return;
+    const current = container;
+    if (current === undefined) return;
+    restarting = (async () => {
+      let running: boolean;
+      try {
+        const answer = await docker(
+          ["inspect", "-f", "{{.State.Running}}", current.name],
+          PROBE_TIMEOUT_MS,
+        );
+        running = answer.trim() === "true";
+      } catch {
+        running = false;
+      }
+      if (running || isStopped()) return;
+      const old = inner;
+      container = undefined;
+      inner = undefined;
+      if (old !== undefined) {
+        blockedBefore += old.blockedRequests();
+        old.close().catch(() => undefined);
+      }
+      await docker(["rm", "-f", current.name]).catch(() => undefined);
+      out({ event: "chromium", action: "restart" });
+      await bringUp();
+    })()
+      .catch(() => undefined)
+      .finally(() => {
+        restarting = undefined;
+      });
+  };
+
+  await bringUp();
+  if (isStopped()) throw new Error("stopped");
+
+  const renderer: Renderer = {
+    async render(html, panel, renderOptions) {
+      const current = inner;
+      if (current === undefined) throw new Error("chromium is restarting");
+      try {
+        return await current.render(html, panel, renderOptions);
+      } catch (error) {
+        supervise();
+        throw error;
+      }
+    },
+    blockedRequests: () => blockedBefore + (inner?.blockedRequests() ?? 0),
+    async close() {
+      flags.rendererClosed = true;
+      await inner?.close();
+    },
+  };
+
+  return {
+    renderer,
+    endpoint: () => container?.endpoint,
+    async stop() {
+      flags.stopped = true;
+      stopper.abort();
+      await restarting;
+      const current = container;
+      container = undefined;
+      await current?.stop();
     },
   };
 }

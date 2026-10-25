@@ -18,5 +18,11 @@ export { mmToPx, ptToPx } from "./units.ts";
 export { checkThemeGlyphs, pickFont } from "./theme.ts";
 export type { FontRole, ThemeFont } from "./theme.ts";
 export { decodePng, toRaw1 } from "./png.ts";
-export { chromiumDockerArgs, chromiumRenderer, startChromium } from "./chromium.ts";
-export type { Box, RenderOptions, RenderOutput, Renderer } from "./chromium.ts";
+export {
+  chromiumDockerArgs,
+  chromiumRenderer,
+  startChromium,
+  startChromiumService,
+  waitForDocker,
+} from "./chromium.ts";
+export type { Box, ChromiumService, RenderOptions, RenderOutput, Renderer } from "./chromium.ts";
