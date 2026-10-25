@@ -1,6 +1,6 @@
 # F-010 · Servicio mínimo: arranca solo y se reinicia
 
-**Estado:** **aprobada** · el dueño la separó en dos el 2026-10-25 («F-010 con lo mínimo para correr el servidor, F-011 con el resto») y aprobó D1–D3
+**Estado:** **cerrada** · el dueño aprobó integrar el 2026-10-25 · aprobada: el dueño la separó en dos el 2026-10-25 («F-010 con lo mínimo para correr el servidor, F-011 con el resto») y aprobó D1–D3
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna.
 
@@ -86,16 +86,34 @@ Vuelta tras `kill -9` ≤ 15 s (5 s de systemd + arranque con Chromium).
 Tintero queda como servicio de usuario: arranca con la máquina, se levanta solo a los 5 s si se cae, espera a Docker reintentando, y no deja Chromium huérfanos.
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto); CA6 con su resultado en vivo.
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Todos los CA pasan en la verificación (informe adjunto); CA6 con su resultado en vivo.
+- [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
+- [x] `tools/check-scope` limpio para cada rol.
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
+- [x] El dueño aprobó integrar (2026-10-25).
 
 ---
 
 ## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+- **Pruebas primero** (en paralelo con el código): 13 pruebas; ningún CA quedó NO VERIFICABLE.
+- **Hallazgo del programador (vuelta 1):** borrar por la sola etiqueta `tintero.chromium=1` mataba el Chromium de cualquier otro Tintero corriendo: 28 pruebas de F-005 fallaron (comparten un Chromium) y, en la vida real, arrancar el servidor a mano habría matado el del servicio. **Aclaración de D3:** limpieza solo de la misma **instancia** (`--instance`, etiqueta `tintero.instance`); sin instancia no se borra nada. Vuelta 2 de pruebas y código, en paralelo.
+- **Verificación:** **CUMPLE CA1–CA5** a la primera tras la aclaración; lote completo de aceptación 464/464 (F-005 entera de nuevo), 377 unitarias; ningún contenedor de prueba quedó vivo.
+- **Revisión:** salida 3 (zona `chromium.ts`); revisor sin bloqueantes. Mejoras: (1) el instalador dejaba pasar `%` y `$`, que systemd expande en `ExecStart` → **arreglado por el arquitecto** (se rechazan; prueba agregada); (2) documentar que un fallo de `docker ps` en la limpieza aborta el arranque (fallar cerrado, systemd reintenta) y que dos procesos con la **misma** instancia se borrarían el Chromium entre sí → anotado en `server/README.md` en F-011. Lección candidata: acotar en `eslint.config.js` los avisos `security/*` que se repiten en `tests/acceptance/`.
+- **CA6 en vivo (2026-10-25, arquitecto):** servicio instalado con `tools/instalar-servicio` (con `--instance servicio` y los ejemplos de F-006); el emulador bajó `hoy` y `tablero`; `kill -9` a las 00:48:13.0 → systemd lo relanzó a los 5 s y escuchaba a las 00:48:19.9: **vuelta en 6,9 s** (presupuesto 15 s). Registró `orphans` con `count: 1` (borró el Chromium del proceso muerto) y quedó **exactamente 1** contenedor de la instancia. El emulador volvió a bajar las dos vistas.
+- **CA7 (reinicio real):** pendiente; lo corre el dueño cuando quiera (el servicio ya está habilitado).
+- **Costo:** USD 1,21 (verificador 0,27 + 0,18 + 0,05, programador 0,33 + 0,25, revisor 0,11, integrador 0,02).
 
 ## Resumen para aprobar
-*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
+
+## Para aprobar · F-010 · Servicio mínimo: arranca solo y se reinicia
+
+**Qué cambió:** Tintero ya es un servicio de usuario: arranca con la máquina, se relanza solo a los 5 s si se cae (medido: vuelve en 6,9 s) y borra el Chromium que haya dejado su propia instancia. Sin `sudo`.
+
+**Criterios:** 5 de 5 automáticos pasan + CA6 en vivo · vueltas: verificación 1 (tras una aclaración de la ficha), revisión 1
+
+**Revisión:** sin bloqueantes, 2 mejoras (1 ya arreglada) · zonas sensibles: `chromium.ts`
+**Dependencias nuevas:** ninguna
+
+**Riesgos o pendientes:** CA7 (reiniciar la máquina) cuando quieras; el servicio corre hoy desde la carpeta de verificación y pasa a `main` al integrar.
+
+**Decisión que se pide:** integrar a `main` (aprobado el 2026-10-25).
