@@ -21,8 +21,18 @@ export function docker(args: string[]): string {
   });
 }
 
-export function labelled(): string[] {
-  return docker(["ps", "-aq", "--filter", `label=${LABEL}`])
+export const INSTANCE_LABEL = "tintero.instance";
+
+/** Ids (running or not) of containers of one instance. */
+export function labelled(instance: string): string[] {
+  return docker([
+    "ps",
+    "-aq",
+    "--filter",
+    `label=${LABEL}`,
+    "--filter",
+    `label=${INSTANCE_LABEL}=${instance}`,
+  ])
     .split("\n")
     .map((s) => s.trim())
     .filter((s) => s !== "");
@@ -37,8 +47,11 @@ export function running(name: string): boolean {
 }
 
 /** Launches a container of the pinned image that just sleeps. */
-export function launchSleeper(name: string, withLabel: boolean): void {
-  const label = withLabel ? ["--label", LABEL] : [];
+export function launchSleeper(name: string, instance?: string, withBase = true): void {
+  const label = [
+    ...(withBase ? ["--label", LABEL] : []),
+    ...(instance === undefined ? [] : ["--label", `${INSTANCE_LABEL}=${instance}`]),
+  ];
   docker([
     "run",
     "-d",
