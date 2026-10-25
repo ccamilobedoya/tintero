@@ -27,4 +27,12 @@ describe("engine options", () => {
       );
     }
   });
+
+  it("take --instance only if it is a valid name", () => {
+    expect(parseOptions([]).instance).toBeUndefined();
+    expect(parseOptions(["--instance", "servicio"]).instance).toBe("servicio");
+    for (const bad of ["Mal Nombre", "", "a".repeat(33)]) {
+      expect(() => parseOptions(["--instance", bad])).toThrow(UsageError);
+    }
+  });
 });

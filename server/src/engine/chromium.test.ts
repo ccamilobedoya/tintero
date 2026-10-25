@@ -3,10 +3,12 @@ import { EventEmitter } from "node:events";
 import { describe, expect, it } from "vitest";
 import {
   CHROMIUM_LABEL,
+  INSTANCE_NAME,
   cdpBase,
   chromiumDockerArgs,
   parseContainerIds,
   priorityQueue,
+  removeOrphanChromium,
   stopContainer,
 } from "./chromium.ts";
 
@@ -111,6 +113,30 @@ describe("chromium label", () => {
     expect(at).toBeGreaterThan(-1);
     expect(args[at + 1]).toBe("tintero.chromium=1");
     expect(at + 1).toBeLessThan(args.indexOf("img@sha256:abc"));
+    expect(args).not.toContain("tintero.instance=prueba-a");
+  });
+
+  it("adds the instance label before the image and rejects bad names", () => {
+    const args = chromiumDockerArgs(
+      "tintero-chromium-abcd1234",
+      0,
+      "/f",
+      "img@sha256:abc",
+      "prueba-a",
+    );
+    const at = args.indexOf("tintero.instance=prueba-a");
+    expect(args[at - 1]).toBe("--label");
+    expect(at).toBeLessThan(args.indexOf("img@sha256:abc"));
+    expect(() =>
+      chromiumDockerArgs("tintero-chromium-abcd1234", 0, "/f", "img@sha256:abc", "Prueba A"),
+    ).toThrow();
+  });
+
+  it("removeOrphanChromium rejects a bad instance before calling docker", async () => {
+    for (const bad of ["Prueba A", "", "a".repeat(33), "x;y"]) {
+      await expect(removeOrphanChromium(bad)).rejects.toThrow("invalid instance name");
+    }
+    expect(INSTANCE_NAME.test("servicio")).toBe(true);
   });
 });
 

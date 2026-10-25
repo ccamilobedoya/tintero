@@ -129,8 +129,8 @@ journalctl --user -u tintero -f
 git pull && npm ci && systemctl --user restart tintero
 ```
 
-- Al arrancar su Chromium, el servidor borra los contenedores con la etiqueta `tintero.chromium=1` que haya dejado un choque (registra `{ event: "chromium", action: "orphans", count }`). Con `--chromium` (uno externo) no borra nada.
-- **Tras reiniciar la máquina:** `systemctl --user is-active tintero` debe dar `active`, y `docker ps --filter label=tintero.chromium=1 -q | wc -l` debe dar `1`.
+- El servicio usa `--instance servicio` (en `TINTERO_ARGS`; 1 a 32 caracteres `a-z`, `0-9`, `-`; si no casa, sale con 2). Con `--instance`, al arrancar su Chromium el servidor borra solo los contenedores con las etiquetas `tintero.chromium=1` **y** `tintero.instance=<nombre>` que haya dejado un choque (registra `{ event: "chromium", action: "orphans", count }`). Sin `--instance`, o con `--chromium` (uno externo), no borra nada.
+- **Tras reiniciar la máquina:** `systemctl --user is-active tintero` debe dar `active`, y `docker ps --filter label=tintero.chromium=1 --filter label=tintero.instance=servicio -q | wc -l` debe dar `1`.
 
 ## Código (`src/`)
 

@@ -2,7 +2,7 @@
 import { parseArgs } from "node:util";
 import { LIMITS } from "../../contract/src/index.ts";
 import type { ServerConfig } from "./app.ts";
-import { cdpBase } from "./engine/chromium.ts";
+import { INSTANCE_NAME, cdpBase } from "./engine/chromium.ts";
 
 export class UsageError extends Error {}
 
@@ -17,6 +17,8 @@ export interface Options {
   chromium?: string;
   /** Integrations file (F-009); needs `views` and `data`. */
   integrations?: string;
+  /** Instance name (F-010): the Chromium containers of this instance are cleaned on start. */
+  instance?: string;
 }
 
 function integer(name: string, value: string, min: number, max: number): number {
@@ -48,6 +50,7 @@ export function parseOptions(argv: string[]): Options {
         data: { type: "string" },
         chromium: { type: "string" },
         integrations: { type: "string" },
+        instance: { type: "string" },
       },
     }));
   } catch (error) {
@@ -89,7 +92,10 @@ export function parseOptions(argv: string[]): Options {
   ) {
     config.tls = { certFile, keyFile, clientCaFile, devicesFile };
   }
-  const { views, data, chromium, integrations } = values;
+  const { views, data, chromium, integrations, instance } = values;
+  if (instance !== undefined && !INSTANCE_NAME.test(instance)) {
+    throw new UsageError("--instance must be 1 to 32 characters of a-z, 0-9 and -");
+  }
   if ((views === undefined) !== (data === undefined)) {
     throw new UsageError("--views and --data go together");
   }
@@ -111,5 +117,6 @@ export function parseOptions(argv: string[]): Options {
     ...(views !== undefined && data !== undefined ? { views, data } : {}),
     ...(chromium === undefined ? {} : { chromium: cdpBase(chromium) }),
     ...(integrations === undefined ? {} : { integrations }),
+    ...(instance === undefined ? {} : { instance }),
   };
 }
