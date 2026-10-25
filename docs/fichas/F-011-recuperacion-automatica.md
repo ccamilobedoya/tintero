@@ -50,6 +50,7 @@ export function startChromiumService(options?: {
   clock?: () => Date;
   sleep?: (ms: number) => Promise<void>;   // las pruebas aceleran la espera
   image?: string;                          // por defecto la de tools/images.conf
+  instance?: string;                       // la de F-010: con ella, borra antes los huérfanos de esa instancia
 }): Promise<ChromiumService>;               // resuelve cuando hay un Chromium que responde
 export function waitForDocker(options?: {
   log?: (line: Record<string, unknown>) => void; clock?: () => Date;
@@ -57,12 +58,12 @@ export function waitForDocker(options?: {
 }): Promise<void>;
 ```
 - **`waitForDocker`**: corre `docker version --format {{.Server.Version}}` (tope 10 s); si falla, espera 1000, 2000, 4000, 8000, 16000, 32000, 60000, 60000… ms y reintenta, sin fin (o hasta `signal`). Registro: `{ ts, event: "docker", ok: false }` al primer fallo y luego una por hora (desde el primero); `{ ts, event: "docker", ok: true, waitedS }` cuando responde tras fallar.
-- **`startChromiumService`**: `waitForDocker`; `removeOrphanChromium` (F-010); antes de cada arranque mira la imagen con `docker image inspect <imagen>` (tope 10 s): si no está, no corre `run` y registra `{ event: "chromium", action: "start", ok: false, code: "image-missing" }` (una vez por hora mientras siga así); si arrancar falla por otra cosa, `code: "start"`. En ambos casos, misma espera creciente.
+- **`startChromiumService`**: `waitForDocker`; `removeOrphanChromium` (F-010); antes de cada arranque mira la imagen con `docker image inspect <imagen>` (tope 10 s): si no está, no corre `run` y registra `{ event: "chromium", action: "start", ok: false, code: "image-missing" }` **antes** de la primera espera (y luego una vez por hora mientras siga así); si arrancar falla por otra cosa, `code: "start"`. En ambos casos, misma espera creciente.
 - **Relanzar** (D2): cuando un dibujo falla y la reconexión de siempre también falla, el servicio mira si el contenedor sigue corriendo (`docker inspect -f {{.State.Running}} <nombre>`, tope 10 s). Si no, lo borra, registra `{ event: "chromium", action: "restart" }` y arranca otro con la espera creciente. Mientras relanza, `render` rechaza enseguida (el motor contesta `busy`). Un solo relanzamiento a la vez.
 - `chromiumDockerArgs` agrega `--pull`, `never` antes de la imagen (además de la etiqueta de F-010).
 
 ### Servidor (`server/src/main.ts`, `server/src/fatal.ts`)
-- Sin `--chromium`: usa `startChromiumService` y **espera** a que resuelva antes de escuchar. Con `--chromium`: como hoy. La primera línea `{"listening": …}` sale cuando ya escucha.
+- Sin `--chromium`: usa `startChromiumService` y **espera** a que resuelva antes de escuchar. Con `--chromium`: como hoy. La línea `{"listening": …}` sale cuando ya escucha; **antes** pueden salir líneas de espera (`docker`, `chromium`), así que ya no es necesariamente la primera (aclaración del 2026-10-25; `server/README.md` lo dice).
 - `installFatalHandlers(options: { log, shutdown: () => Promise<void>, exit: (code: number) => void, clock?: () => Date })`: con `uncaughtException` o `unhandledRejection` registra `{ ts, event: "fatal", kind }` (sin mensaje ni pila), llama `shutdown()` con tope de **30 s** y luego `exit(1)`. Solo actúa la primera vez. SIGTERM sigue con el apagado ordenado y sale con 0.
 
 ### Prueba y lista de chequeo (las escribe el arquitecto)
@@ -76,10 +77,24 @@ Las pruebas con Docker real usan la imagen fijada de `tools/images.conf`. «Dock
 - **CA2 (Chromium muere).** Con el servidor arrancado y una vista ya dibujada: `docker kill` del contenedor; las peticiones siguientes dan `200` o `503 busy` (nunca otra cosa ni una conexión cortada), y en ≤ **30 s** una vista nueva se dibuja bien, con el mismo proceso. Hay una línea `restart` y, al final, exactamente 1 contenedor con la etiqueta.
 - **CA3 (sin bajar imágenes).** `chromiumDockerArgs(...)` contiene `--pull`, `never` antes de la imagen. `startChromiumService({ image: "tintero-imagen-que-no-existe:0", sleep })` con el Docker falso: tras la primera espera hay una línea `{ event: "chromium", action: "start", ok: false, code: "image-missing" }`, y ninguna llamada anotada fue `pull` ni `run` con esa imagen.
 - **CA4 (error fatal).** `installFatalHandlers` con `log`, `shutdown` y `exit` falsos: un `unhandledRejection` → una línea con exactamente las claves `ts`, `event` (`"fatal"`) y `kind` (`"unhandledRejection"`); `shutdown` llamado una vez y luego `exit(1)`; un segundo evento no hace nada. Si `shutdown` no termina en 30 s (reloj de prueba), igual `exit(1)`.
-- **CA5 (mejoras de F-009).** (1) Con un `saveState` que lanza una vez, el siguiente cambio vuelve a guardar el archivo. (2) Con un `engine.setSource` que lanza, el ciclo deja `{ event: "defect", where: "cycle" }` en **cada** ciclo (tres ciclos seguidos → tres líneas), y no una línea `read ok: false`. (3) Una escritura que falla por red deja `{ event: "write", result: "pending", code: "network" }`. (4) Si `<stateFile>.tmp-<pid>` es un enlace simbólico a otro archivo, `saveState` no escribe en el destino del enlace y el estado queda bien guardado. (5) Las pruebas de estado de F-009 (CA17–CA20, CA23) siguen pasando.
+- **CA5 (mejoras de F-009).** (1) Con un `saveState` que lanza una vez, el siguiente cambio vuelve a guardar el archivo. (2) Con un `engine.setSource` que lanza, el ciclo deja `{ event: "defect", where: "cycle" }` en **cada** ciclo (tres ciclos seguidos → tres líneas), y no una línea `read ok: false`. (3) Una escritura que falla por red deja `{ event: "write", result: "pending", code: "network" }`. (4) Si `<stateFile>.tmp-<pid>` es un enlace simbólico a otro archivo, `saveState` no escribe en el destino del enlace y el estado queda bien guardado. (5) Las pruebas de estado de F-009 (CA17–CA20, CA23) siguen pasando. *(Que `loadState` lea del mismo descriptor no se observa desde afuera: lo juzga la revisión.)*
 - **CA6 (regresión).** `npm run test:acceptance` (F-001 a F-010) pasa.
 - **CA7 (en vivo, lo corre el arquitecto).** Con el servicio de F-010 instalado y arrancado, `tools/prueba-recuperacion` sale con 0 (pasos 1 y 2). Resultado en *Resultado obtenido*.
 - **CA8 (apagón real, lo corre el dueño).** Tras un reinicio de la máquina, la lista de chequeo de `server/README.md` se cumple. Resultado en *Resultado obtenido* (si aún no se corrió, se dice).
+
+## Vuelta 2 · huecos de recuperación hallados en la revisión (2026-10-25)
+
+La vuelta 1 cumplió CA1–CA6 y la revisión no tuvo bloqueantes, pero cuatro de sus mejoras son huecos de lo que el dueño pidió (que el servidor se recupere solo), así que se arreglan antes de integrar. Lo de arriba sigue valiendo salvo donde se dice **reemplaza**.
+
+- R4. **Relanzar nunca queda muerto en silencio:** si el relanzamiento falla por algo inesperado, se registra `{ ts, event: "defect", where: "chromium-restart" }` (sin mensaje ni pila) y el siguiente dibujo que falle vuelve a intentar relanzar (el estado no queda trabado). Ningún `.catch(() => undefined)` en el camino del relanzamiento, salvo al cerrar un contenedor o conexión vieja, con comentario de por qué.
+- R5. **Espera también entre relanzamientos seguidos:** si Chromium muere otra vez antes de 60 s desde el último relanzamiento, la espera creciente sigue (no vuelve a cero): un Chromium que muere al nacer se reintenta a 1 s, 2 s, 4 s… hasta 60 s. La espera vuelve a cero tras 60 s de funcionar bien.
+- R6. **Sin restos de un `docker run` fallido:** si `docker run` falla o se pasa de tiempo, se hace `docker rm -f <nombre>` del contenedor propio (con o sin instancia) antes de reintentar.
+- R7. **Vivo pero sordo también se relanza** (**reemplaza** «mira si el contenedor sigue corriendo»): cuando un dibujo falla y la reconexión también falla, el servicio relanza **siempre**: borra su contenedor (`docker rm -f <nombre>`, esté corriendo o no) y arranca otro. Un Chromium vivo con el CDP roto ya no deja la pantalla sin dibujar.
+- Nota (no se arregla): `renderer.close()` durante un arranque deja una conexión abierta hasta `stop()`; un SIGTERM y un error fatal a la vez pueden correr el apagado dos veces (sin efecto práctico).
+
+**Criterios nuevos:**
+- **CA9 (vivo pero sordo).** Con el servidor arrancado (instancia propia de la prueba, `--port 0`) y una vista dibujada: `docker pause` de su contenedor; las peticiones siguientes dan `200` o `503 busy`, y en ≤ **45 s** una vista nueva se dibuja bien con el **mismo proceso**; al final hay exactamente 1 contenedor de esa instancia, distinto del pausado, y el pausado ya no existe. Hay una línea `restart`.
+- **CA10 (sin restos de un `run` fallido).** Con el Docker falso haciendo que `run` falle (sale con 1 tras crear el contenedor, o tarda más que el tope), tras dos intentos fallidos no queda **ningún** contenedor con el nombre de esos intentos, y el Docker falso registró un `rm -f <nombre>` por cada uno.
 
 ## Presupuestos
 Recuperación tras la muerte de Chromium ≤ 30 s sin reiniciar el proceso; espera entre intentos ≤ 60 s; un registro de fallo por hora como mucho mientras dure una caída (salvo `defect`, que es siempre).
