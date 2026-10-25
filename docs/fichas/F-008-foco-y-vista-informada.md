@@ -139,6 +139,7 @@ El verificador puede tocar **solo** estas pruebas de fichas anteriores, y solo s
 - **F-006:** CA3, CA4, CA6, CA7, CA8, CA9, CA12 y CA13. Los valores nuevos de `hoy` y `tablero` en `P124` son los de CA4 a CA7 de esta ficha (CA13: `hoy` tiene 9 zonas); los de `V124` y `P200`, las propiedades de CA3.
 - **F-005 (además):** CA20 y CA23 (píxeles que miran una casilla: pasan a la casilla en su sitio nuevo, a `Z0 + focusPad` de la zona) y CA21 (cantidad de zonas de `hoy`: la que dé la regla de prefijo y `visibles + hidden`).
 - **F-003:** CA2/D2, CA5 y CA7: las coordenadas de las zonas de demostración (y los píxeles que miran sus casillas) pasan a x = 16 (ver *Modo demostración*); nada más cambia.
+- **F-005 CA10 (`tooSmall`):** con las filas más altas, `jira` no cabe en el 15 % del alto de `hoy` en `V124` (datos de demostración de F-005, panel vertical que no se usa): la prueba pasa a esperar `tooSmall = ["jira"]` en ese caso. *(Decidido por el arquitecto tras la vuelta 1 de verificación; anotado como mejora.)*
 - **F-001:** CA4: las zonas que la prueba arma para comprobar que se aceptan (hasta 48) pasan a tener x y ancho múltiplos de 8; los rechazos siguen igual.
 
 *(Lista ampliada el 2026-10-25 tras la fase de pruebas, a pedido del verificador, y tras la vuelta 1 del programador: F-001 CA4 y F-003 CA5.)*
