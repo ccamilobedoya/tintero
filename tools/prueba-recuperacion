@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Prueba de recuperación en vivo (F-011, CA7). Con el servicio de usuario `tintero` corriendo:
+#   1) kill -9 del proceso → systemd lo relanza y el emulador vuelve a recibir sus vistas;
+#   2) docker kill de su Chromium → el mismo proceso relanza Chromium y vuelve a dibujar;
+#   3) (--trilium) reinicia el contenedor de Trilium → la integración vuelve a leer (read ok:true).
+# Lee de la configuración local ($TINTERO_LOCAL_ENV o ~/.config/tintero/local.env):
+#   TINTERO_ARGS (de ahí salen --port e --instance), y opcionales TINTERO_EMULATOR_ARGS
+#   (p. ej. --ca/--cert/--key si el servicio usa TLS) y TINTERO_TRILIUM_CONTAINER (para --trilium).
+# Sale con 0 solo si todos los pasos dan OK. No usa sudo; no abre nada a internet.
+set -uo pipefail
+ROOT="$(git rev-parse --show-toplevel)" || exit 2
+ENV_FILE="${TINTERO_LOCAL_ENV:-$HOME/.config/tintero/local.env}"
+TRILIUM=0
+for arg in "$@"; do
+  case "$arg" in --trilium) TRILIUM=1 ;; *) echo "Uso: tools/prueba-recuperacion [--trilium]" >&2; exit 2 ;; esac
+done
+[ -f "$ENV_FILE" ] || { echo "No existe la configuración local" >&2; exit 2; }
+[ "$(stat -c %s "$ENV_FILE")" -le 16384 ] || { echo "Configuración local demasiado grande" >&2; exit 2; }
+value() { grep -m1 "^$1=" "$ENV_FILE" | cut -d= -f2- || true; }
+ARGS="$(value TINTERO_ARGS)"
+EMU_ARGS="$(value TINTERO_EMULATOR_ARGS)"
+PORT="$(sed -nE 's/.*--port[ =]([0-9]{1,5}).*/\1/p' <<<"$ARGS")"
+INSTANCE="$(sed -nE 's/.*--instance[ =]([a-z0-9-]{1,32}).*/\1/p' <<<"$ARGS")"
+[ -n "$PORT" ] && [ -n "$INSTANCE" ] || { echo "TINTERO_ARGS necesita --port y --instance" >&2; exit 2; }
+SCHEME=http; [ -n "$EMU_ARGS" ] && SCHEME=https
+SERVER="$SCHEME://127.0.0.1:$PORT"
+STORE="$(mktemp -d)"; trap 'rm -rf "$STORE"' EXIT
+systemctl --user is-active --quiet tintero || { echo "El servicio tintero no está activo" >&2; exit 2; }
+
+# El emulador recibe un índice y al menos una vista (tope 60 s).
+views_ok() {
+  local deadline=$((SECONDS + 60)) out
+  while [ $SECONDS -lt $deadline ]; do
+    rm -rf "$STORE/e"
+    # shellcheck disable=SC2086 # EMU_ARGS son opciones separadas por espacios, a propósito
+    out="$(timeout 20 node "$ROOT/emulator/src/cli.ts" --server "$SERVER" --store "$STORE/e" --wakes 1 $EMU_ARGS 2>/dev/null)" || true
+    grep -q '"downloaded":\["' <<<"$out" && return 0
+    sleep 1
+  done
+  return 1
+}
+containers() { docker ps -q --filter label=tintero.chromium=1 --filter "label=tintero.instance=$INSTANCE" | wc -l; }
+main_pid() { systemctl --user show -p MainPID --value tintero; }
+FAILED=0
+step() { if "$2"; then echo "OK    $1"; else echo "FALLA $1"; FAILED=1; fi; }
+
+views_ok || { echo "El servicio no entrega vistas antes de empezar" >&2; exit 1; }
+
+step_kill() {
+  local before after deadline=$((SECONDS + 60))
+  before="$(main_pid)"; kill -9 "$before" || return 1
+  while [ $SECONDS -lt $deadline ]; do
+    after="$(main_pid)"; [ "$after" != "0" ] && [ "$after" != "$before" ] && break; sleep 0.5
+  done
+  [ "$after" != "$before" ] && views_ok && [ "$(containers)" -eq 1 ]
+}
+step_chromium() {
+  local pid id
+  pid="$(main_pid)"
+  id="$(docker ps -q --filter label=tintero.chromium=1 --filter "label=tintero.instance=$INSTANCE" | head -1)"
+  [ -n "$id" ] || return 1
+  docker kill "$id" >/dev/null || return 1
+  views_ok && [ "$(containers)" -eq 1 ] && [ "$(main_pid)" = "$pid" ]
+}
+step_trilium() {
+  local name since
+  name="$(value TINTERO_TRILIUM_CONTAINER)"
+  [[ "$name" =~ ^[a-zA-Z0-9_.-]{1,64}$ ]] || { echo "Falta TINTERO_TRILIUM_CONTAINER" >&2; return 1; }
+  since="$(date '+%Y-%m-%d %H:%M:%S')"
+  docker restart "$name" >/dev/null || return 1
+  local deadline=$((SECONDS + 180))
+  while [ $SECONDS -lt $deadline ]; do
+    journalctl --user -u tintero --since "$since" -o cat --no-pager | grep -q '"event":"read","ok":true' && return 0
+    sleep 5
+  done
+  return 1
+}
+step "1. kill -9 del proceso: systemd lo relanza y vuelve a entregar vistas" step_kill
+step "2. docker kill de Chromium: el mismo proceso lo relanza y vuelve a dibujar" step_chromium
+[ $TRILIUM -eq 1 ] && step "3. reinicio de Trilium: la integración vuelve a leer" step_trilium
+exit $FAILED
