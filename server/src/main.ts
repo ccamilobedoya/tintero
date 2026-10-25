@@ -101,7 +101,7 @@ if (options.views !== undefined && options.data !== undefined) {
   try {
     let endpoint = options.chromium;
     if (endpoint === undefined) {
-      const started = await startChromium();
+      const started = await startChromium({ log: logEngine });
       stopChromium = () => started.stop();
       endpoint = started.endpoint;
     }
