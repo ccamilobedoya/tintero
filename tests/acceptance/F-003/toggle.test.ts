@@ -58,7 +58,12 @@ async function postAction(
   return v.value;
 }
 
-const C2 = { x: 20, y: 100, w: 120, h: 40 };
+const C2 = {
+  x: 16, // F-008: alineada al byte (antes 20)
+  y: 100,
+  w: 120,
+  h: 40,
+};
 
 describe("CA5 toggle", () => {
   it("press(ok) sobre c2: cambia la huella y la nueva imagen trae c2 rellena de negro", async () => {

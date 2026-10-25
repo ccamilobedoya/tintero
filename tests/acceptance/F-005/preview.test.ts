@@ -2,6 +2,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { zoneId } from "../../../server/src/engine/index.ts";
 import { checkImage, validateZones } from "../../../contract/src/index.ts";
 import { DATA_PATH, P124, VIEWS_PATH, rmDir, runNpm, tmpDir, type RunResult } from "./helpers.ts";
 
@@ -55,11 +56,28 @@ describe("CA21 vista previa", () => {
     }
   });
 
-  it("cada *.zones.json pasa validateZones; hoy tiene 13 zonas", () => {
+  it("cada *.zones.json pasa validateZones; hoy conserva el orden de ids (prefijo, F-008)", () => {
     for (const id of ["hoy", "pendientes", "agenda"]) {
       const v = validateZones(readFileSync(join(out, `${id}.zones.json`), "utf8"), P124);
       expect(v.ok, id).toBe(true);
-      if (v.ok && id === "hoy") expect(v.value.zones).toHaveLength(13);
+      if (v.ok && id === "hoy") {
+        // F-008 CA21: la cantidad de zonas es la que dé la regla de prefijo (ids en el orden de antes)
+        const T = ["t-001", "t-002", "t-003", "t-004", "t-005"].map((i) =>
+          zoneId("hoy", "tareas", i),
+        );
+        const E = ["e-002", "e-003", "e-004", "e-005", "e-007"].map((i) =>
+          zoneId("hoy", "calendario", i),
+        );
+        const J = ["j-142", "j-151", "j-160"].map((i) => zoneId("hoy", "jira", i));
+        const ids = v.value.zones.map((z) => z.id);
+        const vis = (g: string[]): string[] => ids.filter((i) => g.includes(i));
+        expect(vis(T)).toEqual(T.slice(0, vis(T).length));
+        expect(vis(E)).toEqual(E.slice(0, vis(E).length));
+        expect(vis(J)).toEqual(J.slice(0, vis(J).length));
+        expect(ids).toEqual([...vis(T), ...vis(E), ...vis(J)]);
+        expect(ids.length).toBeGreaterThan(0);
+        expect(ids.length).toBeLessThanOrEqual(13);
+      }
     }
   });
 });

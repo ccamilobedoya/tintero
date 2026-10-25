@@ -114,7 +114,7 @@ describe("CA1 contrato", () => {
 });
 
 describe("CA2 checkFocusBand", () => {
-  // Supuesto: 1 = negro, como en F-001 (la ficha dice «bit 0 … como en F-001»: ver el informe).
+  // Negro = bit 1 en raw1 (como en F-001; aclarado en la ficha).
   const panel: Panel = { w: 16, h: 16, dpi: 124, depth: 1 };
   const zones: Zone[] = [{ id: "z", x: 0, y: 0, w: 16, h: 16, act: "toggle" }];
   const withBlack = (points: [number, number][]): Uint8Array => {
