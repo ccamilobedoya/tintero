@@ -1,6 +1,6 @@
 # F-011 · Recuperación automática completa
 
-**Estado:** **aprobada** · el dueño aprobó D1–D5 el 2026-10-25, al separar F-010 (lo mínimo) de esta ficha (el resto). Se programa después de F-010.
+**Estado:** **cerrada** · el dueño aprobó integrar el 2026-10-25 · aprobada: el dueño aprobó D1–D5 el 2026-10-25, al separar F-010 (lo mínimo) de esta ficha (el resto). Se programa después de F-010.
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna.
 
@@ -115,16 +115,35 @@ Recuperación tras la muerte de Chromium ≤ 30 s sin reiniciar el proceso; espe
 Tintero espera a Docker sin rendirse, relanza Chromium si muere sin reiniciar el proceso, no necesita internet, y si algo raro lo tumba, vuelve en 5 s con lo que tenía guardado.
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto); CA7 y CA8 con su resultado en vivo.
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Todos los CA pasan en la verificación (informe adjunto); CA7 y CA8 con su resultado en vivo.
+- [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
+- [x] `tools/check-scope` limpio para cada rol.
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
+- [x] El dueño aprobó integrar (2026-10-25).
 
 ---
 
 ## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+- **Vuelta 1** (pruebas y código en paralelo): espera de Docker, `startChromiumService` con relanzamiento, `--pull never`, `fatal.ts`, mejoras de F-009 (R2) y la nota de F-010 (R3). Verificación **CUMPLE CA1–CA6**; tres aclaraciones de la ficha (línea `listening`, `image-missing` antes de la primera espera, `instance` en el servicio). La revisión, sin bloqueantes, mostró **cuatro huecos de recuperación** (relanzar podía quedar trabado sin aviso, sin espera entre relanzamientos seguidos, restos de un `run` fallido, Chromium vivo pero sordo sin relanzar): como van contra lo que pidió el dueño, se hicieron **vuelta 2** (R4–R7, CA9, CA10) en vez de anotarlos.
+- **Vuelta 2:** CA10 pasó; **CA9 falló 4 de 4**: con Chromium congelado (`docker pause`) el servidor nunca volvía a dibujar. **Causa:** al vencer un dibujo, el camino de error esperaba `context.close()` **sin tope** antes de avisar, y contra un Chromium congelado ese cierre no vuelve. El defecto venía de F-005 (también lo tenía el servicio real).
+- **Vuelta 3:** todos los cierres del `Renderer` con tope de 2 s (`closeBounded`) y sin `defect` falso al detener. Verificación **CUMPLE CA1–CA6, CA9 (3 de 3 corridas) y CA10**; lote completo 487/487, 392 unitarias. Revisión: **aprobado**, una mejora menor (fijar con una prueba el cierre sin esperar del `Renderer` viejo).
+- **CA7 en vivo (2026-10-25, arquitecto, servicio real con el código de esta rama):** `tools/prueba-recuperacion` → **OK** `kill -9` (systemd lo relanzó; vuelve a entregar vistas, borró 1 huérfano) y **OK** `docker kill` de Chromium (el **mismo proceso** lo relanzó y volvió a dibujar; antes de F-011 este paso daba FALLA). Además, `docker pause` del Chromium del servicio: el mismo proceso lo reemplazó y volvió a dibujar **en 23 s**, sin relanzamientos en bucle.
+- **Limpieza:** dos Chromium huérfanos de pruebas de hace 21 h (de antes de las etiquetas, 512 MB de tope cada uno) se borraron a mano; desde F-010 ya no pueden quedar sin etiqueta.
+- **Intermitencia:** F-005 CA27 (`busy`) falló una vez con todo el lote en paralelo (segunda vez desde F-006); pasa solo. Queda anotada (regla 12).
+- **CA8 (apagón real):** pendiente; lo corre el dueño cuando quiera (lista en `server/README.md`).
+- **Costo:** USD 3,01 (programador 1,39 · verificador 1,28 · revisor 0,31 · integrador 0,03).
 
 ## Resumen para aprobar
-*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
+
+## Para aprobar · F-011 · Recuperación automática completa
+
+**Qué cambió:** el servidor espera a Docker en vez de salir, **relanza Chromium si muere o se congela sin reiniciarse** (medido: 23 s con Chromium congelado), no baja imágenes de internet, y ante un error fatal sale limpio para que systemd lo levante. Más las mejoras de F-009.
+
+**Criterios:** 8 de 8 automáticos + CA7 en vivo · vueltas: verificación 3 (CA9 falló en la 2: cierres sin tope, defecto que venía de F-005), revisión 3
+
+**Revisión:** aprobado, 1 mejora menor · zonas sensibles: `chromium.ts`
+**Dependencias nuevas:** ninguna
+
+**Riesgos o pendientes:** CA8 (reiniciar la máquina) cuando quieras; F-005 CA27 a veces falla con carga.
+
+**Decisión que se pide:** integrar a `main` (aprobado el 2026-10-25).
