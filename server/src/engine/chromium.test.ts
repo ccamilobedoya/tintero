@@ -34,7 +34,8 @@ beforeEach(() => {
       '  [ "$n" -lt "$FAKE_FAILS" ] && exit 1',
       "  echo 29.0; exit 0",
       "fi",
-      '[ "$1" = image ] && exit 1',
+      '[ "$1" = image ] && [ -z "$FAKE_IMAGE_OK" ] && exit 1',
+      '[ "$1" = run ] && [ -n "$FAKE_RUN_FAILS" ] && exit 1',
       "exit 0",
       "",
     ].join("\n"),
@@ -127,6 +128,32 @@ describe("startChromiumService without the image", () => {
     const all = calls();
     expect(all.some((c) => c.startsWith("pull") || c.startsWith("run"))).toBe(false);
     expect(all.some((c) => c.startsWith("image inspect") && c.includes(image))).toBe(true);
+  });
+});
+
+describe("startChromiumService with a failing run", () => {
+  it("removes its own container (rm -f <name>) after every failed run", async () => {
+    vi.stubEnv("FAKE_FAILS", "0");
+    vi.stubEnv("FAKE_IMAGE_OK", "1");
+    vi.stubEnv("FAKE_RUN_FAILS", "1");
+    let slept = 0;
+    await expect(
+      startChromiumService({
+        image: "img:0",
+        sleep: () => {
+          if (++slept > 2) return Promise.reject(new Error("end of test"));
+          return Promise.resolve();
+        },
+      }),
+    ).rejects.toThrow("end of test");
+    const all = calls();
+    const runs = all.filter((c) => c.startsWith("run"));
+    expect(runs.length).toBeGreaterThanOrEqual(2);
+    for (const run of runs) {
+      const name = /--name (tintero-chromium-[0-9a-f]{8})/.exec(run)?.[1];
+      expect(name).toBeDefined();
+      expect(all).toContain(`rm -f ${name ?? ""}`);
+    }
   });
 });
 

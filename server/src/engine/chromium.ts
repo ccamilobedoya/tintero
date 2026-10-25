@@ -272,7 +272,13 @@ async function runChromium(
   const name = `tintero-chromium-${randomBytes(4).toString("hex")}`;
   if (!CONTAINER_NAME.test(name)) throw new Error("invalid container name");
   const fontsDir = fileURLToPath(new URL("../../fonts", import.meta.url));
-  await docker(chromiumDockerArgs(name, port, fontsDir, image, instance), START_TIMEOUT_MS);
+  try {
+    await docker(chromiumDockerArgs(name, port, fontsDir, image, instance), START_TIMEOUT_MS);
+  } catch (error) {
+    // A failed or timed-out `run` may have left our own container behind (R6).
+    await docker(["rm", "-f", name]).catch(() => undefined); // nothing to remove is fine
+    throw error;
+  }
   const stop = (): Promise<void> => stopContainer(name);
   try {
     const mapped = (await docker(["port", name, "9222/tcp"])).split("\n")[0] ?? "";
@@ -588,36 +594,55 @@ export async function startChromiumService(
     }
   };
   const isStopped = (): boolean => flags.stopped;
+  const isUp = (): boolean => container !== undefined;
 
-  /** Looks at the container; if it is gone, replaces it. One at a time. */
-  const supervise = (): void => {
+  // Relaunches in a row (R5): the wait grows until Chromium has worked for 60 s.
+  let upAt: Date | undefined;
+  let streak = 0;
+
+  /** Can a new CDP connection be made? (`force`: skip the check, relaunch anyway.) */
+  const reconnects = async (endpoint: string): Promise<boolean> => {
+    try {
+      const probe = await connectCdp(endpoint);
+      await probe.close().catch(() => undefined); // only a check; the connection is not needed
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  /**
+   * After a failed drawing: if a new connection fails (or `force`), replaces the container, alive
+   * or not. One at a time. A failure here is logged as a defect and the next failed drawing tries
+   * again (the state is never left stuck).
+   */
+  const supervise = (force = false): void => {
     if (restarting !== undefined || flags.stopped || flags.rendererClosed) return;
     const current = container;
-    if (current === undefined) return;
     restarting = (async () => {
-      let running: boolean;
-      try {
-        const answer = await docker(
-          ["inspect", "-f", "{{.State.Running}}", current.name],
-          PROBE_TIMEOUT_MS,
-        );
-        running = answer.trim() === "true";
-      } catch {
-        running = false;
-      }
-      if (running || isStopped()) return;
+      if (!force && current !== undefined && (await reconnects(current.endpoint))) return;
+      if (isStopped()) return;
       const old = inner;
       container = undefined;
       inner = undefined;
       if (old !== undefined) {
         blockedBefore += old.blockedRequests();
-        old.close().catch(() => undefined);
+        old.close().catch(() => undefined); // the old connection may be dead already
       }
-      await docker(["rm", "-f", current.name]).catch(() => undefined);
+      if (current !== undefined) {
+        await docker(["rm", "-f", current.name]).catch(() => undefined); // may be gone already
+      }
       out({ event: "chromium", action: "restart" });
+      const now = clock();
+      if (upAt !== undefined && now.getTime() - upAt.getTime() >= BACKOFF_MAX_MS) streak = 0;
+      if (streak > 0) await sleepUnless(sleepFn, backoff(streak - 1), stopper.signal);
+      streak++;
       await bringUp();
+      if (isUp()) upAt = clock();
     })()
-      .catch(() => undefined)
+      .catch(() => {
+        out({ event: "defect", where: "chromium-restart" });
+      })
       .finally(() => {
         restarting = undefined;
       });
@@ -625,11 +650,15 @@ export async function startChromiumService(
 
   await bringUp();
   if (isStopped()) throw new Error("stopped");
+  upAt = clock();
 
   const renderer: Renderer = {
     async render(html, panel, renderOptions) {
       const current = inner;
-      if (current === undefined) throw new Error("chromium is restarting");
+      if (current === undefined) {
+        supervise(true); // no-op while a relaunch runs; retries one that ended in a defect
+        throw new Error("chromium is restarting");
+      }
       try {
         return await current.render(html, panel, renderOptions);
       } catch (error) {
