@@ -134,6 +134,10 @@ export interface FakeEtapi {
   delayMs: number;
   /** Devuelve este cuerpo (200) a cualquier petición autorizada. */
   override: BodyOverride | undefined;
+  /** Cierra sin responder las próximas N peticiones (vuelve solo). */
+  failNext: number;
+  /** Saca una tarjeta del tablero (vuelta 2). */
+  remove(noteId: string): void;
   setStatus(noteId: string, value: string): void;
   statusOf(noteId: string): string | undefined;
   close(): Promise<void>;
@@ -177,7 +181,12 @@ export async function startEtapi(): Promise<FakeEtapi> {
   const requests: Recorded[] = [];
   const timers = new Set<NodeJS.Timeout>();
   const sockets = new Set<import("node:net").Socket>();
-  const state = { offline: false, delayMs: 0, override: undefined as BodyOverride | undefined };
+  const state = {
+    offline: false,
+    failNext: 0,
+    delayMs: 0,
+    override: undefined as BodyOverride | undefined,
+  };
 
   const json = (res: ServerResponse, status: number, value: unknown): void => {
     const text = JSON.stringify(value);
@@ -267,32 +276,42 @@ export async function startEtapi(): Promise<FakeEtapi> {
   };
 
   const server: Server = createServer((req, res) => {
-    void readBody(req).then((body) => {
-      requests.push({
-        method: req.method ?? "",
-        path: req.url ?? "",
-        body,
-        authorization: req.headers.authorization,
-      });
-      if (state.offline) {
-        req.socket.destroy();
-        return;
-      }
-      const go = (): void => {
-        if (req.headers.authorization !== TOKEN) {
-          json(res, 401, { status: 401, code: "NOT_AUTHENTICATED", message: "token" });
+    readBody(req)
+      .then((body) => {
+        requests.push({
+          method: req.method ?? "",
+          path: req.url ?? "",
+          body,
+          authorization: req.headers.authorization,
+        });
+        if (state.failNext > 0) {
+          state.failNext--;
+          req.socket.destroy();
           return;
         }
-        answer(req, res, body);
-      };
-      if (state.delayMs > 0) {
-        const t = setTimeout(() => {
-          timers.delete(t);
-          if (!res.destroyed) go();
-        }, state.delayMs);
-        timers.add(t);
-      } else go();
-    });
+        if (state.offline) {
+          req.socket.destroy();
+          return;
+        }
+        const go = (): void => {
+          if (req.headers.authorization !== TOKEN) {
+            json(res, 401, { status: 401, code: "NOT_AUTHENTICATED", message: "token" });
+            return;
+          }
+          answer(req, res, body);
+        };
+        if (state.delayMs > 0) {
+          const t = setTimeout(() => {
+            timers.delete(t);
+            if (!res.destroyed) go();
+          }, state.delayMs);
+          timers.add(t);
+        } else go();
+      })
+      .catch(() => {
+        // un fallo del falso corta la conexión; no deja rechazos sueltos
+        req.socket.destroy();
+      });
   });
   server.on("connection", (s) => {
     sockets.add(s);
@@ -322,6 +341,16 @@ export async function startEtapi(): Promise<FakeEtapi> {
     },
     set override(v: BodyOverride | undefined) {
       state.override = v;
+    },
+    get failNext() {
+      return state.failNext;
+    },
+    set failNext(v: number) {
+      state.failNext = v;
+    },
+    remove(noteId) {
+      const i = data.findIndex((c) => c.noteId === noteId);
+      if (i >= 0) data.splice(i, 1);
     },
     setStatus(noteId, value) {
       const a = data.find((c) => c.noteId === noteId)?.attrs.find((x) => x.name === "status");
