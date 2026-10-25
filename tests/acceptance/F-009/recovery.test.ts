@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access -- objetos de error y JSON de prueba */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ConfigError } from "../../../server/src/engine/index.ts";
 import { guardedHttp } from "../../../server/src/integrations/http.ts";

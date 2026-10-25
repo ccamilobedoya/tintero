@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access -- JSON de prueba */
 // Auxiliares de la vuelta 2 de F-009: servidor crudo (corta a media respuesta, 500),
 // integración con `stateFile` y esperas.
 import { createServer, type Server } from "node:http";
@@ -122,7 +123,7 @@ export function rig(
     onToggle: (change: Parameters<TriliumTasks["onToggle"]>[0]) => {
       ref.tt?.onToggle(change);
     },
-  } as Parameters<typeof createEngine>[0]);
+  });
   const calls: SpyCall[] = [];
   const spy = {
     setSource: (id: string, items: unknown, meta?: { readAt?: Date }) => {

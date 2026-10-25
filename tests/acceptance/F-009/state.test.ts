@@ -1,4 +1,4 @@
-/* eslint-disable security/detect-non-literal-fs-filename -- carpetas temporales propias */
+/* eslint-disable security/detect-non-literal-fs-filename, @typescript-eslint/no-unsafe-member-access -- carpetas temporales propias y JSON de prueba */
 import { mkdirSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
