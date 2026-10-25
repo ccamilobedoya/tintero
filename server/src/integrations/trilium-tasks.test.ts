@@ -354,6 +354,26 @@ describe("createTriliumTasks", () => {
     expect(loadState(stateFile, BOARD, again.clock.now).state?.pending).toEqual({});
   });
 
+  it("keeps the saved read time for 5 min on an unchanged board, then refreshes it", async () => {
+    const stateFile = join(fake.dir, "state.json");
+    const r = rig({ stateFile });
+    const savedAt = (): string | undefined =>
+      loadState(stateFile, BOARD, r.clock.now).state?.lastGood?.readAt;
+    for (const minute of ["00", "01", "02", "03", "04"]) {
+      r.clock.now = new Date(`2026-10-24T17:${minute}:00Z`);
+      await r.tasks.cycle();
+      await r.tasks.idle();
+    }
+    expect(savedAt()).toBe("2026-10-24T17:00:00.000Z");
+    r.clock.now = new Date("2026-10-24T17:05:00Z");
+    await r.tasks.cycle();
+    await r.tasks.idle();
+    expect(savedAt()).toBe("2026-10-24T17:05:00.000Z");
+    await r.tasks.stop();
+    const again = rig({ stateFile }, clientFor(), new Date("2026-10-24T17:06:00Z"));
+    expect(again.calls[0]?.readAt).toEqual(new Date("2026-10-24T17:05:00Z"));
+  });
+
   it("discards a read over 24 h old and expires a mark that was pending while off", async () => {
     const stateFile = join(fake.dir, "state.json");
     await saveState(stateFile, {

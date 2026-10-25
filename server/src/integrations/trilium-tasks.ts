@@ -14,6 +14,7 @@ const INTEGRATION = "trilium-tareas";
 const MAX_TASKS = 500;
 const OLD_DONE_MS = 26 * 3_600_000;
 const EXPIRE_MS = 24 * 3_600_000;
+const REFRESH_SAVED_MS = 5 * 60_000; // an unchanged board refreshes the saved read time this often
 const FAIL_LOG_EVERY_MS = 60 * 60_000;
 const ID = /^[A-Za-z0-9_]{1,32}$/;
 
@@ -422,7 +423,9 @@ export function createTriliumTasks(options: {
       const readAt = clock();
       engine.setSource(config.source, overlay(tasks), { readAt });
       const key = JSON.stringify([tasks, Object.fromEntries(known)]);
-      if (key !== lastKey || forgot) {
+      const aged =
+        lastGood !== null && readAt.getTime() - lastGood.readAt.getTime() >= REFRESH_SAVED_MS;
+      if (key !== lastKey || forgot || aged) {
         lastKey = key;
         lastGood = { readAt, tasks };
         persist();
