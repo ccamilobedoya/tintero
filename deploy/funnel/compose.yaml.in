@@ -4,6 +4,7 @@ name: tintero-funnel
 services:
   tintero-funnel:
     image: @TAILSCALE_IMAGE@
+    user: "@UID@:@GID@" # sin root: con cap_drop ALL, root no podría escribir su carpeta de estado (700)
     network_mode: host # para reenviar a 127.0.0.1 del servidor
     restart: unless-stopped
     read_only: true

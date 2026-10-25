@@ -35,11 +35,20 @@ export function renderFunnel(
   serve: string,
   env: Record<Key, string>,
   image: string,
+  owner: { uid: number; gid: number } = {
+    uid: process.getuid?.() ?? 0,
+    gid: process.getgid?.() ?? 0,
+  },
 ): { compose: string; serve: string } {
+  // The node runs as the folder's owner, never as root (F-012).
+  if (owner.uid === 0)
+    throw new InstallError("El nodo no corre como root: instálalo con tu usuario");
   const out = {
     compose: compose
       .replaceAll("@TAILSCALE_IMAGE@", image)
-      .replaceAll("@AUTHKEY_FILE@", env.TINTERO_AUTHKEY_FILE),
+      .replaceAll("@AUTHKEY_FILE@", env.TINTERO_AUTHKEY_FILE)
+      .replaceAll("@UID@", String(owner.uid))
+      .replaceAll("@GID@", String(owner.gid)),
     serve: serve.replaceAll("@TINTERO_TLS_PORT@", env.TINTERO_TLS_PORT),
   };
   if (/@[A-Z_]+@/.test(out.compose + out.serve)) {
