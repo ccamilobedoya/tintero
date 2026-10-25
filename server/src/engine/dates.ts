@@ -155,3 +155,31 @@ export function staleLabel(
 
 export const daysInMonth = (y: number, m: number): number =>
   new Date(Date.UTC(y, m, 0)).getUTCDate();
+
+const MAX_EVENT_DAYS = 62;
+
+/**
+ * Every local day an event covers (R2): all-day events end the day before `end` (exclusive, as in
+ * iCalendar); timed events do not count the day of an `end` at exactly 00:00. At most 62 days.
+ */
+export function eventDays(start: string, end: string | undefined, timeZone: string): DayParts[] {
+  const first = eventStart(start, timeZone).day;
+  if (end === undefined) return [first];
+  let last: DayParts;
+  if (DATE_ONLY.test(end)) {
+    last = addDays(parseDay(end), -1);
+  } else {
+    const stop = new Date(end);
+    if (!DATE_ONLY.test(start) && stop.getTime() < new Date(start).getTime()) return [first];
+    const local = localParts(stop, timeZone);
+    const atMidnight = local.hour === 0 && local.minute === 0 && stop.getUTCSeconds() === 0;
+    last = atMidnight ? addDays(local.day, -1) : local.day;
+  }
+  if (dayKey(last) <= dayKey(first)) return [first];
+  const days: DayParts[] = [];
+  for (let day = first; days.length < MAX_EVENT_DAYS && dayKey(day) <= dayKey(last);) {
+    days.push(day);
+    day = addDays(day, 1);
+  }
+  return days;
+}

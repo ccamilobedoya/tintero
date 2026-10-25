@@ -8,6 +8,10 @@
       "boardNoteId": "IdDeLaNotaDelTablero",
       "allowWrite": false,
       "stateFile": "/ruta/privada/tintero-tareas.estado.json"
+    },
+    "festivos": {
+      "baseUrl": "https://date.nager.at",
+      "stateFile": "/ruta/privada/festivos.json"
     }
   }
 }

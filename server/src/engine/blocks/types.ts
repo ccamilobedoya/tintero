@@ -18,6 +18,8 @@ export interface BlockContext {
   source: Source;
   timeZone: string;
   today: DayParts;
+  /** Public holidays already corrected: `dayKey` → name (F-013). */
+  holidays: ReadonlyMap<string, string>;
   /** `sin datos desde HH:MM` when the source has not been read well for over 5 min. */
   stale?: string | undefined;
   /** Asks for a focus zone on a row; returns the opaque `data-zone` id, or undefined when none is given. */

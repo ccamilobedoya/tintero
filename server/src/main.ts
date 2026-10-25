@@ -6,8 +6,13 @@ import { accessSync, constants, statSync } from "node:fs";
 import { dirname } from "node:path";
 import { parseOptions, UsageError } from "./args.ts";
 import { checkAgainstData, loadIntegrations } from "./integrations/config.ts";
+import {
+  createHolidays,
+  HOLIDAYS_HTTP_LIMITS,
+  type Holidays,
+} from "./integrations/holidays-nager.ts";
 import { guardedHttp, IntegrationHttpError, parseBase } from "./integrations/http.ts";
-import { triliumTasksManifest } from "./integrations/manifest.ts";
+import { holidaysManifest, triliumTasksManifest } from "./integrations/manifest.ts";
 import { createTriliumTasks, type TriliumTasks } from "./integrations/trilium-tasks.ts";
 import {
   ConfigError,
@@ -30,16 +35,14 @@ const USAGE =
   "  [--instance NAME]";
 
 /** The folder of the state file must exist and be writable (ADR-0044); exits like any config error. */
-function checkStateFolder(stateFile: string): void {
+function checkStateFolder(stateFile: string, pointer: string): void {
   const folder = dirname(stateFile);
   try {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- path from the owner's configuration
     if (!statSync(folder).isDirectory()) throw new Error("not a folder");
     accessSync(folder, constants.W_OK | constants.X_OK);
   } catch {
-    throw new ConfigError(
-      "integrations: /integrations/trilium-tareas/stateFile: folder must exist and be writable",
-    );
+    throw new ConfigError(`integrations: ${pointer}: folder must exist and be writable`);
   }
 }
 
@@ -63,9 +66,11 @@ if (options.host !== "127.0.0.1") {
 let engine: Engine | undefined;
 let stopChromium: (() => Promise<void>) | undefined;
 let tasks: TriliumTasks | undefined;
+let holidays: Holidays | undefined;
 // Integrations, then the engine, then the container: the container always gets its turn.
 const steps = (): ShutdownStep[] => [
   { name: "integrations", run: () => tasks?.stop(), timeoutMs: 6000 },
+  { name: "holidays", run: () => holidays?.stop(), timeoutMs: 6000 },
   { name: "engine", run: () => engine?.close(), timeoutMs: 5000 },
   { name: "chromium", run: () => stopChromium?.(), timeoutMs: 25_000 },
 ];
@@ -92,18 +97,39 @@ if (options.views !== undefined && options.data !== undefined) {
   }
   // Integrations are checked before Chromium starts: their errors need no Docker.
   let integration;
+  let festivos;
+  const country = loaded.config.holidays?.country;
+  if (options.integrations === undefined && country !== undefined) {
+    logEngine({ ts: new Date().toISOString(), msg: "holidays: festivos integration is off" });
+  }
   if (options.integrations !== undefined) {
     try {
       const file = loadIntegrations(options.integrations);
       checkAgainstData(file, loaded.data);
       const config = file.integrations["trilium-tareas"];
       if (config !== undefined) {
-        if (config.stateFile !== undefined) checkStateFolder(config.stateFile);
+        if (config.stateFile !== undefined)
+          checkStateFolder(config.stateFile, "/integrations/trilium-tareas/stateFile");
         const http = guardedHttp(parseBase(config.baseUrl), config.keyFile, triliumTasksManifest, {
           allowWrite: config.allowWrite,
           log: logEngine,
         });
         integration = { config, http };
+      }
+      const nager = file.integrations.festivos;
+      if (nager === undefined && country !== undefined) {
+        logEngine({ ts: new Date().toISOString(), msg: "holidays: festivos integration is off" });
+      } else if (nager !== undefined && country === undefined) {
+        logEngine({ ts: new Date().toISOString(), msg: "festivos: no country in views" });
+      } else if (nager !== undefined && country !== undefined) {
+        if (nager.stateFile !== undefined) {
+          checkStateFolder(nager.stateFile, "/integrations/festivos/stateFile");
+        }
+        const http = guardedHttp(parseBase(nager.baseUrl), undefined, holidaysManifest, {
+          ...HOLIDAYS_HTTP_LIMITS,
+          log: logEngine,
+        });
+        festivos = { config: nager, http, country };
       }
     } catch (error) {
       if (error instanceof ConfigError) console.error(error.message);
@@ -139,6 +165,19 @@ if (options.views !== undefined && options.data !== undefined) {
         log: logEngine,
       });
       tasks.start();
+    }
+    if (festivos !== undefined) {
+      holidays = createHolidays({
+        http: festivos.http,
+        country: festivos.country,
+        engine,
+        ...(festivos.config.stateFile === undefined
+          ? {}
+          : { stateFile: festivos.config.stateFile }),
+        timeZone: loaded.config.timezone,
+        log: logEngine,
+      });
+      holidays.start();
     }
   } catch {
     await shutdown(steps());
