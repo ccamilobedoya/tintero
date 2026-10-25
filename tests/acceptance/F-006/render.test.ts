@@ -53,8 +53,6 @@ async function drawn(
   return { views, gray: calls.map((c) => c.out.gray), overflow: calls.map((c) => c.out.overflow) };
 }
 
-const xs = (y: number, n: number): number[] => Array.from({ length: n }, (_, i) => y + 24 * i);
-
 describe("CA3 hoy en P124", () => {
   it("sin desborde, zonas, hidden y píxeles", async () => {
     const { views, gray, overflow } = await drawn(P124, { views: ["hoy"] });
@@ -66,47 +64,53 @@ describe("CA3 hoy en P124", () => {
     for (const o of overflow) expect(o).toEqual([]);
 
     const todo = ["b-02", "b-04", "b-05", "b-06", "b-07", "b-08", "b-09"];
+    // F-008: valores nuevos de `hoy` en P124 (los de CA4 de F-008)
+    const todoY = [287, 317, 347, 377, 407];
+    const todoNew = todo.slice(0, 5);
     const expected = [
-      { id: zid("hoy", "b-01"), act: "toggle", x: 10, y: 77, w: 476, h: 74 },
-      { id: zid("hoy", "b-03"), act: "toggle", x: 10, y: 158, w: 476, h: 74 },
-      ...todo.map((id, i) => ({
+      { id: zid("hoy", "b-01"), act: "toggle", x: 8, y: 73, w: 480, h: 86 },
+      { id: zid("hoy", "b-03"), act: "toggle", x: 8, y: 162, w: 480, h: 86 },
+      ...todoNew.map((id, i) => ({
         id: zid("hoy", id),
         act: "toggle",
-        x: 10,
-        y: xs(271, 7)[i],
-        w: 476,
-        h: 24,
+        x: 8,
+        y: todoY[i],
+        w: 480,
+        h: 30,
       })),
-      { id: zid("hoy", "b-12"), act: "toggle", x: 508, y: 70, w: 282, h: 24 },
-      { id: zid("hoy", "b-13"), act: "toggle", x: 508, y: 94, w: 282, h: 24 },
+      { id: zid("hoy", "b-12"), act: "toggle", x: 504, y: 70, w: 288, h: 30 },
+      { id: zid("hoy", "b-13"), act: "toggle", x: 504, y: 100, w: 288, h: 30 },
     ];
-    expect(hoy.zones).toHaveLength(11);
+    expect(hoy.zones).toHaveLength(9);
     expect(hoy.zones.map((z) => ({ id: z.id, act: z.act, ...rect(z) }))).toEqual(expected);
-    expect(hoy.zones[8]?.y).toBe(415);
-    expect(hoy.hidden).toEqual({ tareas: 2, hechas: 0, mes: 0 });
+    expect(hoy.zones[6]?.y).toBe(407);
+    expect(hoy.hidden).toEqual({ tareas: 4, hechas: 0, mes: 0 });
 
     const img = hoy.raw1;
     const black = (x: number, y: number): boolean => isBlack(img, 800, x, y);
     for (const [x, y] of [
-      [11, 47],
-      [484, 68],
-      [200, 269],
-      [200, 270],
-      [13, 90],
-      [515, 81],
-      [600, 68],
-      [600, 69],
+      [300, 46],
+      [300, 69],
+      [8, 50],
+      [487, 50],
+      [200, 285],
+      [200, 286],
+      [15, 92],
+      [516, 84],
     ] as const)
       expect(black(x, y), `negro en (${String(x)}, ${String(y)})`).toBe(true);
     for (const [x, y] of [
-      [200, 258],
-      [200, 268],
-      [20, 90],
+      [300, 70],
+      [300, 72],
+      [7, 50],
+      [488, 50],
+      [200, 287],
+      [23, 92],
     ] as const)
       expect(black(x, y), `blanco en (${String(x)}, ${String(y)})`).toBe(false);
 
     let whites = 0;
-    for (let y = 46; y <= 69; y++) for (let x = 10; x <= 485; x++) if (!black(x, y)) whites++;
+    for (let y = 46; y <= 69; y++) for (let x = 8; x <= 487; x++) if (!black(x, y)) whites++;
     expect(whites).toBeGreaterThanOrEqual(50);
   }, 90_000);
 });
@@ -115,10 +119,13 @@ describe("CA4 vencida", () => {
   it("b-02 invertida; b-06 y b-04 sin invertir", async () => {
     const { views } = await drawn(P124, { views: ["hoy"] });
     const img = viewOf(views, "hoy").raw1;
-    expect(isBlack(img, 800, 484, 274)).toBe(true);
-    expect(isBlack(img, 800, 484, 291)).toBe(true);
-    expect(isBlack(img, 800, 484, 345)).toBe(false);
-    expect(isBlack(img, 800, 484, 300)).toBe(false);
+    // F-008: etiqueta de 14 px (row − 2·focusPad − 4) centrada en la fila de b-02 (y = 287); b-04 (317) y b-06 (377) sin ella
+    expect(isBlack(img, 800, 481, 296)).toBe(true);
+    expect(isBlack(img, 800, 481, 309)).toBe(true);
+    expect(isBlack(img, 800, 481, 295)).toBe(false);
+    expect(isBlack(img, 800, 481, 310)).toBe(false);
+    for (const y of [326, 339, 386, 399])
+      expect(isBlack(img, 800, 481, y), `y=${String(y)}`).toBe(false);
   }, 90_000);
 });
 
@@ -134,8 +141,11 @@ describe("CA7 vacío", () => {
     });
     const hoy = viewOf(views, "hoy");
     expect(hoy.zones[0]?.id).toBe(zid("hoy", "b-02"));
-    expect(rect(hoy.zones[0] as never)).toEqual({ x: 10, y: 133, w: 476, h: 24 });
-    expect(isBlack(hoy.raw1, 800, 11, 47)).toBe(true);
+    // F-008: columna de foco x = 8, w = 480 y filas de 30 px; la franja que manda sigue en negro
+    const first = rect(hoy.zones[0] as never);
+    expect({ x: first.x, w: first.w, h: first.h }).toEqual({ x: 8, w: 480, h: 30 });
+    expect(isBlack(hoy.raw1, 800, 300, 46)).toBe(true);
+    expect(isBlack(hoy.raw1, 800, 8, 50)).toBe(true);
   }, 90_000);
 });
 
@@ -146,12 +156,13 @@ describe("CA8 tablero en P124", () => {
     expect(v.overflow).toEqual([]);
     expect(v.tooSmall).toEqual([]);
     const todo = ["b-02", "b-04", "b-05", "b-06", "b-07"];
+    // F-008: valores nuevos de `tablero` en P124 (los de CA5 de F-008)
     const expected = [
-      { id: zid("tablero", "b-01"), x: 268, y: 77, w: 282, h: 74 },
-      { id: zid("tablero", "b-03"), x: 268, y: 158, w: 282, h: 74 },
-      ...todo.map((id, i) => ({ id: zid("tablero", id), x: 10, y: 77 + 67 * i, w: 236, h: 60 })),
-      { id: zid("tablero", "b-12"), x: 572, y: 77, w: 218, h: 60 },
-      { id: zid("tablero", "b-13"), x: 572, y: 144, w: 218, h: 60 },
+      { id: zid("tablero", "b-01"), x: 264, y: 73, w: 288, h: 86 },
+      { id: zid("tablero", "b-03"), x: 264, y: 162, w: 288, h: 86 },
+      ...todo.map((id, i) => ({ id: zid("tablero", id), x: 8, y: 73 + 75 * i, w: 240, h: 72 })),
+      { id: zid("tablero", "b-12"), x: 568, y: 73, w: 224, h: 72 },
+      { id: zid("tablero", "b-13"), x: 568, y: 148, w: 224, h: 72 },
     ];
     expect(v.zones.map((z) => ({ id: z.id, ...rect(z) }))).toEqual(expected);
     expect(v.hidden).toEqual({ por_hacer: 4, en_progreso: 0, hechas: 0 });
@@ -164,13 +175,16 @@ describe("CA9 vertical y otros ppp", () => {
     const hoy = viewOf(views, "hoy");
     expect(hoy.overflow).toEqual([]);
     expect(hoy.tooSmall).toEqual([]);
-    expect(rect(hoy.zones[0] as never)).toEqual({ x: 10, y: 77, w: 460, h: 74 });
-    expect(hoy.hidden.tareas).toBe(3);
-    const hechas = hoy.zones.filter((z) => z.y >= 492);
-    expect(hechas.map(rect).slice(0, 2)).toEqual([
-      { x: 10, y: 492, w: 460, h: 24 },
-      { x: 10, y: 516, w: 460, h: 24 },
-    ]);
+    // F-008: en V124 valen las propiedades de CA3 de F-008 (alineación, lead de 86 px, filas de 30 px)
+    const first = rect(hoy.zones[0] as never);
+    expect({ x: first.x, h: first.h }).toEqual({ x: 8, h: 86 });
+    for (const z of hoy.zones) {
+      expect(z.x % 8, z.id).toBe(0);
+      expect(z.w % 8, z.id).toBe(0);
+      expect([30, 86], z.id).toContain(z.h);
+    }
+    const hechas = hoy.zones.filter((z) => [zid("hoy", "b-12"), zid("hoy", "b-13")].includes(z.id));
+    for (const z of hechas) expect(z.h).toBe(30);
   }, 90_000);
 
   it("tablero en V124", async () => {

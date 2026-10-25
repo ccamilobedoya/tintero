@@ -89,7 +89,16 @@ describe("CA14 marcar", () => {
     const e = engine();
     const before = await getViews(e, "local", P124);
     const agendaHash = viewOf(before.views, "agenda").hash;
-    expect(isBlack(viewOf(before.views, "pendientes").raw1, 800, 17, 79)).toBe(false);
+    // F-008: el centro de la casilla (15 px) está en zona.x + focusPad (6) + 7; se mira la columna de la zona
+    const box = (views: Awaited<ReturnType<typeof getViews>>["views"]): number => {
+      const v = viewOf(views, "pendientes");
+      const z = v.zones.find((q) => q.id === zoneId("pendientes", "tareas", "t-001"));
+      if (!z) throw new Error("zona de t-001");
+      let n = 0;
+      for (let y = z.y; y < z.y + z.h; y++) if (isBlack(v.raw1, 800, z.x + 13, y)) n++;
+      return n;
+    };
+    expect(box(before.views)).toBeLessThanOrEqual(8);
     const n0 = e.renders();
 
     const toggle = act("pendientes", zoneId("pendientes", "tareas", "t-001"), "toggle");
@@ -99,7 +108,7 @@ describe("CA14 marcar", () => {
 
     const after = await getViews(e, "local", P124);
     expect(viewOf(after.views, "agenda").hash).toBe(agendaHash);
-    expect(isBlack(viewOf(after.views, "pendientes").raw1, 800, 17, 79)).toBe(true);
+    expect(box(after.views)).toBeGreaterThanOrEqual(12);
     expect(e.renders() - n0).toBe(2);
 
     expect(e.apply("local", toggle).status).toBe("duplicate");
