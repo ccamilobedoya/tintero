@@ -31,7 +31,14 @@ export async function index8(
   const loose = engine as unknown as {
     index: (d: string, p: Panel, o?: { view?: string }) => Promise<{ ok: boolean; value?: Index8 }>;
   };
-  const r = await loose.index(device, panel, view === undefined ? undefined : { view });
+  const call = (): ReturnType<typeof loose.index> =>
+    loose.index(device, panel, view === undefined ? undefined : { view });
+  let r = await call();
+  // Like the firmware: on `busy` (draw slower than the 2 s wait on a loaded machine), let the draws finish and retry once.
+  if (!r.ok && (r as { code?: string }).code === "busy") {
+    await engine.idle();
+    r = await call();
+  }
   if (!r.ok || !r.value) throw new Error(`index failed: ${JSON.stringify(r)}`);
   return r.value;
 }

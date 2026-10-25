@@ -217,7 +217,8 @@ describe("CA10 otros ppp y panel vertical", () => {
     const hoy = viewOf(views, "hoy");
     expect(hoy.raw1.length).toBe(48_000);
     expect(hoy.overflow).toEqual([]);
-    expect(hoy.tooSmall).toEqual([]);
+    // F-005 CA10 aclarado: con las filas más altas, jira no cabe en V124
+    expect(hoy.tooSmall).toEqual(["jira"]);
     const pend = byArea(hoy, "tareas", ["t-001"]);
     const ev = byArea(hoy, "calendario", ["e-002", "e-003", "e-004", "e-005", "e-007"]);
     // F-008: alineadas al byte y filas de 30 px

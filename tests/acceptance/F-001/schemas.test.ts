@@ -113,7 +113,8 @@ describe("CA4 zonas", () => {
     expect(hasCode(r, "duplicate_id")).toBe(true);
   });
   it("49 zonas → schema; 48 válidas", () => {
-    const mk = (n: number) => ids("z", n).map((i) => zone(i));
+    // F-008: las zonas que se arman para aceptar van alineadas al byte (w 104)
+    const mk = (n: number) => ids("z", n).map((i) => zone(i, { w: 104 }));
     expect(hasCode(validateZones(j(zonesDoc({ zones: mk(49) })), PANEL), "schema")).toBe(true);
     expect(validateZones(j(zonesDoc({ zones: mk(48) })), PANEL).ok).toBe(true);
   });
