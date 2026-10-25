@@ -18,6 +18,8 @@ describe("install-service", () => {
       InstallError,
     );
     expect(() => parseServiceEnv(ENV.replace("/srv/t", "/srv/@NODE@"))).toThrow(InstallError);
+    expect(() => parseServiceEnv(ENV.replace("/srv/t", "%h/t"))).toThrow(InstallError);
+    expect(() => parseServiceEnv(ENV.replace("--port 8790", "--port $PORT"))).toThrow(InstallError);
   });
 
   it("refuses a template with markers left", () => {

@@ -28,8 +28,8 @@ export function parseServiceEnv(text: string): Record<Key, string> {
   const out = {} as Record<Key, string>;
   for (const key of KEYS) {
     const value = values.get(key) ?? "";
-    // A newline (or a stray marker) would inject lines into the unit.
-    if (/[\r\n\0@]/.test(value)) throw new InstallError(`Valor no permitido en ${key}`);
+    // A newline (or a stray marker) would inject lines into the unit; systemd expands % and $.
+    if (/[\r\n\0@%$]/.test(value)) throw new InstallError(`Valor no permitido en ${key}`);
     // eslint-disable-next-line security/detect-object-injection -- key is one of three literals
     out[key] = value;
   }

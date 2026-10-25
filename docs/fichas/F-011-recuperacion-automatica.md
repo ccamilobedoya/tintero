@@ -33,6 +33,7 @@ Espera de Docker, relanzamiento de Chromium y `--pull never` en `chromium.ts`; m
 
 ## Requisitos
 - R1. Sin cambios para quien arranca a mano, salvo que ya no sale con 2 cuando Docker no responde (espera). Las pruebas de aceptación de F-001 a F-010 pasan.
+- R3. **Mejora de la revisión de F-010:** `server/README.md` dice que un fallo de `docker ps` en la limpieza aborta el arranque (systemd reintenta) y que dos procesos con la **misma** `--instance` se borrarían el Chromium entre sí (una instancia por nombre).
 - R2. **Mejoras de la revisión de F-009** (vuelta 2), en `server/src/integrations/{trilium-tasks,state}.ts`: (1) `persist` libera `saveRunning` en un `finally`; (2) `runCycle` separa los errores de red/HTTP (`IntegrationHttpError`) de los inesperados, y estos se registran **siempre** con `{ ts, integration, event: "defect", where: "cycle" }` (regla 12; sin mensaje ni pila); (3) la línea `pending` de una escritura fallida lleva su `code`; (4) `saveState` abre el temporal con `"wx"` (borrando antes un resto del mismo nombre), sin seguir enlaces; (5) `loadState` lee del mismo descriptor que midió.
 
 ## Contrato
