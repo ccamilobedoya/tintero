@@ -52,10 +52,10 @@ describe("index", () => {
     expect(engine.renders()).toBe(3);
     expect(renderer.calls.length).toBeGreaterThanOrEqual(3);
     const hoy = views[0];
-    expect(hoy?.zones).toHaveLength(13);
+    expect(hoy?.zones).toHaveLength(10);
     expect(hoy?.hash).toMatch(/^[0-9a-f]{16}$/);
     expect(hoy?.crc32).toMatch(/^[0-9a-f]{8}$/);
-    expect(hoy?.hidden).toEqual({ pendientes: 5, eventos: 0, jira: 2, calendario: 0 });
+    expect(hoy?.hidden).toEqual({ pendientes: 6, eventos: 1, jira: 3, calendario: 0 });
     expect(hoy?.zones[0]).toMatchObject({ act: "toggle", id: zoneId("hoy", "tareas", "t-001") });
     await engine.close();
   });

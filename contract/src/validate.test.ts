@@ -139,7 +139,7 @@ describe("validateZones", () => {
     id,
     x: 24,
     y: 72,
-    w: 50,
+    w: 48,
     h: 40,
     act: "toggle",
     ...overrides,
@@ -151,7 +151,7 @@ describe("validateZones", () => {
   });
 
   it("rejects each bad case (CA4)", () => {
-    expect(codes(validateZones(body([zone({ x: 700, w: 120 })]), P800))).toEqual(["out_of_panel"]);
+    expect(codes(validateZones(body([zone({ x: 704, w: 120 })]), P800))).toEqual(["out_of_panel"]);
     expect(codes(validateZones(body([zone({ w: 4 })]), P800))).toContain("schema");
     expect(codes(validateZones(body([zone({}), zone({})]), P800))).toEqual(["duplicate_id"]);
     const many = Array.from({ length: 49 }, (_, i) => zone({}, `z${String(i)}`));
@@ -160,7 +160,7 @@ describe("validateZones", () => {
   });
 
   it("uses the declared panel (CA17)", () => {
-    const wide = body([zone({ x: 600, w: 60 })]);
+    const wide = body([zone({ x: 600, w: 56 })]);
     expect(validateZones(wide, P800).ok).toBe(true);
     expect(codes(validateZones(wide, P648))).toEqual(["out_of_panel"]);
   });

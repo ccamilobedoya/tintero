@@ -70,6 +70,13 @@ const deviceHeaders = [
     true,
     "w=800,h=480,dpi=124,depth=1",
   ),
+  headerParam(
+    "Tintero-View",
+    "View the device is showing now (optional). The server draws it first and answers it as current.",
+    { type: "string", pattern: "^[a-z0-9_-]{1,16}$" },
+    false,
+    "todo",
+  ),
 ];
 
 const viewId = {
@@ -108,6 +115,7 @@ const zonesExample = {
     { id: "t2", x: 24, y: 120, w: 752, h: 40, act: "toggle" },
     { id: "ev1", x: 24, y: 400, w: 360, h: 56, act: "open" },
   ],
+  focus: { ring: 3, pad: 6, dash: 8 },
 };
 const actionsRequestExample = {
   actions: [{ id: "a7f3c9e2b1", view: "todo", zone: "t2", act: "toggle", at: 1761096123 }],
@@ -161,6 +169,8 @@ export const openApiDocument: object = {
       get: {
         operationId: "getIndex",
         summary: "Index of views for the declared panel",
+        description:
+          "`full_refresh: true` means the next image the device shows uses the slow full refresh.",
         parameters: deviceHeaders,
         responses: {
           "200": {
@@ -198,6 +208,9 @@ export const openApiDocument: object = {
       get: {
         operationId: "getViewZones",
         summary: "Touch zones of a view, in Tab order",
+        description:
+          "Zones are byte aligned: x and w are multiples of 8 (error unaligned). `focus` gives the ring " +
+          "thickness, the blank band inside each zone (pad >= ring) and the dash length (0 = solid).",
         parameters: [viewId, hashParam, ...deviceHeaders],
         responses: {
           "200": { description: "Zones", content: json("ZonesResponse", zonesExample) },

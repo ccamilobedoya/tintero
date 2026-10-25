@@ -36,8 +36,9 @@ describe("themeMetrics", () => {
   it("matches the table at 124 and 200 dpi", () => {
     const a = themeMetrics(P124);
     expect([a.margin, a.bar, a.line, a.titleRow, a.groupRow, a.row]).toEqual([
-      10, 34, 2, 24, 22, 24,
+      10, 34, 2, 24, 22, 30,
     ]);
+    expect([a.focusRing, a.focusDash, a.focusPad, a.focusGap]).toEqual([3, 8, 6, 3]);
     expect([a.issueRow, a.issueDescRow, a.moreRow, a.box, a.boxBorder]).toEqual([
       44, 63, 22, 15, 2,
     ]);
@@ -46,8 +47,9 @@ describe("themeMetrics", () => {
     expect(a.font.detail).toEqual({ family: "Terminus", px: 14 });
     const b = themeMetrics(P200);
     expect([b.margin, b.bar, b.line, b.row, b.issueRow, b.issueDescRow, b.box]).toEqual([
-      16, 55, 4, 39, 71, 102, 24,
+      16, 55, 4, 49, 71, 102, 24,
     ]);
+    expect([b.focusRing, b.focusDash, b.focusPad, b.focusGap]).toEqual([5, 8, 9, 5]);
     expect(b.font.title.px).toBe(33);
     expect(b.font.detail).toEqual({ family: "Terminus", px: 22 });
   });

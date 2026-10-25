@@ -1,0 +1,9 @@
+{
+  "view": "todo",
+  "hash": "9f2c1a7b",
+  "zones": [
+    { "id": "t1", "x": 8, "y": 72, "w": 480, "h": 30, "act": "toggle" },
+    { "id": "t2", "x": 8, "y": 102, "w": 480, "h": 30, "act": "toggle" }
+  ],
+  "focus": { "ring": 3, "pad": 6, "dash": 8 }
+}

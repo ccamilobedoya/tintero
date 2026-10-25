@@ -12,6 +12,7 @@
       "get": {
         "operationId": "getIndex",
         "summary": "Index of views for the declared panel",
+        "description": "`full_refresh: true` means the next image the device shows uses the slow full refresh.",
         "parameters": [
           {
             "name": "Tintero-Protocol",
@@ -69,6 +70,14 @@
               "pattern": "^w=\\d{1,4},h=\\d{1,4},dpi=\\d{1,3},depth=\\d$"
             },
             "example": "w=800,h=480,dpi=124,depth=1"
+          },
+          {
+            "name": "Tintero-View",
+            "in": "header",
+            "required": false,
+            "description": "View the device is showing now (optional). The server draws it first and answers it as current.",
+            "schema": { "type": "string", "pattern": "^[a-z0-9_-]{1,16}$" },
+            "example": "todo"
           }
         ],
         "responses": {
@@ -235,6 +244,14 @@
               "pattern": "^w=\\d{1,4},h=\\d{1,4},dpi=\\d{1,3},depth=\\d$"
             },
             "example": "w=800,h=480,dpi=124,depth=1"
+          },
+          {
+            "name": "Tintero-View",
+            "in": "header",
+            "required": false,
+            "description": "View the device is showing now (optional). The server draws it first and answers it as current.",
+            "schema": { "type": "string", "pattern": "^[a-z0-9_-]{1,16}$" },
+            "example": "todo"
           }
         ],
         "responses": {
@@ -320,6 +337,7 @@
       "get": {
         "operationId": "getViewZones",
         "summary": "Touch zones of a view, in Tab order",
+        "description": "Zones are byte aligned: x and w are multiples of 8 (error unaligned). `focus` gives the ring thickness, the blank band inside each zone (pad >= ring) and the dash length (0 = solid).",
         "parameters": [
           {
             "name": "id",
@@ -392,6 +410,14 @@
               "pattern": "^w=\\d{1,4},h=\\d{1,4},dpi=\\d{1,3},depth=\\d$"
             },
             "example": "w=800,h=480,dpi=124,depth=1"
+          },
+          {
+            "name": "Tintero-View",
+            "in": "header",
+            "required": false,
+            "description": "View the device is showing now (optional). The server draws it first and answers it as current.",
+            "schema": { "type": "string", "pattern": "^[a-z0-9_-]{1,16}$" },
+            "example": "todo"
           }
         ],
         "responses": {
@@ -407,7 +433,8 @@
                     { "id": "t1", "x": 24, "y": 72, "w": 752, "h": 40, "act": "toggle" },
                     { "id": "t2", "x": 24, "y": 120, "w": 752, "h": 40, "act": "toggle" },
                     { "id": "ev1", "x": 24, "y": 400, "w": 360, "h": 56, "act": "open" }
-                  ]
+                  ],
+                  "focus": { "ring": 3, "pad": 6, "dash": 8 }
                 }
               }
             }
@@ -542,6 +569,14 @@
               "pattern": "^w=\\d{1,4},h=\\d{1,4},dpi=\\d{1,3},depth=\\d$"
             },
             "example": "w=800,h=480,dpi=124,depth=1"
+          },
+          {
+            "name": "Tintero-View",
+            "in": "header",
+            "required": false,
+            "description": "View the device is showing now (optional). The server draws it first and answers it as current.",
+            "schema": { "type": "string", "pattern": "^[a-z0-9_-]{1,16}$" },
+            "example": "todo"
           }
         ],
         "requestBody": {
@@ -691,6 +726,14 @@
               "pattern": "^w=\\d{1,4},h=\\d{1,4},dpi=\\d{1,3},depth=\\d$"
             },
             "example": "w=800,h=480,dpi=124,depth=1"
+          },
+          {
+            "name": "Tintero-View",
+            "in": "header",
+            "required": false,
+            "description": "View the device is showing now (optional). The server draws it first and answers it as current.",
+            "schema": { "type": "string", "pattern": "^[a-z0-9_-]{1,16}$" },
+            "example": "todo"
           }
         ],
         "requestBody": {
@@ -844,6 +887,15 @@
             },
             "minItems": 0,
             "maxItems": 48
+          },
+          "focus": {
+            "type": "object",
+            "required": ["ring", "pad", "dash"],
+            "properties": {
+              "ring": { "type": "integer", "minimum": 1, "maximum": 16 },
+              "pad": { "type": "integer", "minimum": 1, "maximum": 32 },
+              "dash": { "type": "integer", "minimum": 0, "maximum": 64 }
+            }
           }
         }
       },

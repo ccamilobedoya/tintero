@@ -20,6 +20,7 @@ import {
   type IndexResponse,
   type LogRequest,
   type Panel,
+  type Zone,
   type ZonesResponse,
 } from "./schemas.ts";
 
@@ -31,6 +32,8 @@ export type ContractErrorCode =
   | "unknown_current"
   | "unknown_parent"
   | "out_of_panel"
+  | "unaligned"
+  | "focus_pad"
   | "raw1_size"
   | "bad_image"
   | "crc_mismatch";
@@ -135,7 +138,13 @@ export function validateZones(raw: string, panel: Panel): Validation<ZonesRespon
       if (zone.x + zone.w > panel.w || zone.y + zone.h > panel.h) {
         errors.push({ path: `/zones/${i}`, code: "out_of_panel" });
       }
+      if (zone.x % LIMITS.zoneAlign !== 0 || zone.w % LIMITS.zoneAlign !== 0) {
+        errors.push({ path: `/zones/${i}`, code: "unaligned" });
+      }
     });
+    if (body.focus !== undefined && body.focus.pad < body.focus.ring) {
+      errors.push({ path: "/focus", code: "focus_pad" });
+    }
     return errors;
   });
 }
@@ -217,6 +226,8 @@ export function validateDeviceHeaders(
   };
   const batteryMv = optionalInt("Tintero-Battery-mV", /^\d{1,5}$/);
   const rssi = optionalInt("Tintero-RSSI", /^-?\d{1,4}$/);
+  const viewRaw = lower.get("tintero-view");
+  if (viewRaw !== undefined) candidate.view = viewRaw;
   if (batteryMv !== undefined) candidate.batteryMv = batteryMv;
   if (rssi !== undefined) candidate.rssi = rssi;
 
@@ -236,6 +247,7 @@ export function validateDeviceHeaders(
       ["rssi", "Tintero-RSSI"],
       ["formats", "Tintero-Formats"],
       ["panel", "Tintero-Panel"],
+      ["view", "Tintero-View"],
     ]);
     for (const issue of Value.Errors(DeviceHeadersSchema, candidate)) {
       const name = names.get(issue.instancePath.split("/")[1] ?? "");
@@ -246,6 +258,49 @@ export function validateDeviceHeaders(
   }
   if (errors.length > 0) return fail(...dedupe(errors));
   return { ok: true, value: Value.Clean(DeviceHeadersSchema, candidate) as DeviceHeaders };
+}
+
+/**
+ * Ids of the zones with at least one black pixel within `pad` px inside their border.
+ * Black is a 1 bit, as everywhere in raw1 (F-001, ADR-0020).
+ */
+export function checkFocusBand(
+  raw1: Uint8Array,
+  panel: Panel,
+  zones: Zone[],
+  pad: number,
+): string[] {
+  const stride = Math.ceil(panel.w / 8);
+  /** Is there a black pixel in row `y`, columns `from` to `to` (exclusive)? Works a byte at a time. */
+  const inked = (y: number, from: number, to: number): boolean => {
+    if (to <= from) return false;
+    const first = from >> 3;
+    const last = (to - 1) >> 3;
+    for (let b = first; b <= last; b++) {
+      let mask = 0xff;
+      if (b === first) mask &= 0xff >> (from & 7);
+      if (b === last) mask &= (0xff << (7 - ((to - 1) & 7))) & 0xff;
+      if (((raw1[y * stride + b] ?? 0) & mask) !== 0) return true;
+    }
+    return false;
+  };
+  const ids: string[] = [];
+  for (const zone of zones) {
+    const x0 = Math.max(0, zone.x);
+    const y0 = Math.max(0, zone.y);
+    const x1 = Math.min(panel.w, zone.x + zone.w);
+    const y1 = Math.min(panel.h, zone.y + zone.h);
+    let hit = false;
+    for (let y = y0; y < y1 && !hit; y++) {
+      hit =
+        y - zone.y < pad || zone.y + zone.h - 1 - y < pad
+          ? inked(y, x0, x1)
+          : inked(y, x0, Math.min(x1, zone.x + pad)) ||
+            inked(y, Math.max(x0, zone.x + zone.w - pad), x1);
+    }
+    if (hit) ids.push(zone.id);
+  }
+  return ids;
 }
 
 // --- CRC and images -----------------------------------------------------------------------------

@@ -7,12 +7,13 @@ import type { Block, BlockContext } from "./types.ts";
 
 function issueRow(context: BlockContext, task: Task, y: number, withDescription: boolean): Raw {
   const { metrics } = context;
-  const h = withDescription ? metrics.issueDescRow : metrics.issueRow;
+  const inner = withDescription ? metrics.issueDescRow : metrics.issueRow;
+  const h = inner + 2 * metrics.focusPad;
   const zone = context.focus(task.id, "open", context.w, h);
   const detail = metrics.font.detail;
   const line1 = detail.px + 6;
   const line3 = withDescription ? detail.px + 5 : 0;
-  const line2 = h - line1 - line3;
+  const line2 = inner - line1 - line3;
   const head = [task.key, task.status].filter((part) => part !== undefined).join(" · ");
   const description = withDescription
     ? html`<div class="t" style="height:${line3}px;line-height:${line3}px;${fontCss(detail)}">
@@ -23,7 +24,7 @@ function issueRow(context: BlockContext, task: Task, y: number, withDescription:
     class="a"
     data-fit="${context.area}"
     ${zone === undefined ? html`` : html` data-zone="${zone}"`}
-    style="left:0;top:${y}px;width:${context.w}px;height:${h}px"
+    style="left:0;top:${y}px;width:${context.w}px;height:${h}px;padding:${metrics.focusPad}px"
   >
     <div class="t" style="height:${line1}px;line-height:${line1}px;${fontCss(detail, true)}">
       ${head}
@@ -39,7 +40,7 @@ export const issueList: Block = (context) => {
   const { metrics, slot, source } = context;
   if (source.type !== "tasks") return noFit(context);
   const withDescription = slot.options.description === true;
-  const rowH = withDescription ? metrics.issueDescRow : metrics.issueRow;
+  const rowH = (withDescription ? metrics.issueDescRow : metrics.issueRow) + 2 * metrics.focusPad;
   const title = titleRow(context);
   const minH = 2 * metrics.margin + title.height + rowH + metrics.moreRow;
   if (isTooSmall(context, 30, minH)) return noFit(context);

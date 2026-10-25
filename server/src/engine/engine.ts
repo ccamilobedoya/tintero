@@ -2,6 +2,7 @@
 // queue (D6). Drawing goes through a `Renderer`; the engine never knows which one.
 import { createHash } from "node:crypto";
 import {
+  checkFocusBand,
   crc32Hex,
   LIMITS,
   type Action,
@@ -23,7 +24,7 @@ import {
 import type { Renderer } from "./chromium.ts";
 import { dayKey, localParts, staleLabel } from "./dates.ts";
 import { buildDetailView, buildView, zoneId, type BuiltView } from "./view.ts";
-import { checkThemeGlyphs } from "./theme.ts";
+import { checkThemeGlyphs, themeMetrics } from "./theme.ts";
 
 /** What a `toggle` changed in a task with a stage (F-009): the integration writes it back. */
 export interface ToggleChange {
@@ -57,6 +58,10 @@ export interface RenderedView {
   hidden: Record<string, number>;
   overflow: string[];
   tooSmall: string[];
+  /** Zones with ink in their blank band (F-008); it should always be empty. */
+  bandInk: string[];
+  /** The focus ring measures of the panel (sent in the zones response). */
+  focus: { ring: number; pad: number; dash: number };
 }
 
 export type EngineError =
@@ -69,7 +74,8 @@ export interface Engine {
   index(
     device: string,
     panel: Panel,
-  ): Promise<EngineResult<{ current: string; views: RenderedView[] }>>;
+    options?: { view?: string },
+  ): Promise<EngineResult<{ current: string; views: RenderedView[]; fullRefresh: boolean }>>;
   view(device: string, panel: Panel, id: string, hash: string): EngineResult<RenderedView>;
   apply(
     device: string,
@@ -103,6 +109,8 @@ interface DeviceState {
   open?: { viewId: string; sourceId: string; itemId: string };
   justOpened: boolean;
   lastIndexMs: number | undefined;
+  /** Local day of the last `index` that answered, for the daily `full_refresh`. */
+  fullDay?: string;
 }
 
 type Entry = Omit<RenderedView, "id" | "parent">;
@@ -206,7 +214,13 @@ export function createEngine(options: EngineOptions): Engine {
   const usedSources = (d: Descriptor): string[] =>
     d.detail
       ? [d.detail.sourceId]
-      : [...new Set(Object.values(d.def.slots).map((slot) => slot.source))];
+      : [
+          ...new Set(
+            Object.values(d.def.slots).flatMap((slot) =>
+              slot.source === undefined ? [] : [slot.source],
+            ),
+          ),
+        ];
 
   /** The "sin datos desde" notice of each used source, as of `at`. */
   function staleFor(d: Descriptor, at: Date): Record<string, string> {
@@ -265,8 +279,13 @@ export function createEngine(options: EngineOptions): Engine {
         : buildView(d.def, input);
       const out = await renderer.render(built.html, panel);
       const zones: Zone[] = [];
+      let unaligned = false;
       for (const spec of built.zones) {
         const box = out.boxes.find((candidate) => candidate.key === spec.id);
+        if (box && (box.x % LIMITS.zoneAlign !== 0 || box.w % LIMITS.zoneAlign !== 0)) {
+          unaligned = true;
+          continue;
+        }
         if (
           box &&
           box.x >= 0 &&
@@ -279,12 +298,18 @@ export function createEngine(options: EngineOptions): Engine {
           zones.push({ id: spec.id, x: box.x, y: box.y, w: box.w, h: box.h, act: spec.act });
         }
       }
+      const metrics = themeMetrics(panel);
+      const bandInk = checkFocusBand(out.raw1, panel, zones, metrics.focusPad);
+      if (unaligned) log({ event: "zone-unaligned", view: d.id });
+      if (bandInk.length > 0) log({ event: "focus-band-ink", view: d.id, count: bandInk.length });
       const hash = createHash("sha256")
         .update(out.raw1)
         .update(JSON.stringify(zones))
         .digest("hex")
         .slice(0, 16);
       const entry: Entry = {
+        bandInk,
+        focus: { ring: metrics.focusRing, pad: metrics.focusPad, dash: metrics.focusDash },
         raw1: out.raw1,
         zones,
         hash,
@@ -424,6 +449,7 @@ export function createEngine(options: EngineOptions): Engine {
     const d = descriptors(device).find((candidate) => candidate.id === viewId && !candidate.detail);
     if (!d) return undefined;
     for (const slot of Object.values(d.def.slots)) {
+      if (slot.source === undefined) continue;
       const source = Object.hasOwn(sources, slot.source) ? sources[slot.source] : undefined;
       if (!source) continue;
       const items: (Task | CalendarEvent)[] = source.items;
@@ -534,13 +560,20 @@ export function createEngine(options: EngineOptions): Engine {
   // ---- public ----
 
   return {
-    async index(device, panel) {
+    async index(device, panel, options) {
       const state = stateOf(device);
       const now = clock();
       state.lastIndexMs = now.getTime();
       state.panels.set(panelKey(panel), panel);
       const list = descriptors(device);
-      const wanted = list.map((d) => ({ d, ...ensure(d, panel, now) }));
+      // The view the device shows is queued first; the answer keeps the configured order.
+      const shown = options?.view;
+      const ordered = [
+        ...list.filter((d) => d.id === shown),
+        ...list.filter((d) => d.id !== shown),
+      ];
+      const queued = ordered.map((d) => ({ d, ...ensure(d, panel, now) }));
+      const wanted = list.flatMap((d) => queued.filter((w) => w.d === d));
       const dones = wanted.flatMap((w) => (w.done ? [w.done] : []));
       if (dones.length > 0) {
         let timer: NodeJS.Timeout | undefined;
@@ -565,9 +598,14 @@ export function createEngine(options: EngineOptions): Engine {
       startGlyphCheck(panel);
       const first = list[0];
       const detail = list.find((d) => d.detail);
-      const current = state.justOpened && detail ? detail.id : (first?.id ?? "");
+      const requested = shown === undefined ? undefined : list.find((d) => d.id === shown);
+      const current = state.justOpened && detail ? detail.id : (requested?.id ?? first?.id ?? "");
       state.justOpened = false;
-      return { ok: true, value: { current, views } };
+      // First answer of each local day for this device: the next image goes with the slow refresh.
+      const day = dayKey(localParts(now, config.timezone).day);
+      const fullRefresh = state.fullDay !== day;
+      state.fullDay = day;
+      return { ok: true, value: { current, views, fullRefresh } };
     },
 
     view(device, panel, id, hash) {

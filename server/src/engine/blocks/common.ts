@@ -5,6 +5,10 @@ import { fontCss } from "../theme.ts";
 import { mmToPx } from "../units.ts";
 import type { BlockContext, BlockResult } from "./types.ts";
 
+/** Width of what is not a zone: the column minus the blank band on each side (F-008). */
+export const innerW = (context: BlockContext): number =>
+  Math.max(1, context.w - 2 * context.metrics.focusPad);
+
 export interface Group<T> {
   header?: string;
   items: T[];
@@ -80,7 +84,7 @@ export function titleRow(context: BlockContext): { html: Raw; height: number } {
     height: h,
     html: html`<div
       class="a t"
-      style="left:0;top:0;width:${context.w}px;height:${h}px;line-height:${h}px;${fontCss(metrics.font.title, true)}"
+      style="left:${metrics.focusPad}px;top:0;width:${innerW(context)}px;height:${h}px;line-height:${h}px;${fontCss(metrics.font.title, true)}"
     >
       ${slot.title}
     </div>`,
@@ -92,7 +96,7 @@ export function moreRow(context: BlockContext, y: number, hidden: number): Raw {
   const h = metrics.moreRow;
   return html`<div
     class="a t"
-    style="left:0;top:${y}px;width:${context.w}px;height:${h}px;line-height:${h}px;${fontCss(metrics.font.detail)}"
+    style="left:${metrics.focusPad}px;top:${y}px;width:${innerW(context)}px;height:${h}px;line-height:${h}px;${fontCss(metrics.font.detail)}"
   >
     +${hidden} más
   </div>`;
@@ -103,7 +107,7 @@ export function groupHeader(context: BlockContext, text: string, y: number): Raw
   const h = metrics.groupRow;
   return html`<div
     class="a t"
-    style="left:0;top:${y}px;width:${context.w}px;height:${h}px;line-height:${h}px;${fontCss(metrics.font.detail, true)}"
+    style="left:${metrics.focusPad}px;top:${y}px;width:${innerW(context)}px;height:${h}px;line-height:${h}px;${fontCss(metrics.font.detail, true)}"
   >
     ${text}
   </div>`;
@@ -122,7 +126,7 @@ export function noFit(context: BlockContext): BlockResult {
     tooSmall: true,
     html: html`<div
       class="a t"
-      style="left:0;top:0;width:${context.w}px;height:${h}px;line-height:${h}px;${fontCss(metrics.font.text)}"
+      style="left:${metrics.focusPad}px;top:0;width:${innerW(context)}px;height:${h}px;line-height:${h}px;${fontCss(metrics.font.text)}"
     >
       No cabe
     </div>`,
