@@ -1,6 +1,7 @@
 // Block registry: the name used in the views file → its design.
 import type { BlockName } from "../config.ts";
 import { agenda } from "./agenda.ts";
+import { calibration } from "./calibration.ts";
 import { issueList } from "./issue-list.ts";
 import { monthCalendar } from "./month-calendar.ts";
 import { taskBoard } from "./task-board.ts";
@@ -13,6 +14,7 @@ export const BLOCKS: Record<BlockName, Block> = {
   "issue-list": issueList,
   agenda,
   "month-calendar": monthCalendar,
+  calibration,
 };
 
 export { detailBody } from "./detail.ts";

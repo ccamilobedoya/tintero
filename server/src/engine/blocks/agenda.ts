@@ -46,16 +46,18 @@ function agendaGroups(
 function row(context: BlockContext, entry: Entry): Raw {
   const { metrics } = context;
   const h = metrics.row;
+  const pad = metrics.focusPad;
+  const ih = h - 2 * pad;
   const zone = context.focus(entry.event.id, "open", context.w, h);
   const time = entry.time.allDay ? "Todo el día" : hhmm(entry.time.minutes ?? 0);
   return html`<div
     data-fit="${context.area}"
     ${zone === undefined ? html`` : html` data-zone="${zone}"`}
-    style="grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center;height:${h}px;overflow:hidden"
+    style="grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center;height:${h}px;padding:${pad}px;overflow:hidden"
   >
-    <span style="white-space:nowrap;line-height:${h}px;${fontCss(metrics.font.detail)}"
+    <span style="white-space:nowrap;line-height:${ih}px;${fontCss(metrics.font.detail)}"
       >${time}</span
-    ><span class="t" style="line-height:${h}px;${fontCss(metrics.font.text)}"
+    ><span class="t" style="line-height:${ih}px;${fontCss(metrics.font.text)}"
       >${entry.event.title}</span
     >
   </div>`;
@@ -79,7 +81,7 @@ export const agenda: Block = (context) => {
     entry.kind === "header"
       ? html`<div
           class="t"
-          style="grid-column:1/-1;height:${entry.h}px;line-height:${entry.h}px;${fontCss(metrics.font.detail, true)}"
+          style="grid-column:1/-1;height:${entry.h}px;padding:0 ${metrics.focusPad}px;line-height:${entry.h}px;${fontCss(metrics.font.detail, true)}"
         >
           ${entry.text}
         </div>`

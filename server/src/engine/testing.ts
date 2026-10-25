@@ -36,9 +36,9 @@ export function fakeRenderer(options: { delayMs?: number; failTimes?: number } =
       overflow: [],
       boxes: zones.map((match, i) => ({
         key: match[1] ?? "",
-        x: 10,
+        x: 8, // zones are byte aligned (F-008)
         y: 20 + i * 26,
-        w: Math.max(8, panel.w - 20),
+        w: Math.max(8, Math.floor((panel.w - 16) / 8) * 8),
         h: 24,
       })),
     };

@@ -34,7 +34,7 @@ export function detailBody(input: DetailInput): Raw {
     html`<div
       class="a"
       data-fit="${input.area}"
-      style="left:0;top:0;width:${w}px;height:${h}px;overflow:hidden"
+      style="left:${metrics.focusPad}px;top:0;width:${Math.max(1, w - 2 * metrics.focusPad)}px;height:${h}px;overflow:hidden"
     >
       ${inner}
     </div>`;

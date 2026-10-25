@@ -29,17 +29,16 @@ describe("zoneId", () => {
 });
 
 describe("buildView", () => {
-  it("`hoy` has 13 zones in Tab order and the hidden counts of the owner's case", () => {
+  it("`hoy` has 10 zones in Tab order and the hidden counts (taller rows, F-008)", () => {
     const built = buildView(def("hoy"), input());
     expect(built.zones.map((z) => z.act)).toEqual([
-      ...Array<string>(5).fill("toggle"),
-      ...Array<string>(5).fill("open"),
-      ...Array<string>(3).fill("open"),
+      ...Array<string>(4).fill("toggle"),
+      ...Array<string>(6).fill("open"),
     ]);
     expect(built.zones[0]?.id).toBe(zoneId("hoy", "tareas", "t-001"));
-    expect(built.zones[5]?.id).toBe(zoneId("hoy", "calendario", "e-002"));
-    expect(built.zones[10]?.id).toBe(zoneId("hoy", "jira", "j-142"));
-    expect(built.hidden).toEqual({ pendientes: 5, eventos: 0, jira: 2, calendario: 0 });
+    expect(built.zones[4]?.id).toBe(zoneId("hoy", "calendario", "e-002"));
+    expect(built.zones[8]?.id).toBe(zoneId("hoy", "jira", "j-142"));
+    expect(built.hidden).toEqual({ pendientes: 6, eventos: 1, jira: 3, calendario: 0 });
     expect(built.tooSmall).toEqual([]);
   });
 
@@ -63,7 +62,8 @@ describe("buildView", () => {
 
   it("uses `portrait` in a vertical panel", () => {
     const built = buildView(def("hoy"), input(V124));
-    expect(built.tooSmall).toEqual([]);
+    // The taller issue rows (F-008) no longer leave room for `jira` in 15 % of the height.
+    expect(built.tooSmall).toEqual(["jira"]);
     expect(built.zones.length).toBeGreaterThan(0);
     expect(built.zones.length).toBeLessThanOrEqual(48);
   });

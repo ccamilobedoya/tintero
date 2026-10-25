@@ -100,13 +100,24 @@ describe("CA6 marcar y deshacer", () => {
 
     const after = await getViews(e, "local", P124);
     const hoy = viewOf(after.views, "hoy");
+    // F-008: con filas de 30 px caben menos zonas; los ids visibles son un prefijo del orden anterior
+    // y «zonas visibles + hidden» sigue siendo 10 (b-03 y 9 pendientes).
     const todoIds = ["b-02", "b-04", "b-05", "b-06", "b-07", "b-08", "b-09", "b-10", "b-11"];
-    expect(hoy.zones.map((z) => z.id)).toEqual([
-      ...["b-03", ...todoIds].map((i) => zid("hoy", i)),
-      ...["b-01", "b-12", "b-13"].map((i) => zid("hoy", i)),
-    ]);
-    expect(hoy.hidden.tareas).toBe(0);
-    expect(rect(hoy.zones[10] as never)).toEqual({ x: 508, y: 70, w: 282, h: 24 });
+    const ids = hoy.zones.map((z) => z.id);
+    const hechasIds = ["b-01", "b-12", "b-13"].map((i) => zid("hoy", i));
+    expect(ids.slice(-3)).toEqual(hechasIds);
+    const tareasIds = ids.slice(0, -3);
+    const tareasFull = ["b-03", ...todoIds].map((i) => zid("hoy", i));
+    expect(tareasIds).toEqual(tareasFull.slice(0, tareasIds.length));
+    expect(tareasIds[0]).toBe(zid("hoy", "b-03"));
+    expect(tareasIds.length + (hoy.hidden.tareas ?? 0)).toBe(10);
+    expect(hoy.hidden.hechas).toBe(0);
+    expect(rect(hoy.zones[hoy.zones.length - 3] as never)).toEqual({
+      x: 504,
+      y: 70,
+      w: 288,
+      h: 30,
+    });
 
     expect(e.apply("local", a1).status).toBe("duplicate");
 
@@ -173,7 +184,12 @@ describe("CA12 solo lectura", () => {
     const hoy = viewOf(views, "hoy");
     expect(hoy.zones.length).toBeGreaterThan(0);
     for (const z of hoy.zones) expect(z.act).toBe("open");
-    expect(isBlack(hoy.raw1, 800, 13, 90)).toBe(false);
+    // F-008: sin casilla, la columna x = zona.x + 6 no tiene el borde de 15 px de la casilla
+    const lead = hoy.zones[0];
+    let col = 0;
+    for (let y = lead?.y ?? 0; y < (lead?.y ?? 0) + (lead?.h ?? 0); y++)
+      if (isBlack(hoy.raw1, 800, (lead?.x ?? 0) + 6, y)) col++;
+    expect(col).toBeLessThanOrEqual(12);
 
     const zone = zid("hoy", "b-01");
     expect(e.apply("local", act6("hoy", zone, "toggle")).status).toBe("stale");

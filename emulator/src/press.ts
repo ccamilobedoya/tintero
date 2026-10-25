@@ -42,7 +42,8 @@ async function onOk(
   focus: string | null,
 ): Promise<void> {
   const stored = await ctx.flash.readView(current, ctx.config.panel);
-  const zone = stored?.zones.zones.find((candidate) => candidate.id === focus);
+  const oldZones = stored?.zones.zones ?? [];
+  const zone = oldZones.find((candidate) => candidate.id === focus);
   if (!zone) return;
   const action: Action = {
     id: actionId(),
@@ -71,10 +72,15 @@ async function onOk(
     if (result !== "ok" && !meta) return;
   }
   const state = await ctx.flash.readState();
-  await paint(ctx, {
-    current: summary.id,
-    focus: state.current === summary.id ? state.focus : null,
-  });
+  let next: string | null = null;
+  if (state.current === summary.id) {
+    // The focus follows the item (same zone id); if it is gone, it stays at the same index.
+    const fresh = (await ctx.flash.readView(summary.id, ctx.config.panel))?.zones.zones ?? [];
+    const kept = fresh.find((zone) => zone.id === state.focus);
+    const at = oldZones.findIndex((zone) => zone.id === state.focus);
+    next = kept?.id ?? (at < 0 ? null : (fresh.at(Math.min(at, fresh.length - 1))?.id ?? null));
+  }
+  await paint(ctx, { current: summary.id, focus: next });
 }
 
 export async function press(config: EmulatorConfig, key: Key): Promise<PressReport> {
@@ -101,6 +107,7 @@ export async function press(config: EmulatorConfig, key: Key): Promise<PressRepo
 
   const client = new HttpClient(config);
   const ctx: Ctx = { config, client, flash, errors: [] };
+  client.view = state.current;
   try {
     if (index !== null && state.current !== null) {
       const { current } = state;

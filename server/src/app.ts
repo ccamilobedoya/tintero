@@ -181,6 +181,9 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
     done();
   });
 
+  /** `Tintero-View` of a request whose headers already passed `deviceOf` (F-008, ADR-0036). */
+  const shownView = new WeakMap<FastifyRequest, string>();
+
   /** Validates the device headers; replies 400 and returns undefined when they fail. */
   function deviceOf(request: FastifyRequest, reply: FastifyReply): Panel | undefined {
     const raw: Record<string, string | undefined> = {};
@@ -210,6 +213,7 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
     }
     known.add(key);
     panelsOf.set(id, known);
+    if (result.value.view !== undefined) shownView.set(request, result.value.view);
     return panel;
   }
 
@@ -296,13 +300,18 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
     const panel = deviceOf(request, reply);
     if (!panel) return reply;
     if (engine) {
-      const result = await engine.index(deviceId(request), panel);
+      const view = shownView.get(request);
+      const result = await engine.index(
+        deviceId(request),
+        panel,
+        view === undefined ? {} : { view },
+      );
       if (!result.ok) return busy(reply);
       const body: IndexResponse = {
         protocol: 1,
         server_time: Math.floor(Date.now() / 1000),
         next_wake_s: config.nextWakeS,
-        full_refresh: false,
+        full_refresh: result.value.fullRefresh,
         panel,
         current: result.value.current,
         views: result.value.views.map((view) => ({
@@ -364,7 +373,12 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
     if (engine) {
       const view = engineViewOf(request, reply, panel, engine);
       if (!view) return reply;
-      const body: ZonesResponse = { view: view.id, hash: view.hash, zones: view.zones };
+      const body: ZonesResponse = {
+        view: view.id,
+        hash: view.hash,
+        zones: view.zones,
+        focus: view.focus,
+      };
       return reply.type("application/json").send(JSON.stringify(body));
     }
     const found = viewOf(request, reply, panel);

@@ -8,15 +8,18 @@ export class ConfigError extends Error {}
 const MAX_VIEWS_BYTES = 65_536;
 const MAX_DATA_BYTES = 524_288;
 
-export type BlockName = "task-list" | "task-board" | "issue-list" | "agenda" | "month-calendar";
+export type BlockName =
+  "task-list" | "task-board" | "issue-list" | "agenda" | "month-calendar" | "calibration";
 export type SourceType = "tasks" | "events";
 
-const BLOCK_SOURCE: Record<BlockName, SourceType> = {
+/** `calibration` has no source (F-008). */
+const BLOCK_SOURCE: Record<BlockName, SourceType | undefined> = {
   "task-list": "tasks",
   "task-board": "tasks",
   "issue-list": "tasks",
   agenda: "events",
   "month-calendar": "events",
+  calibration: undefined,
 };
 
 export interface Grid {
@@ -27,7 +30,8 @@ export interface Grid {
 
 export interface Slot {
   block: BlockName;
-  source: string;
+  /** Absent only in `calibration`. */
+  source?: string;
   title?: string;
   options: Record<string, unknown>;
 }
@@ -212,8 +216,12 @@ function readSlot(r: Reader, value: unknown, pointer: string): Slot {
   const obj = r.object(value, pointer, ["block", "source", "title", "options"]);
   const block = r.string(own(obj, "block"), `${pointer}/block`, 1, 20);
   if (!BLOCKS.includes(block)) r.fail(`${pointer}/block`, "unknown block");
-  const source = r.pattern(own(obj, "source"), `${pointer}/source`, SOURCE_ID);
-  const slot: Slot = { block: block as BlockName, source, options: {} };
+  const slot: Slot = { block: block as BlockName, options: {} };
+  if (BLOCK_SOURCE[slot.block] === undefined) {
+    if (own(obj, "source") !== undefined) r.fail(`${pointer}/source`, "this block takes no source");
+  } else {
+    slot.source = r.pattern(own(obj, "source"), `${pointer}/source`, SOURCE_ID);
+  }
   if (own(obj, "title") !== undefined) {
     slot.title = r.string(own(obj, "title"), `${pointer}/title`, 1, 40);
   }
@@ -224,6 +232,7 @@ function readSlot(r: Reader, value: unknown, pointer: string): Slot {
       "issue-list": ["description"],
       agenda: ["days"],
       "month-calendar": [],
+      calibration: [],
     };
     const options = r.object(own(obj, "options"), `${pointer}/options`, known[slot.block]);
     if (own(options, "group_by") !== undefined) {
@@ -466,7 +475,13 @@ export function parseDataFile(raw: string, config: ViewsConfig): DataFile {
   const rawSources = own(root, "sources");
   if (!isObj(rawSources)) r.fail("/sources", "must be an object");
   const keys = Object.keys(rawSources as Obj);
-  if (keys.length < 1 || keys.length > 16) r.fail("/sources", "must have 1 to 16 sources");
+  // No sources is only fine when no slot of the views takes one (the `calibration` card).
+  const needsSources = config.views.some((view) =>
+    Object.values(view.slots).some((slot) => slot.source !== undefined),
+  );
+  if ((keys.length < 1 && needsSources) || keys.length > 16) {
+    r.fail("/sources", "must have 1 to 16 sources");
+  }
   // fromEntries creates own properties even for an id like `__proto__`.
   const sources: Record<string, Source> = Object.fromEntries(
     keys.map((key) => {
@@ -487,6 +502,7 @@ export function parseDataFile(raw: string, config: ViewsConfig): DataFile {
   );
   config.views.forEach((view, v) => {
     for (const [area, slot] of Object.entries(view.slots)) {
+      if (slot.source === undefined) continue;
       const source = Object.hasOwn(sources, slot.source) ? sources[slot.source] : undefined;
       const pointer = `/views/${v}/slots/${area}/source`;
       if (!source) r.fail(pointer, "source not found in the data file");

@@ -58,6 +58,10 @@ export interface Metrics {
   issueRow: number;
   issueDescRow: number;
   moreRow: number;
+  focusRing: number;
+  focusDash: number;
+  focusPad: number;
+  focusGap: number;
   box: number;
   boxBorder: number;
   gap: number;
@@ -79,13 +83,17 @@ export function themeMetrics(panel: Panel): Metrics {
   return {
     margin: mm(2),
     bar: mm(7),
-    line: mm(0.5),
+    line: Math.max(2, mm(0.5)),
     titleRow: mm(5),
     groupRow: mm(4.5),
-    row: mm(5),
+    row: mm(6.2),
     issueRow: mm(9),
     issueDescRow: mm(13),
     moreRow: mm(4.5),
+    focusRing: mm(0.6),
+    focusDash: 8, // fixed: one byte of the raw1 row
+    focusPad: mm(1.2),
+    focusGap: mm(0.6),
     box: mm(3),
     boxBorder: mm(0.5),
     gap: mm(1.5),

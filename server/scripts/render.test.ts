@@ -105,7 +105,7 @@ describe("main", () => {
       expect(checkImage("png1", png, P124).ok).toBe(true);
       const zones = validateZones(readFileSync(join(out, `${id}.zones.json`), "utf8"), P124);
       expect(zones.ok).toBe(true);
-      if (id === "hoy" && zones.ok) expect(zones.value.zones).toHaveLength(13);
+      if (id === "hoy" && zones.ok) expect(zones.value.zones).toHaveLength(10);
     }
   });
 

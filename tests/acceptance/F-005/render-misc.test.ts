@@ -85,15 +85,26 @@ describe("CA11 desbordes y espacio insuficiente", () => {
 });
 
 describe("CA12 agenda", () => {
-  it("5 zonas open en y = 68, 92, 116, 162, 208; e-001 y e-006 sin zona", async () => {
+  it("zonas open (prefijo de e-002…e-007, 30 px, alineadas); e-001 y e-006 sin zona", async () => {
+    // F-008: las coordenadas pasan a las reglas de F-008; los ids son un prefijo del orden anterior
+    // y «zonas visibles + hidden» sigue siendo 5.
     const config = cfgFrom(only(["agenda"]));
     const engine = mkEngine(cr.renderer, { config, data: dataFrom(config) });
     try {
       const { views } = await getViews(engine, "local", P124);
       const v = viewOf(views, "agenda");
-      const ids = ["e-002", "e-003", "e-004", "e-005", "e-007"];
-      expect(v.zones.map((z) => z.id)).toEqual(ids.map((i) => zoneId("agenda", "calendario", i)));
-      expect(v.zones.map((z) => z.y)).toEqual([68, 92, 116, 162, 208]);
+      const ids = ["e-002", "e-003", "e-004", "e-005", "e-007"].map((i) =>
+        zoneId("agenda", "calendario", i),
+      );
+      const got = v.zones.map((z) => z.id);
+      expect(got.length).toBeGreaterThan(0);
+      expect(got).toEqual(ids.slice(0, got.length));
+      expect(got.length + (v.hidden.eventos ?? 0)).toBe(5);
+      for (const z of v.zones) {
+        expect(z.x % 8).toBe(0);
+        expect(z.w % 8).toBe(0);
+        expect(z.h).toBe(30);
+      }
       expect(v.zones.every((z) => z.act === "open")).toBe(true);
       for (const gone of ["e-001", "e-006"])
         expect(v.zones.some((z) => z.id === zoneId("agenda", "calendario", gone))).toBe(false);
@@ -105,7 +116,7 @@ describe("CA12 agenda", () => {
 
   it("America/Lima: un evento de las 21:00 del 23 sale bajo el día 23", async () => {
     // A (2026-10-24T02:00Z = 21:00 del 23 en Lima) y B (10:00 del 24 en Lima).
-    // Si A estuviera bajo el 24, B compartiría su encabezado (y = 92); bajo el 23, B va tras un segundo encabezado (y = 114).
+    // Si A estuviera bajo el 24, B compartiría su encabezado (separación = una fila); bajo el 23, B va tras un segundo encabezado.
     const config = cfgFrom((o: Loose) => {
       o.timezone = "America/Lima";
       o.devices["*"].views = ["agenda"];
@@ -125,7 +136,9 @@ describe("CA12 agenda", () => {
         zoneId("agenda", "calendario", "e-a"),
         zoneId("agenda", "calendario", "e-b"),
       ]);
-      expect(v.zones.map((z) => z.y)).toEqual([68, 114]);
+      // F-008: filas de 30 px; con el segundo encabezado de por medio la separación pasa de una fila
+      const [a, b] = v.zones;
+      expect((b?.y ?? 0) - (a?.y ?? 0)).toBeGreaterThan(30);
     } finally {
       await engine.idle();
       await engine.close();

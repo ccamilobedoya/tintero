@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "timezone": "America/Lima",
+  "theme": "base",
+  "devices": {
+    "*": { "views": ["calibracion"] }
+  },
+  "views": [
+    {
+      "id": "calibracion",
+      "title": "Calibración",
+      "grid": {
+        "columns": [100],
+        "rows": [100],
+        "areas": [["todo"]]
+      },
+      "slots": {
+        "todo": { "block": "calibration" }
+      }
+    }
+  ]
+}

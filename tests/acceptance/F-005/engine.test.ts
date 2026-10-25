@@ -89,7 +89,16 @@ describe("CA14 marcar", () => {
     const e = engine();
     const before = await getViews(e, "local", P124);
     const agendaHash = viewOf(before.views, "agenda").hash;
-    expect(isBlack(viewOf(before.views, "pendientes").raw1, 800, 17, 79)).toBe(false);
+    // F-008: el centro de la casilla (15 px) está en zona.x + focusPad (6) + 7; se mira la columna de la zona
+    const box = (views: Awaited<ReturnType<typeof getViews>>["views"]): number => {
+      const v = viewOf(views, "pendientes");
+      const z = v.zones.find((q) => q.id === zoneId("pendientes", "tareas", "t-001"));
+      if (!z) throw new Error("zona de t-001");
+      let n = 0;
+      for (let y = z.y; y < z.y + z.h; y++) if (isBlack(v.raw1, 800, z.x + 13, y)) n++;
+      return n;
+    };
+    expect(box(before.views)).toBeLessThanOrEqual(8);
     const n0 = e.renders();
 
     const toggle = act("pendientes", zoneId("pendientes", "tareas", "t-001"), "toggle");
@@ -99,7 +108,7 @@ describe("CA14 marcar", () => {
 
     const after = await getViews(e, "local", P124);
     expect(viewOf(after.views, "agenda").hash).toBe(agendaHash);
-    expect(isBlack(viewOf(after.views, "pendientes").raw1, 800, 17, 79)).toBe(true);
+    expect(box(after.views)).toBeGreaterThanOrEqual(12);
     expect(e.renders() - n0).toBe(2);
 
     expect(e.apply("local", toggle).status).toBe("duplicate");
@@ -142,11 +151,27 @@ describe("CA23 un servicio avisa", () => {
   it("setSource cambia datos, redibuja 2 vistas y es idempotente", async () => {
     const e = engine();
     const before = await getViews(e, "local", P124);
-    expect(isBlack(viewOf(before.views, "hoy").raw1, 800, 17, 221)).toBe(false);
+    // F-008: la casilla va en zona.x + focusPad; se toma la primera tarea pendiente visible en hoy
+    // y se mira la columna del centro de la casilla (zona.x + 6 + 7) dentro de su zona.
+    const hoyZones = viewOf(before.views, "hoy").zones;
+    const pick = tasks()
+      .map((t) => t as Loose)
+      .find((t) => !t.done && hoyZones.some((z) => z.id === zoneId("hoy", "tareas", String(t.id))));
+    expect(pick).toBeDefined();
+    const pickId = String(pick?.id);
+    const box = (views: Awaited<ReturnType<typeof getViews>>["views"]): number => {
+      const v = viewOf(views, "hoy");
+      const z = v.zones.find((q) => q.id === zoneId("hoy", "tareas", pickId));
+      if (!z) throw new Error("zona de la tarea");
+      let n = 0;
+      for (let y = z.y; y < z.y + z.h; y++) if (isBlack(v.raw1, 800, z.x + 6 + 7, y)) n++;
+      return n;
+    };
+    expect(box(before.views)).toBeLessThanOrEqual(8);
     const n0 = e.renders();
 
     const items = tasks().map((t) => ({ ...(t as object) })) as Loose[];
-    const t5 = items.find((t) => t.id === "t-005");
+    const t5 = items.find((t) => t.id === pickId);
     expect(t5).toBeDefined();
     if (t5) t5.done = true;
 
@@ -154,7 +179,7 @@ describe("CA23 un servicio avisa", () => {
     await e.idle();
     expect(e.renders() - n0).toBe(2);
     const after = await getViews(e, "local", P124);
-    expect(isBlack(viewOf(after.views, "hoy").raw1, 800, 17, 221)).toBe(true);
+    expect(box(after.views)).toBeGreaterThanOrEqual(12);
 
     expect(e.setSource("tareas", items)).toEqual({ ok: true, changed: false });
     await e.idle();
