@@ -138,9 +138,10 @@ El verificador puede tocar **solo** estas pruebas de fichas anteriores, y solo s
 - **F-005:** CA7, CA9, CA10, CA12, CA14. Sus coordenadas pasan a las reglas de esta ficha, comprobadas con CA3 (propiedades); los ids de zona de cada bloque deben ser un **prefijo** (en el mismo orden) de los de antes, y `zonas visibles + hidden` de cada bloque, igual que antes.
 - **F-006:** CA3, CA4, CA6, CA7, CA8, CA9, CA12 y CA13. Los valores nuevos de `hoy` y `tablero` en `P124` son los de CA4 a CA7 de esta ficha (CA13: `hoy` tiene 9 zonas); los de `V124` y `P200`, las propiedades de CA3.
 - **F-005 (además):** CA20 y CA23 (píxeles que miran una casilla: pasan a la casilla en su sitio nuevo, a `Z0 + focusPad` de la zona) y CA21 (cantidad de zonas de `hoy`: la que dé la regla de prefijo y `visibles + hidden`).
-- **F-003:** CA2/D2 y CA7: las coordenadas de las zonas de demostración pasan a x = 16 (ver *Modo demostración*); nada más cambia.
+- **F-003:** CA2/D2, CA5 y CA7: las coordenadas de las zonas de demostración (y los píxeles que miran sus casillas) pasan a x = 16 (ver *Modo demostración*); nada más cambia.
+- **F-001:** CA4: las zonas que la prueba arma para comprobar que se aceptan (hasta 48) pasan a tener x y ancho múltiplos de 8; los rechazos siguen igual.
 
-*(Lista ampliada el 2026-10-25 tras la fase de pruebas, a pedido del verificador.)*
+*(Lista ampliada el 2026-10-25 tras la fase de pruebas, a pedido del verificador, y tras la vuelta 1 del programador: F-001 CA4 y F-003 CA5.)*
 
 ## Criterios de aceptación
 Reloj fijo **`2026-10-24T17:00:00Z`** salvo que se diga otra cosa. Paneles `P124` = `w=800,h=480,dpi=124,depth=1`, `P200` (igual, `dpi=200`) y `V124` = `w=480,h=800,dpi=124,depth=1`. «Los ejemplos del tablero» = `config/tablero.views.example.json` + `config/tablero.data.example.json` (no cambian); «los de F-005» = `config/views.example.json` + `config/data.example.json`. Pruebas con Chromium como en F-006. Una caja es `{x, y, w, h}`; «negro en `(x, y)`» se mira en `raw1`. Ids de zona de los ejemplos del tablero (de `zoneId`): `b-01` en `hoy` = `z4ba4457e13`, `b-02` en `hoy` = `z5b74b95d24`.
