@@ -15,6 +15,8 @@ export interface Options {
   data?: string;
   /** An already running Chromium (`http://127.0.0.1:<port>`); otherwise the server starts its own. */
   chromium?: string;
+  /** Integrations file (F-009); needs `views` and `data`. */
+  integrations?: string;
 }
 
 function integer(name: string, value: string, min: number, max: number): number {
@@ -45,6 +47,7 @@ export function parseOptions(argv: string[]): Options {
         views: { type: "string" },
         data: { type: "string" },
         chromium: { type: "string" },
+        integrations: { type: "string" },
       },
     }));
   } catch (error) {
@@ -86,9 +89,12 @@ export function parseOptions(argv: string[]): Options {
   ) {
     config.tls = { certFile, keyFile, clientCaFile, devicesFile };
   }
-  const { views, data, chromium } = values;
+  const { views, data, chromium, integrations } = values;
   if ((views === undefined) !== (data === undefined)) {
     throw new UsageError("--views and --data go together");
+  }
+  if (integrations !== undefined && views === undefined) {
+    throw new UsageError("--integrations needs --views and --data");
   }
   if (chromium !== undefined) {
     if (views === undefined) throw new UsageError("--chromium needs --views and --data");
@@ -104,5 +110,6 @@ export function parseOptions(argv: string[]): Options {
     config,
     ...(views !== undefined && data !== undefined ? { views, data } : {}),
     ...(chromium === undefined ? {} : { chromium: cdpBase(chromium) }),
+    ...(integrations === undefined ? {} : { integrations }),
   };
 }

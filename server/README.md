@@ -62,6 +62,19 @@ Un bloque es una función `(context: BlockContext) => BlockResult` en `src/engin
 4. **Revisión de desbordes.** Marque el contenedor y cada fila con `data-fit="<área>"` (`context.area`); el motor revisa después de dibujar que nada se salga a lo alto ni a lo ancho. Los textos con «…» no cuentan: se cortan a propósito dentro de su fila.
 5. Pruebas junto al código con el `Renderer` falso de `testing.ts`; `npm run render` muestra el resultado real.
 
+## Tareas desde Trilium (F-009, `--integrations`)
+
+Con `--integrations <archivo>` (y `--views`, `--data`) el servidor lee el tablero Kanban de Trilium cada 60 s y escribe ahí la marca *Hecho*. Un archivo de ejemplo con valores de relleno: `config/integrations.example.json`; el real va **fuera del repo**.
+
+1. **Crear el token propio de Tintero.** En Trilium: *Opciones → ETAPI → Crear token*, con el nombre `tintero`. Un token ETAPI puede todo (no tiene alcances): no lo compartas con otra cosa.
+2. **Guardar la llave.** Un archivo **fuera del repo**, con permisos 600 (`chmod 600 <archivo>`), con solo el token en una línea (máximo 4 KiB). Su ruta absoluta va en `keyFile`.
+3. **Configurar.** `baseUrl` es `http://127.0.0.1:<puerto>/etapi` (Trilium en la misma máquina) o una dirección `https://`; `boardNoteId` es el id de la nota del tablero. `allowWrite: true` exige que la fuente del archivo de datos tenga `readonly: false` (y `false` exige `readonly: true`); si no coinciden, el servidor no arranca.
+4. **Revocar.** En Trilium: *Opciones → ETAPI*, borrar el token `tintero`. Para cortar la escritura sin revocar, pon `allowWrite: false` (y `readonly: true`) y reinicia.
+
+5. **Archivo de estado (opcional, `stateFile`).** Ruta absoluta de un archivo **fuera del repo**, en una carpeta que exista y se pueda escribir (si no, el servidor sale con 2 y `/integrations/trilium-tareas/stateFile`). Guarda, con permisos 600 y escritura atómica, la última lectura buena y las marcas aún no escritas en Trilium, para que un apagado no las pierda: al volver, la pantalla muestra lo último («sin datos desde 23/10 18:30» si Trilium no responde) y las marcas se escriben cuando Trilium vuelva (las 24 h siguen contando). **Tiene títulos de tareas**, así que trátalo como privado. Se puede borrar sin perder nada de Trilium: solo se pierden las marcas que aún no se habían escrito. Si está dañado, con permisos abiertos o es de otro tablero, se ignora, se registra y el servidor arranca limpio.
+
+Si el archivo de la llave tiene permisos para otros usuarios, falta, está vacío o pesa más de 4 KiB, el servidor sale con 2 y dice el motivo (`key-permissions`, `key-missing`, `key-empty`, `key-too-large`), nunca el token.
+
 ## Probarlo con el emulador
 
 ```bash
@@ -104,3 +117,4 @@ npm run server -- --port 8443 \
 - `tls.ts`: opciones TLS y huella. `devices.ts`: lista de aparatos. `../scripts/pki.ts`: CA y certificados.
 - `views.ts`, `draw.ts`, `state.ts`: vistas de demostración, dibujo `raw1` y estado.
 - `engine/` (F-005): `config.ts` (archivos de vistas y datos), `units.ts` y `theme.ts` (mm/pt → px, letras), `layout.ts` (cuadrícula → rectángulos), `blocks/` (un archivo por bloque), `view.ts` y `html.ts` (HTML de una vista, zona sensible), `chromium.ts` (contenedor y CDP, zona sensible), `png.ts` (PNG de Chromium → `raw1`), `engine.ts` (caché, cola de dibujo, estado por aparato, acciones), `index.ts` (lo que se exporta). `../scripts/render.ts`: vista previa.
+- `integrations/` (F-009): ver su `README.md`.

@@ -106,7 +106,8 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
   if (engine) {
     // D6: the next images are made before the screens wake up.
     const timer = setInterval(() => {
-      void engine.prewarm();
+      // A failed prewarm only means the next request draws it; it must not stop the process.
+      engine.prewarm().catch(() => undefined);
     }, PREWARM_EVERY_MS);
     timer.unref();
     app.addHook("onClose", (_instance, done) => {

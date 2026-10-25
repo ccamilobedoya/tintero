@@ -125,7 +125,10 @@ export class TestServer {
       res.on("close", () => {
         this.inflight--;
       });
-      void this.handle(req, res);
+      this.handle(req, res).catch(() => {
+        // un fallo del manejador de prueba se traduce en conexión cortada, no en rechazo suelto
+        res.destroy();
+      });
     });
     server.on("connection", (socket) => {
       this.connections++;

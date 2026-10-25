@@ -25,6 +25,14 @@ import { dayKey, localParts, staleLabel } from "./dates.ts";
 import { buildDetailView, buildView, zoneId, type BuiltView } from "./view.ts";
 import { checkThemeGlyphs } from "./theme.ts";
 
+/** What a `toggle` changed in a task with a stage (F-009): the integration writes it back. */
+export interface ToggleChange {
+  sourceId: string;
+  taskId: string;
+  stage: Stage;
+  previous: Stage;
+}
+
 export interface EngineOptions {
   config: ViewsConfig;
   data: DataFile;
@@ -35,6 +43,8 @@ export interface EngineOptions {
   prewarmLeadS?: number;
   /** Receives one line per draw (no content), and the theme glyph problems. */
   log?: (line: Record<string, unknown>) => void;
+  /** Called once after a `toggle` was applied to a task with a stage. */
+  onToggle?: (change: ToggleChange) => void;
 }
 
 export interface RenderedView {
@@ -344,7 +354,8 @@ export function createEngine(options: EngineOptions): Engine {
       });
     });
     pending.set(key, done);
-    void pump();
+    // pump handles its own failures; a rejection here must not stop the process.
+    pump().catch(() => undefined);
     return { key, done };
   }
 
@@ -447,6 +458,7 @@ export function createEngine(options: EngineOptions): Engine {
       const source = sources[target.sourceId];
       if (source?.type !== "tasks") return { status: "stale", changed: false } as const;
       const remember = `${target.sourceId}\n${target.itemId}`;
+      const changes: ToggleChange[] = [];
       replaceSource(target.sourceId, {
         ...source,
         items: source.items.map((task) => {
@@ -457,16 +469,36 @@ export function createEngine(options: EngineOptions): Engine {
           }
           if (stageOf(task) !== "done") {
             previousStage.set(remember, stageOf(task));
+            changes.push({
+              sourceId: target.sourceId,
+              taskId: task.id,
+              stage: "done",
+              previous: stageOf(task),
+            });
             return { ...task, stage: "done", done: true, doneAt: clock().toISOString() };
           }
           const back = previousStage.get(remember) ?? "todo";
           previousStage.delete(remember);
+          changes.push({
+            sourceId: target.sourceId,
+            taskId: task.id,
+            stage: back,
+            previous: "done",
+          });
           const reopened: Task = { ...task, stage: back, done: false };
           delete reopened.doneAt;
           return reopened;
         }),
       });
       enqueueWhere((d) => usesSource(d, target.sourceId));
+      const [change] = changes;
+      if (change !== undefined && options.onToggle) {
+        try {
+          options.onToggle(change);
+        } catch {
+          log({ ts: new Date().toISOString(), event: "onToggle-error" });
+        }
+      }
       return { status: "applied", changed: true } as const;
     }
 

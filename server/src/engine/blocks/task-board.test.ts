@@ -221,6 +221,13 @@ describe("staleLabel", () => {
     expect(staleLabel(new Date("2026-10-24T16:55:00Z"), now, "America/Lima")).toBeUndefined();
     expect(staleLabel(undefined, now, "America/Lima")).toBeUndefined();
   });
+
+  it("adds the day when the last read was not today", () => {
+    const later = new Date("2026-10-24T17:06:00Z");
+    expect(staleLabel(new Date("2026-10-23T23:30:00Z"), later, "America/Lima")).toBe(
+      "sin datos desde 23/10 18:30",
+    );
+  });
 });
 
 describe("engine", () => {
