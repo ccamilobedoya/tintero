@@ -1,6 +1,6 @@
 # F-009 · Núcleo mínimo de integraciones y tareas de Trilium
 
-**Estado:** **aprobada (vuelta 2)** · el dueño aprobó D17–D19 el 2026-10-24 (ADR-0044, ADR-0045) y pidió integrar a `main` cuando la vuelta 2 salga limpia; la vuelta 1 quedó verificada (13/13). Aprobadas antes: D11–D16 (ADR-0042, ADR-0043); D1, D2 y D8–D10 de F-006 (ADR-0037, 0038, 0040, 0041)
+**Estado:** **cerrada** · integrada a `main` el 2026-10-24 por pedido del dueño («arreglar, luego commit y merge»), tras CUMPLE 23/23 y revisión sin bloqueantes. Decisiones: D17–D19 (ADR-0044, ADR-0045), D11–D16 (ADR-0042, ADR-0043); D1, D2 y D8–D10 de F-006 (ADR-0037, 0038, 0040, 0041)
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna (el `fetch` de Node 24).
 
@@ -295,11 +295,11 @@ Respuesta de ETAPI ≤ 1 MiB; 5 s por llamada; lectura cada 60 s; **2 GET por le
 Con `--integrations`, una tarjeta nueva en el tablero de Trilium aparece en la pantalla en la lectura siguiente (≤ 60 s), y Aceptar la pasa a *Hecho* en Trilium sin pisar lo que se haya cambiado desde el celular. Si Trilium no responde, la pantalla sigue mostrando lo último, guarda la marca y avisa «sin datos desde HH:MM».
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto).
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Todos los CA pasan en la verificación (informe adjunto): CA1–CA23.
+- [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
+- [x] `tools/check-scope` limpio para cada rol.
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
+- [x] El dueño aprobó integrar (2026-10-24, condicionado a que la vuelta 2 saliera limpia).
 
 ---
 
@@ -319,5 +319,27 @@ Con `--integrations`, una tarjeta nueva en el tablero de Trilium aparece en la p
   4. `stop()` espera la fila sin cancelarla (el apagado ya lo acota) y `known` no olvida tareas borradas.
 - **Costo en agentes:** USD 2,65 (verificador 0,93 + 0,17, programador 1,36, revisor 0,18, integrador 0,01).
 
+**Vuelta 2** (pedido del dueño en la puerta 2: arreglar las mejoras y que el servidor se recupere solo):
+
+- **Decisiones nuevas:** D17 estado en disco (ADR-0044), D18 ninguna promesa suelta (ADR-0045, regla de eslint), D19 el resto a F-010.
+- **Pruebas:** CA14–CA22 y luego CA23 (71 pruebas de F-009 en total); el verificador también arregló la promesa suelta de `tests/acceptance/F-002/testserver.ts`. Pruebas y código en paralelo.
+- **Código:** `server/src/integrations/state.ts` (escritura atómica, carga que nunca lanza), persistencia, olvido, `stop()` sin esperar la fila y registro sin inundar en `trilium-tasks.ts`; rutas por segmento en `http.ts`; punteros por posición en `config.ts`; `stateFile` en el arranque; día en `staleLabel`; las **10** promesas sueltas atrapadas (6 de F-009, 4 de `app`, `main`, `engine` y `chromium`).
+- **Aclaración hallada por el programador (vuelta 3):** el archivo solo se guardaba si cambiaban las tareas; con el tablero quieto quedaba una hora vieja y, tras reiniciar, «sin datos desde» habría mentido. Se agregó guardar también cuando el `readAt` avanza 5 min (CA23).
+- **Verificación:** **CUMPLE 23/23** (vuelta 2), lote completo 451/451, las de tiempo también con carga, sin intermitentes.
+- **Revisión:** salida 3 (zonas `http.ts` y `chromium.ts`); revisor sin bloqueantes, las 4 mejoras de la vuelta 1 resueltas. **Mejoras nuevas, pasan a F-010:** (1) `persist`: si `snapshot()` lanzara, `saveRunning` quedaría en `true` sin aviso (hoy no puede lanzar: solo arma un objeto) → `finally`; (2) `runCycle`: un defecto de código cae en `readFailed` y queda limitado a una línea por hora → separar errores de red de los inesperados; (3) `write`: la línea `pending` sin código; (4) `saveState`: abrir el temporal con `"wx"`; (5) `loadState`: leer del mismo descriptor. Lección candidata: `catch` vacío sin motivo.
+- **Costo vuelta 2–3:** USD 2,46 (verificador 0,68 + 0,11 + 0,13, programador 1,25 + 0,11, revisor 0,14, integrador 0,03). **Total F-009: USD 5,11.**
+
 ## Resumen para aprobar
-*(Se rehace al cerrar la vuelta 2.)*
+
+## Para aprobar · F-009 · Núcleo mínimo de integraciones y tareas de Trilium
+
+**Qué cambió:** el servidor lee el tablero «To Do» de Trilium cada 60 s y Aceptar marca *Hecho* sin pisar lo hecho desde el celular. Ahora además sobrevive a apagados: guarda en disco las marcas pendientes y la última lectura, vuelve con ellas al arrancar, y ningún fallo pasajero lo tumba.
+
+**Criterios:** 23 de 23 pasan · vueltas: verificación 2 (13/13 y 23/23), revisión 2
+
+**Revisión:** sin bloqueantes, 5 mejoras que pasan a F-010 · zonas sensibles: `http.ts`, `chromium.ts`
+**Dependencias nuevas:** ninguna
+
+**Riesgos o pendientes:** F-010 (arranque con el sistema, relanzar Chromium, esperar Docker); token ETAPI `tintero` y su llave para usarlo de verdad.
+
+**Decisión que se pide:** ya aprobada por el dueño: integrar a `main`.
