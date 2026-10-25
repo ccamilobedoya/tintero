@@ -110,6 +110,28 @@ npm run server -- --port 8443 \
 - `pki` usa la CLI `openssl` (sin _shell_), ECDSA P-256, y se niega a escribir dentro del repo o sobre archivos existentes. Vigencias: CA 10 años, pantalla 5, servidor 2.
 - El emulador: `npm run emulator -- --server https://tintero.ejemplo.ts.net:8443 --ca ca.crt --cert devices/p1.crt --key devices/p1.key`.
 
+## Como servicio (F-010)
+
+Tintero corre como servicio de **systemd de usuario** (sin `sudo`): arranca con la máquina (el usuario tiene *linger*) y se levanta solo 5 s después de caerse. Si Docker aún no responde, el servidor sale con 2 y systemd reintenta.
+
+```bash
+# 1. Claves TINTERO_DIR, TINTERO_NODE y TINTERO_ARGS en la configuración local (docs/configuracion-local.md)
+tools/instalar-servicio --dry-run   # muestra la unidad sin escribir nada
+tools/instalar-servicio             # la deja en la carpeta de unidades de usuario y la habilita (no la arranca)
+
+# 2. Arrancar
+systemctl --user start tintero
+
+# 3. Registros
+journalctl --user -u tintero -f
+
+# 4. Actualizar
+git pull && npm ci && systemctl --user restart tintero
+```
+
+- El servicio usa `--instance servicio` (en `TINTERO_ARGS`; 1 a 32 caracteres `a-z`, `0-9`, `-`; si no casa, sale con 2). Con `--instance`, al arrancar su Chromium el servidor borra solo los contenedores con las etiquetas `tintero.chromium=1` **y** `tintero.instance=<nombre>` que haya dejado un choque (registra `{ event: "chromium", action: "orphans", count }`). Sin `--instance`, o con `--chromium` (uno externo), no borra nada.
+- **Tras reiniciar la máquina:** `systemctl --user is-active tintero` debe dar `active`, y `docker ps --filter label=tintero.chromium=1 --filter label=tintero.instance=servicio -q | wc -l` debe dar `1`.
+
 ## Código (`src/`)
 
 - `index.ts`: `createApp`, `startServer`, `demoViews`, `fingerprint` (interfaz para pruebas). `main.ts` y `args.ts`: arranque.

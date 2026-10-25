@@ -62,6 +62,15 @@ export function priorityQueue(): <T>(
     });
 }
 
+export const CHROMIUM_LABEL = "tintero.chromium=1";
+export const INSTANCE_NAME = /^[a-z0-9-]{1,32}$/;
+const INSTANCE_LABEL = "tintero.instance=";
+const CONTAINER_ID = /^[0-9a-f]{12,64}$/;
+
+function assertInstance(instance: string): void {
+  if (!INSTANCE_NAME.test(instance)) throw new Error("invalid instance name");
+}
+
 const CDP_BASE = /^http:\/\/127\.0\.0\.1:([0-9]{1,5})$/;
 const CONTAINER_NAME = /^tintero-chromium-[0-9a-f]{8}$/;
 const START_TIMEOUT_MS = 30_000;
@@ -82,13 +91,18 @@ export function chromiumDockerArgs(
   port: number,
   fontsDir: string,
   image: string,
+  instance?: string,
 ): string[] {
+  if (instance !== undefined) assertInstance(instance);
   return [
     "run",
     "--rm",
     "-d",
     "--name",
     name,
+    "--label",
+    CHROMIUM_LABEL,
+    ...(instance === undefined ? [] : ["--label", `${INSTANCE_LABEL}${instance}`]),
     "-p",
     `127.0.0.1:${port}:9222`,
     "--read-only",
@@ -126,6 +140,45 @@ function docker(args: string[], timeoutMs = 15_000): Promise<string> {
       },
     );
   });
+}
+
+/** Ids from `docker ps -aq`: one per line, each 12–64 hex characters; anything else throws. */
+export function parseContainerIds(output: string): string[] {
+  const ids = output
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+  for (const id of ids) {
+    if (!CONTAINER_ID.test(id)) throw new Error("unexpected container id");
+  }
+  return ids;
+}
+
+/** Removes the Chromium containers of one instance left by a crash (both labels must match). */
+export async function removeOrphanChromium(
+  instance: string,
+  options: { log?: (line: Record<string, unknown>) => void } = {},
+): Promise<number> {
+  assertInstance(instance);
+  const ids = parseContainerIds(
+    await docker([
+      "ps",
+      "-aq",
+      "--filter",
+      `label=${CHROMIUM_LABEL}`,
+      "--filter",
+      `label=${INSTANCE_LABEL}${instance}`,
+    ]),
+  );
+  if (ids.length === 0) return 0;
+  await docker(["rm", "-f", ...ids]);
+  options.log?.({
+    ts: new Date().toISOString(),
+    event: "chromium",
+    action: "orphans",
+    count: ids.length,
+  });
+  return ids.length;
 }
 
 /**
@@ -194,14 +247,25 @@ function chromiumImage(): string {
 }
 
 export async function startChromium(
-  options: { port?: number } = {},
+  options: {
+    port?: number;
+    instance?: string;
+    log?: (line: Record<string, unknown>) => void;
+  } = {},
 ): Promise<{ endpoint: string; name: string; stop(): Promise<void> }> {
   const port = options.port ?? 0;
   if (!Number.isInteger(port) || port < 0 || port > 65_535) throw new Error("invalid port");
   const name = `tintero-chromium-${randomBytes(4).toString("hex")}`;
   if (!CONTAINER_NAME.test(name)) throw new Error("invalid container name");
   const fontsDir = fileURLToPath(new URL("../../fonts", import.meta.url));
-  await docker(chromiumDockerArgs(name, port, fontsDir, chromiumImage()), START_TIMEOUT_MS);
+  const { instance } = options;
+  if (instance !== undefined) {
+    await removeOrphanChromium(instance, { ...(options.log ? { log: options.log } : {}) });
+  }
+  await docker(
+    chromiumDockerArgs(name, port, fontsDir, chromiumImage(), instance),
+    START_TIMEOUT_MS,
+  );
   const stop = (): Promise<void> => stopContainer(name);
   try {
     const mapped = (await docker(["port", name, "9222/tcp"])).split("\n")[0] ?? "";
