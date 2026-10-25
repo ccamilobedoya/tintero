@@ -32,6 +32,12 @@ describe("install-funnel", () => {
     expect(() => funnelValues({ ...ENV, TINTERO_TLS_PORT: "80" })).toThrow(InstallError);
     expect(() => funnelValues({ ...ENV, TINTERO_TLS_PORT: "8443x" })).toThrow(InstallError);
     expect(() => funnelValues({ ...ENV, TINTERO_FUNNEL_DIR: "f" })).toThrow(InstallError);
+    expect(() => funnelValues({ ...ENV, TINTERO_AUTHKEY_FILE: "/tmp/a #b" })).toThrow(InstallError);
+    expect(() => funnelValues({ ...ENV, TINTERO_FUNNEL_DIR: "/tmp/a: b" })).toThrow(InstallError);
+    expect(() => funnelValues({ ...ENV, TINTERO_FUNNEL_DIR: "/tmp/../etc" })).toThrow(InstallError);
+    expect(() => funnelValues({ ...ENV, TINTERO_FUNNEL_DIR: "/repo/deploy" }, "/repo")).toThrow(
+      InstallError,
+    );
     expect(() => imageFrom("TAILSCALE_IMAGE=tailscale/tailscale:stable\n")).toThrow(InstallError);
     expect(imageFrom(`X=1\nTAILSCALE_IMAGE=${IMAGE}   # 1.104.2\n`)).toBe(IMAGE);
   });

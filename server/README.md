@@ -114,10 +114,10 @@ npm run server -- --port 8443 \
 
 El ESP32 no corre Tailscale, y un Funnel en el servidor publicaría su nombre en DNS público. Por eso Tintero se publica desde **otro aparato del tailnet**, `tintero`: un contenedor `tailscale/tailscale` (plantillas en `deploy/funnel/`) que abre Funnel **solo en su 443** y lo reenvía tal cual a Tintero en `127.0.0.1:<puerto TLS>`. Tintero sigue terminando el TLS y pidiendo el certificado de cada pantalla.
 
-1. En la consola de Tailscale: `tag:tintero` en `tagOwners` y el atributo `funnel` para `tag:tintero` en `nodeAttrs`; una llave de acceso no reutilizable, no efímera, preaprobada, con `tag:tintero`, de 1 día.
+1. En la consola de Tailscale: `tag:tintero` en `tagOwners` y el atributo `funnel` para `tag:tintero` en `nodeAttrs`; una llave de acceso no reutilizable, no efímera, preaprobada, con `tag:tintero`, de 1 día. Si la política tiene reglas de acceso propias, `tag:tintero` **no** necesita salir hacia ningún otro aparato del tailnet (es la parte expuesta a internet): no le des reglas de salida.
 2. Guardar la llave como una línea `TS_AUTHKEY=<llave>` en el archivo que diga `TINTERO_AUTHKEY_FILE` (600).
 3. `tools/instalar-funnel` prepara la carpeta del nodo (`TINTERO_FUNNEL_DIR`); no arranca nada.
-4. **Abrirlo** (lo hace el dueño): `cd <carpeta del nodo> && docker compose up -d`. **Cerrarlo:** `docker compose down`.
+4. **Abrirlo** (lo hace el dueño): `cd <carpeta del nodo> && docker compose up -d`. **Cerrarlo:** `docker compose down`. Con `restart: unless-stopped`, una vez abierto vuelve solo tras reiniciar la máquina (es un servicio permanente); `down` lo deja cerrado también después de reiniciar. El contenedor tiene topes de procesos (128), memoria (256 MB) y registros (3 × 5 MB).
 5. Comprobar en los servidores DNS autoritativos que el nombre `tintero` resuelve y el del servidor **no** (NXDOMAIN).
 
 La URL de las pantallas es `https://tintero.<tailnet>.ts.net` (443). Qué necesita el ESP32: `firmware/README.md`.

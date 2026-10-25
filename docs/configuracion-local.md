@@ -9,7 +9,6 @@
 | `~/.config/tintero/private-terms.txt` (o `$TINTERO_PRIVATE_TERMS`) | Términos que **nunca** pueden llegar al repo: nombres, servidores, direcciones, IDs de notas, rutas locales | Uno por línea; `#` para comentarios. Se comparan como palabra completa, sin distinguir mayúsculas |
 
 | `~/.config/tintero/local.env`, claves `TINTERO_DIR`, `TINTERO_NODE`, `TINTERO_ARGS` | El servicio de systemd de usuario (F-010, `tools/instalar-servicio`): carpeta del repo que corre el servicio, ruta absoluta de `node` y las opciones del servidor | Ver `config/local.env.example` |
-
 | `~/.config/tintero/local.env`, claves `TINTERO_FUNNEL_DIR`, `TINTERO_TLS_PORT`, `TINTERO_AUTHKEY_FILE` | El nodo de Tailscale propio (F-012, `tools/instalar-funnel`): carpeta del nodo, puerto TLS local de Tintero y el archivo con `TS_AUTHKEY=<llave>` | Ver `config/local.env.example` |
 | `~/.config/tintero/local.env`, claves `TINTERO_EMULATOR_ARGS`, `TINTERO_EMULATOR_SERVER`, `TINTERO_TRILIUM_CONTAINER` (opcionales) | `tools/prueba-recuperacion`: opciones TLS del emulador, la URL pública (con TLS) y el contenedor de Trilium | Ver `config/local.env.example` |
 

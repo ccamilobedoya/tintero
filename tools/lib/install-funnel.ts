@@ -2,19 +2,42 @@
 // the local config: compose.yaml and config/serve.json. Never starts it (opening to the internet is the
 // owner's step) and never touches the node's state folder.
 // CLI: tools/instalar-funnel [--dry-run]
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { InstallError, parseKeys, readEnv } from "./install-service.ts";
 
 const KEYS = ["TINTERO_FUNNEL_DIR", "TINTERO_TLS_PORT", "TINTERO_AUTHKEY_FILE"] as const;
 type Key = (typeof KEYS)[number];
 
-export function funnelValues(env: Record<Key, string>): Record<Key, string> {
+// Paths go unquoted into YAML: only plain path characters (no spaces, `#`, `:`).
+const SAFE_PATH = /^\/[A-Za-z0-9_./-]+$/;
+const NODE_ENTRIES = new Set(["compose.yaml", "config", "state"]);
+
+export function funnelValues(env: Record<Key, string>, repo?: string): Record<Key, string> {
   for (const key of ["TINTERO_FUNNEL_DIR", "TINTERO_AUTHKEY_FILE"] as const) {
     // eslint-disable-next-line security/detect-object-injection -- key is one of two literals
-    if (!isAbsolute(env[key])) throw new InstallError(`${key} tiene que ser una ruta absoluta`);
+    const value = env[key];
+    if (!isAbsolute(value) || !SAFE_PATH.test(value) || value.split("/").includes("..")) {
+      throw new InstallError(
+        `${key} tiene que ser una ruta absoluta sin espacios ni «#», «:» o «..»`,
+      );
+    }
+    if (repo !== undefined) {
+      const rel = relative(repo, resolve(value));
+      if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) {
+        throw new InstallError(`${key} no puede estar dentro del repo`);
+      }
+    }
   }
   const port = Number(env.TINTERO_TLS_PORT);
   if (!/^[0-9]{4,5}$/.test(env.TINTERO_TLS_PORT) || port < 1024 || port > 65_535) {
@@ -57,6 +80,28 @@ export function renderFunnel(
   return out;
 }
 
+/** An existing folder may only hold what the node itself writes (never chmod someone else's folder). */
+function checkNodeFolder(dir: string): void {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- folder chosen by the owner in the local config
+  if (!existsSync(dir)) return;
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- folder chosen by the owner in the local config
+  const foreign = readdirSync(dir).filter((entry) => !NODE_ENTRIES.has(entry));
+  if (foreign.length > 0) {
+    throw new InstallError(
+      "TINTERO_FUNNEL_DIR ya existe y tiene otras cosas: usa una carpeta propia del nodo",
+    );
+  }
+}
+
+function authKeyProblem(file: string): string | undefined {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- file chosen by the owner in the local config
+  if (!existsSync(file)) return "no existe el archivo de la llave (TINTERO_AUTHKEY_FILE)";
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- file chosen by the owner in the local config
+  if ((statSync(file).mode & 0o077) !== 0)
+    return "el archivo de la llave tiene que tener permisos 600";
+  return undefined;
+}
+
 function main(argv: string[]): number {
   const dryRun = argv.includes("--dry-run");
   if (argv.some((arg) => arg !== "--dry-run")) {
@@ -67,9 +112,13 @@ function main(argv: string[]): number {
   const envFile = process.env.TINTERO_LOCAL_ENV ?? join(homedir(), ".config/tintero/local.env");
   let files: { compose: string; serve: string };
   let dir: string;
+  let keyProblem: string | undefined;
   try {
-    const env = funnelValues(parseKeys(readEnv(envFile), KEYS));
+    const env = funnelValues(parseKeys(readEnv(envFile), KEYS), root);
     dir = env.TINTERO_FUNNEL_DIR;
+    checkNodeFolder(dir);
+    keyProblem = authKeyProblem(env.TINTERO_AUTHKEY_FILE);
+    if (keyProblem !== undefined && !dryRun) throw new InstallError(keyProblem);
     files = renderFunnel(
       readFileSync(join(root, "deploy/funnel/compose.yaml.in"), "utf8"),
       readFileSync(join(root, "deploy/funnel/serve.json.in"), "utf8"),
@@ -82,6 +131,7 @@ function main(argv: string[]): number {
     return 2;
   }
   if (dryRun) {
+    if (keyProblem !== undefined) console.error(`Aviso: ${keyProblem}`);
     process.stdout.write(`# compose.yaml\n${files.compose}\n# config/serve.json\n${files.serve}`);
     return 0;
   }
