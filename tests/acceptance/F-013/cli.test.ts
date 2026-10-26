@@ -2,7 +2,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { decodePng, toRaw1 } from "../../../server/src/engine/index.ts";
+import { decodePng1 } from "../F-002/helpers.ts";
 import {
   P124,
   ROOT,
@@ -49,7 +49,8 @@ describe("CA19 npm run render --holidays", () => {
     const r = await runNpm("render", renderArgs(out, file), 240_000);
     expect(r.code, r.out + r.err).toBe(0);
     const png = readFileSync(join(out, "hoy.png"));
-    const raw1 = toRaw1(decodePng(new Uint8Array(png), P124), P124);
+    // PNG de 1 bit: 0 = negro; el contrato de raw1 usa 1 = negro.
+    const raw1 = Uint8Array.from(decodePng1(new Uint8Array(png)).rows, (b) => ~b & 0xff);
     expect(
       pixelErrors(
         raw1,

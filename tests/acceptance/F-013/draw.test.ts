@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access -- JSON de prueba */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call -- JSON de prueba */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   NOW_HOY,

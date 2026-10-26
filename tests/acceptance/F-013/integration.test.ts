@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, security/detect-non-literal-fs-filename -- JSON de prueba y carpetas temporales propias */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, security/detect-non-literal-fs-filename -- JSON de prueba y carpetas temporales propias */
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -94,6 +94,7 @@ describe("CA12 primer ciclo", () => {
     const last = r.calls[r.calls.length - 1];
     expect(last?.items).toHaveLength(19);
     expect(last?.items[0]).toEqual({ date: "2026-01-01", name: "Año Nuevo" });
+    await r.h.idle(); // el contrato da idle() para esperar la escritura del stateFile
     expect(statSync(r.stateFile).mode & 0o777).toBe(0o600);
     const saved = JSON.parse(readFileSync(r.stateFile, "utf8"));
     expect(saved.version).toBe(1);

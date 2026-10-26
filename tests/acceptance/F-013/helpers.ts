@@ -34,8 +34,8 @@ export interface Holiday {
 }
 
 /** La respuesta grabada de Nager.Date para CO 2026 (19 entradas). */
-export const nagerCo2026 = (): Loose[] => JSON.parse(fixture("nager-CO-2026.json"));
-export const nagerCo2027 = (): Loose[] => JSON.parse(fixture("nager-CO-2027.json"));
+export const nagerCo2026 = (): Loose[] => JSON.parse(fixture("nager-CO-2026.json")) as Loose[];
+export const nagerCo2027 = (): Loose[] => JSON.parse(fixture("nager-CO-2027.json")) as Loose[];
 
 /** Los 19 festivos tal como los entrega la integración al motor: `{date, name}`. */
 export const holidays2026 = (): Holiday[] =>

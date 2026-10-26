@@ -1,6 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- JSON de prueba */
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { ConfigError, parseViewsConfig } from "../../../server/src/engine/index.ts";
+import type { Panel } from "../../../contract/src/index.ts";
+import {
+  ConfigError,
+  parseViewsConfig,
+  type RenderOutput,
+  type Renderer,
+} from "../../../server/src/engine/index.ts";
 import { dayKey, eventDays } from "../../../server/src/engine/dates.ts";
 import {
   applyCorrections,
@@ -237,9 +244,22 @@ describe("CA4 eventDays en America/Lima", () => {
   });
 });
 
+/** Renderer falso cuyo bitmap depende del HTML (el hash de la vista sale del bitmap). */
+function htmlSensitiveRenderer(): Renderer {
+  return {
+    render: (html: string, panel: Panel): Promise<RenderOutput> => {
+      const raw1 = new Uint8Array(Math.ceil(panel.w / 8) * panel.h);
+      raw1.set(createHash("sha256").update(html).digest());
+      return Promise.resolve({ raw1, gray: 0, boxes: [], overflow: [] });
+    },
+    blockedRequests: () => 0,
+    close: () => Promise.resolve(),
+  };
+}
+
 describe("CA5 setHolidays", () => {
   it("19 → changed true; otra vez → false; fecha mala y 401 entradas → ok false", async () => {
-    const e = mkEngine6(fakeRenderer(), {
+    const e = mkEngine6(htmlSensitiveRenderer(), {
       views: ["hoy"],
       clock: () => new Date("2026-10-25T20:00:00Z"),
     });
