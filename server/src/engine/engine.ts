@@ -75,7 +75,7 @@ export interface Engine {
   index(
     device: string,
     panel: Panel,
-    options?: { view?: string },
+    options?: { view?: string; wakeS?: number },
   ): Promise<EngineResult<{ current: string; views: RenderedView[]; fullRefresh: boolean }>>;
   view(device: string, panel: Panel, id: string, hash: string): EngineResult<RenderedView>;
   apply(
@@ -115,6 +115,8 @@ interface DeviceState {
   open?: { viewId: string; sourceId: string; itemId: string };
   justOpened: boolean;
   lastIndexMs: number | undefined;
+  /** Wake interval (s) the last `index` announced; none → `EngineOptions.nextWakeS`. */
+  wakeS?: number | undefined;
   /** Local day of the last `index` that answered, for the daily `full_refresh`. */
   fullDay?: string;
 }
@@ -578,6 +580,7 @@ export function createEngine(options: EngineOptions): Engine {
       const state = stateOf(device);
       const now = clock();
       state.lastIndexMs = now.getTime();
+      state.wakeS = options?.wakeS;
       state.panels.set(panelKey(panel), panel);
       const list = descriptors(device);
       // The view the device shows is queued first; the answer keeps the configured order.
@@ -693,7 +696,7 @@ export function createEngine(options: EngineOptions): Engine {
       const now = clock();
       for (const [device, state] of devices) {
         if (state.lastIndexMs === undefined) continue;
-        const wake = state.lastIndexMs + options.nextWakeS * 1000;
+        const wake = state.lastIndexMs + (state.wakeS ?? options.nextWakeS) * 1000;
         if (wake - now.getTime() > prewarmLeadMs) continue;
         const at = new Date(Math.max(wake, now.getTime()));
         for (const d of descriptors(device)) {

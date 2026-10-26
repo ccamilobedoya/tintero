@@ -317,6 +317,24 @@ describe("prewarm (CA24)", () => {
     await engine.close();
   });
 
+  it("uses the interval the screen got in its last index (F-017)", async () => {
+    for (const [wakeS, renders] of [
+      [600, 6],
+      [1800, 3],
+      [undefined, 3],
+    ] as const) {
+      const { engine, clock } = setup();
+      clock.now = new Date("2026-10-23T23:50:30Z");
+      const result = await engine.index("p1", P124, wakeS === undefined ? {} : { wakeS });
+      expect(result.ok).toBe(true);
+      clock.now = new Date("2026-10-23T23:59:40Z");
+      await engine.prewarm();
+      await engine.idle();
+      expect(engine.renders()).toBe(renders);
+      await engine.close();
+    }
+  });
+
   it("does nothing for devices that were never seen", async () => {
     const { engine } = setup();
     await engine.prewarm();

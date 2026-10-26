@@ -34,7 +34,7 @@ El certificado del servidor se valida con fechas. Sin hora (el ESP32 arranca en 
 | `Tintero-View` | opcional: el id de la vista que muestra el aparato ahora (ver *Foco y acciones*) |
 
 ### 5. Una despertada
-1. `GET /api/v1/index` → `current`, `views[]` (con `hash`, `bytes`, `crc32`), `panel`, `next_wake_s`.
+1. `GET /api/v1/index` → `current`, `views[]` (con `hash`, `bytes`, `crc32`), `panel`, `next_wake_s` (cambia con `Tintero-Power`: 600 con `usb`, 1800 con `battery`, por defecto).
 2. Si el `panel` de la respuesta no es el que se declaró, no mostrar nada nuevo y volver en `next_wake_s`.
 3. Por cada vista cuya `hash` cambió (empezando por `current`): `GET /api/v1/views/{id}/image?h={hash}` y `GET /api/v1/views/{id}/zones?h={hash}`. Comprobar que la imagen tiene **exactamente** `bytes` (48 000 en el panel actual) y su **CRC-32** (el de zlib) antes de guardarla o mostrarla.
 4. Mostrar `current`; el foco (anillo) lo dibuja el ESP32 con refresco parcial sobre las zonas (ADR-0006, ver *Foco y acciones*). Si `full_refresh` es `true`, esa imagen se muestra con el refresco completo lento.

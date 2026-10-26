@@ -1,5 +1,5 @@
 // `npm run server -- [--port N] [--host 127.0.0.1] [--next-wake-s N] [--headers-timeout-ms N]
-//   [--tls-cert F --tls-key F --client-ca F --devices F] [--max-panels N] [--max-connections N]
+//   [--next-wake-usb-s N] [--tls-cert F --tls-key F --client-ca F --devices F] [--max-panels N] [--max-connections N]
 //   [--views F --data F [--chromium http://127.0.0.1:N] [--integrations F]]
 //   [--instance NAME]`
 import { accessSync, constants, statSync } from "node:fs";
@@ -35,7 +35,7 @@ import { shutdown, type ShutdownStep } from "./shutdown.ts";
 
 const USAGE =
   "usage: server [--port N] [--host 127.0.0.1] [--next-wake-s N] [--headers-timeout-ms N]\n" +
-  "  [--tls-cert F --tls-key F --client-ca F --devices F] [--max-panels N] [--max-connections N]\n" +
+  "  [--next-wake-usb-s N] [--tls-cert F --tls-key F --client-ca F --devices F] [--max-panels N] [--max-connections N]\n" +
   "  [--views F --data F [--chromium http://127.0.0.1:N] [--integrations F]]\n" +
   "  [--instance NAME]";
 

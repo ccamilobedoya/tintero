@@ -55,6 +55,27 @@ function post(app: ReturnType<typeof createApp>["app"], url: string, payload: st
 const action = (id: string, zone: string, act: string, view = "demo") =>
   JSON.stringify({ actions: [{ id, view, zone, act, at: 1 }] });
 
+describe("next_wake_s by power (ADR-0057)", () => {
+  const wake = async (cfg: Parameters<typeof createApp>[0], power: string) => {
+    const { app } = createApp(cfg);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/index",
+      headers: headers(PANEL, { "Tintero-Power": power }),
+    });
+    await app.close();
+    return (JSON.parse(res.body) as { next_wake_s: number }).next_wake_s;
+  };
+  it("uses nextWakeUsbS only with usb", async () => {
+    const cfg = { nextWakeS: 1800, nextWakeUsbS: 600, headersTimeoutMs: 10_000 };
+    expect(await wake(cfg, "battery")).toBe(1800);
+    expect(await wake(cfg, "usb")).toBe(600);
+  });
+  it("falls back to nextWakeS without nextWakeUsbS", async () => {
+    expect(await wake(config, "usb")).toBe(1800);
+  });
+});
+
 describe("index", () => {
   it("is valid and lists demo, detalle, patron (CA2)", async () => {
     const { app } = createApp(config);

@@ -39,6 +39,7 @@ export function parseOptions(argv: string[]): Options {
         port: { type: "string" },
         host: { type: "string" },
         "next-wake-s": { type: "string" },
+        "next-wake-usb-s": { type: "string" },
         "headers-timeout-ms": { type: "string" },
         "tls-cert": { type: "string" },
         "tls-key": { type: "string" },
@@ -62,6 +63,12 @@ export function parseOptions(argv: string[]): Options {
     nextWakeS: integer(
       "--next-wake-s",
       values["next-wake-s"] ?? "1800",
+      LIMITS.minWakeS,
+      LIMITS.maxWakeS,
+    ),
+    nextWakeUsbS: integer(
+      "--next-wake-usb-s",
+      values["next-wake-usb-s"] ?? "600",
       LIMITS.minWakeS,
       LIMITS.maxWakeS,
     ),
