@@ -110,6 +110,11 @@ Etapas en este orden (la 0 ya se hizo al preparar la ficha y se repite en H). Ca
 - **R21.** Las imágenes de la guía salen de un solo script, `tools/imagenes-guia` (nuevo), con los ejemplos de `config/`, el reloj `2026-10-26T13:00:00Z` y el panel `w=800,h=480,dpi=124,depth=1`, en `docs/guide/images/`. Volver a correrlo da los mismos bytes.
 - **R22.** (Si se aprueba D8) `example-json`: solo `GET` a la `baseUrl` `https` que se configure, `needsKey: false`, respuesta ≤ 64 KiB antes de parsear, rutas permitidas en su manifiesto (ADR-0043), sin redirecciones, y cada campo validado antes de llegar al motor.
 
+**Cambio pedido en la puerta 2 (dueño, 2026-10-26):** el proyecto sigue en español por defecto (`locale` ausente = `es`), pero **lo público que ve quien llega va en inglés**:
+- **R18b.** `README.md` gana una sección «How it works» en inglés, con el diagrama (`architecture.en.svg`), la galería de vistas `today`, `board` y `agenda` (`hoy-en.png`, `tablero-en.png`, `agenda-en.png`), cómo se usan los dos botones (Move y Accept, toque corto y largo, ADR-0005) y el circuito. **Toda imagen que enlaza `README.md` está en inglés.** `README.es.md` tiene la misma sección en español con las imágenes `-es`.
+- **R21b.** `tools/imagenes-guia` dibuja `hoy`, `tablero` y `agenda` en los dos idiomas (`<vista>-en.png` y `<vista>-es.png`); para eso hacen falta `config/tablero.{views,data}.example.en.json` y `config/agenda.{views,data}.example.en.json` (como los de A3: `"locale": "en"`, títulos y datos en inglés, inventados).
+- **CA18b.** Toda imagen que enlazan `README.md` y `docs/guide/en/` termina en `-en.png` o `.en.svg`, o es el circuito; toda imagen de `README.es.md` y `docs/guide/es/`, en `-es.png` o `.es.svg`, o es el circuito; todas existen. Con los ejemplos `en` de `tablero` y `agenda`, el HTML de su vista no trae textos del catálogo `es` (como CA10b).
+
 ## Contrato
 - `server/scripts/pki.ts`: subcomando nuevo `firmware`, con los errores de R14 y R15. Los subcomandos actuales no cambian.
 - `server/src/engine/i18n/index.ts`:
