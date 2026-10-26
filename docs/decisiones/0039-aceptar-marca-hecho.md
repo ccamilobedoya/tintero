@@ -1,6 +1,6 @@
 # ADR-0039 · Aceptar sobre una tarea la marca Hecho
 
-- **Estado:** aceptada
+- **Estado:** reemplazada por ADR-0055
 - **Fecha:** 2026-10-24 · **Decidió:** dueño del proyecto (F-006, puerta 1, D3)
 
 ## Contexto
