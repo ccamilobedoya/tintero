@@ -17,7 +17,17 @@ import {
   type Holidays,
 } from "./integrations/holidays-nager.ts";
 import { guardedHttp, IntegrationHttpError, parseBase } from "./integrations/http.ts";
-import { holidaysManifest, icalManifest, triliumTasksManifest } from "./integrations/manifest.ts";
+import {
+  exampleJsonManifest,
+  holidaysManifest,
+  icalManifest,
+  triliumTasksManifest,
+} from "./integrations/manifest.ts";
+import {
+  createExampleJson,
+  EXAMPLE_JSON_HTTP_LIMITS,
+  type ExampleJson,
+} from "./integrations/example-json.ts";
 import { createTriliumTasks, type TriliumTasks } from "./integrations/trilium-tasks.ts";
 import {
   ConfigError,
@@ -73,11 +83,13 @@ let stopChromium: (() => Promise<void>) | undefined;
 let tasks: TriliumTasks | undefined;
 let holidays: Holidays | undefined;
 let calendars: IcalCalendars | undefined;
+let sampleJson: ExampleJson | undefined;
 // Integrations, then the engine, then the container: the container always gets its turn.
 const steps = (): ShutdownStep[] => [
   { name: "integrations", run: () => tasks?.stop(), timeoutMs: 6000 },
   { name: "holidays", run: () => holidays?.stop(), timeoutMs: 6000 },
   { name: "calendars", run: () => calendars?.stop(), timeoutMs: 6000 },
+  { name: "example-json", run: () => sampleJson?.stop(), timeoutMs: 6000 },
   { name: "engine", run: () => engine?.close(), timeoutMs: 5000 },
   { name: "chromium", run: () => stopChromium?.(), timeoutMs: 25_000 },
 ];
@@ -106,6 +118,7 @@ if (options.views !== undefined && options.data !== undefined) {
   let integration;
   let festivos;
   let ical;
+  let exampleJson;
   const country = loaded.config.holidays?.country;
   if (options.integrations === undefined && country !== undefined) {
     logEngine({ ts: new Date().toISOString(), msg: "holidays: festivos integration is off" });
@@ -158,6 +171,16 @@ if (options.views !== undefined && options.data !== undefined) {
           };
         });
         ical = { config: owned, list };
+      }
+      const sample = file.integrations["example-json"];
+      if (sample !== undefined) {
+        exampleJson = {
+          source: sample.source,
+          http: guardedHttp(parseBase(sample.baseUrl), undefined, exampleJsonManifest, {
+            ...EXAMPLE_JSON_HTTP_LIMITS,
+            log: logEngine,
+          }),
+        };
       }
     } catch (error) {
       if (error instanceof ConfigError) console.error(error.message);
@@ -217,6 +240,10 @@ if (options.views !== undefined && options.data !== undefined) {
         log: logEngine,
       });
       calendars.start();
+    }
+    if (exampleJson !== undefined) {
+      sampleJson = createExampleJson({ ...exampleJson, engine, log: logEngine });
+      sampleJson.start();
     }
   } catch {
     await shutdown(steps());

@@ -2,8 +2,9 @@
 // tall rows under a black strip. Rows, cards, category headers and "+N más" follow the common
 // rule of F-005 (fixed-height rows, never cut, never scrolled).
 import { stageOf, type Stage, type Task } from "../config.ts";
-import { dayKey, localParts, MONTHS } from "../dates.ts";
+import { dayKey, localParts } from "../dates.ts";
 import { html, type Raw } from "../html.ts";
+import type { Messages } from "../i18n/index.ts";
 import { fontCss } from "../theme.ts";
 import {
   groupHeader,
@@ -18,12 +19,10 @@ import {
 } from "./common.ts";
 import type { Block, BlockContext } from "./types.ts";
 
-const LABEL: Record<Stage, string> = { doing: "EN PROGRESO", todo: "POR HACER", done: "HECHO HOY" };
-const EMPTY: Record<Stage, string> = {
-  doing: "Nada en progreso.",
-  todo: "Nada por hacer.",
-  done: "Nada hecho hoy.",
-};
+const label = (msgs: Messages, stage: Stage): string =>
+  stage === "doing" ? msgs.stageDoing : stage === "todo" ? msgs.stageTodo : msgs.stageDone;
+const emptyText = (msgs: Messages, stage: Stage): string =>
+  stage === "doing" ? msgs.emptyDoing : stage === "todo" ? msgs.emptyTodo : msgs.emptyDone;
 
 type Kind = "lead" | "card" | "row";
 
@@ -72,7 +71,7 @@ function plansOf(context: BlockContext, tasks: Task[]): Plan[] {
     });
     const headers = kind !== "lead" && byCategory && mine.some((t) => t.category !== undefined);
     const units: Unit[] = [];
-    for (const group of groupTasks(mine, headers)) {
+    for (const group of groupTasks(mine, headers, context.msgs.noCategory)) {
       if (group.header !== undefined) {
         units.push({ kind: "header", text: group.header, h: context.metrics.groupRow });
       }
@@ -166,7 +165,7 @@ function bottomOf(context: BlockContext, item: Placed): number {
 function stripHtml(context: BlockContext, plan: Plan, y: number): Raw {
   const lead = plan.kind === "lead";
   const right = lead && context.stale !== undefined ? context.stale : String(plan.count);
-  return stripRow(context, LABEL[plan.stage], right, y, { lead });
+  return stripRow(context, label(context.msgs, plan.stage), right, y, { lead });
 }
 
 /** `top` is the offset of the box inside the zone, `focusPad` included. */
@@ -205,7 +204,7 @@ function dueHtml(
   marginTop = 2,
 ): Raw {
   if (task.due === undefined) return html``;
-  const text = shortDay(task.due, MONTHS);
+  const text = shortDay(task.due, context.msgs.months);
   if (!overdue(context, task)) return html`<span style="${extra}">${text}</span>`;
   return html`<span
     style="${extra}display:inline-block;vertical-align:top;margin-top:${marginTop}px;height:${line - 4}px;line-height:${line - 4}px;padding-left:3px;background:#000;color:#fff;font-weight:700"
@@ -288,7 +287,7 @@ function emptyRow(context: BlockContext, stage: Stage, y: number): Raw {
     data-fit="${context.area}"
     style="left:${m.focusPad}px;top:${y}px;width:${innerW(context)}px;height:${m.row}px;line-height:${m.row}px;${fontCss(m.font.text)}"
   >
-    ${stage === "doing" ? EMPTY.doing : stage === "todo" ? EMPTY.todo : EMPTY.done}
+    ${emptyText(context.msgs, stage)}
   </div>`;
 }
 

@@ -7,3 +7,6 @@ package-lock.json
 
 # Maquetas generadas por docs/disenos/*/generar.py: reformatearlas cambia los píxeles.
 docs/disenos/**/*.html
+
+# Circuitos generados por el kit protoboard-iso (F-018): se regeneran con el kit, no se reformatean.
+docs/hardware/**

@@ -5,7 +5,6 @@ import { fontCss, pickFont, type FontChoice, type ThemeFont } from "../theme.ts"
 import { mmToPx, ptToPx } from "../units.ts";
 import type { Block, BlockContext } from "./types.ts";
 
-const SAMPLE = "Ñandú pingüino ÁÉÍÓÚ 0123 22 oct";
 const TERMINUS: ThemeFont = {
   family: "Terminus",
   kind: "bitmap",
@@ -47,7 +46,7 @@ function ring(x: number, y: number, w: number, h: number, thickness: number, das
 }
 
 export const calibration: Block = (context: BlockContext) => {
-  const { metrics, panel } = context;
+  const { metrics, panel, msgs } = context;
   const mm = (value: number): number => mmToPx(value, panel.dpi);
   const x0 = metrics.focusPad;
   const parts: Raw[] = [];
@@ -73,13 +72,28 @@ export const calibration: Block = (context: BlockContext) => {
   const dejavu = (pt: number): FontChoice => ({ family: "DejaVu Sans", px: ptToPx(pt, panel.dpi) });
   const terminus = (px: number): FontChoice => pickFont(px, [TERMINUS, DEJAVU]);
   const lines: Line[] = [
-    { name: "Terminus 14 normal", font: terminus(14), bold: false, strike: false },
-    { name: "Terminus 14 negrita", font: terminus(14), bold: true, strike: false },
-    { name: "Terminus 16 normal", font: terminus(16), bold: false, strike: false },
-    { name: "Terminus 16 negrita", font: terminus(16), bold: true, strike: false },
+    {
+      name: `Terminus 14 ${msgs.calibrationNormal}`,
+      font: terminus(14),
+      bold: false,
+      strike: false,
+    },
+    { name: `Terminus 14 ${msgs.calibrationBold}`, font: terminus(14), bold: true, strike: false },
+    {
+      name: `Terminus 16 ${msgs.calibrationNormal}`,
+      font: terminus(16),
+      bold: false,
+      strike: false,
+    },
+    { name: `Terminus 16 ${msgs.calibrationBold}`, font: terminus(16), bold: true, strike: false },
     { name: "DejaVu Sans 9 pt", font: dejavu(9), bold: false, strike: false },
     { name: "DejaVu Sans 12 pt", font: dejavu(12), bold: false, strike: false },
-    { name: "DejaVu Sans 9 pt tachado", font: dejavu(9), bold: false, strike: true },
+    {
+      name: `DejaVu Sans 9 pt ${msgs.calibrationStrike}`,
+      font: dejavu(9),
+      bold: false,
+      strike: true,
+    },
   ];
   const lineH = mm(6);
   const textW = Math.max(1, context.w - 2 * x0);
@@ -92,7 +106,7 @@ export const calibration: Block = (context: BlockContext) => {
         class="a t"
         style="left:${x0}px;top:${mm(12) + lineH * i}px;width:${textW}px;height:${lineH}px;line-height:${lineH}px;${deco}${fontCss(line.font, line.bold)}"
       >
-        ${`${line.name}: ${SAMPLE}`}
+        ${`${line.name}: ${msgs.calibrationSample}`}
       </div>`,
     );
   });
@@ -119,7 +133,7 @@ export const calibration: Block = (context: BlockContext) => {
       class="a"
       style="left:${x0 + mm(20)}px;top:${top + Math.floor((metrics.row - labelH) / 2)}px;height:${labelH}px;line-height:${labelH}px;padding:0 3px;background:#000;color:#fff;white-space:nowrap;${fontCss(metrics.font.detail, true)}"
     >
-      22 oct
+      22 ${msgs.months[9] ?? ""}
     </div>`,
   );
   const ringsTop = top + metrics.row + mm(2);
@@ -133,7 +147,10 @@ export const calibration: Block = (context: BlockContext) => {
       >
         ${text}
       </div>`;
-  parts.push(sample(x0, metrics.focusDash, "Foco"), sample(x0 + ringW + mm(4), 0, "Enviando"));
+  parts.push(
+    sample(x0, metrics.focusDash, msgs.calibrationFocus),
+    sample(x0 + ringW + mm(4), 0, msgs.calibrationSending),
+  );
 
   return {
     html: html`<div

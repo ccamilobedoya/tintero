@@ -2,6 +2,7 @@
 // Errors carry only the JSON Pointer and a reason, never a value from the file (S6).
 import { readCapped } from "../tls.ts";
 import { isValidTimeZone, validDate, validDateTime } from "./dates.ts";
+import { isLocale, type Locale } from "./i18n/index.ts";
 
 export class ConfigError extends Error {}
 
@@ -48,6 +49,8 @@ export interface ViewDef {
 export interface ViewsConfig {
   version: 1;
   timezone: string;
+  /** Language of the fixed texts the views draw (F-018). */
+  locale: Locale;
   theme: "base";
   devices: Record<string, { views: string[] }>;
   views: ViewDef[];
@@ -352,6 +355,7 @@ export function parseViewsConfig(raw: string): ViewsConfig {
   const root = r.object(parseJson("views", raw, MAX_VIEWS_BYTES), "", [
     "version",
     "timezone",
+    "locale",
     "theme",
     "devices",
     "views",
@@ -360,6 +364,9 @@ export function parseViewsConfig(raw: string): ViewsConfig {
   if (own(root, "version") !== 1) r.fail("/version", "must be 1");
   const timezone = r.string(own(root, "timezone"), "/timezone", 1, 64);
   if (!isValidTimeZone(timezone)) r.fail("/timezone", "unknown time zone");
+  const rawLocale = own(root, "locale");
+  if (rawLocale !== undefined && !isLocale(rawLocale)) r.fail("/locale", 'must be "es" or "en"');
+  const locale: Locale = isLocale(rawLocale) ? rawLocale : "es";
   if (own(root, "theme") !== "base") r.fail("/theme", 'must be "base"');
   const rawViews = r.array(own(root, "views"), "/views", 1, 32);
   const views = rawViews.map((view, i) => readView(r, view, `/views/${i}`));
@@ -394,6 +401,7 @@ export function parseViewsConfig(raw: string): ViewsConfig {
   return {
     version: 1,
     timezone,
+    locale,
     theme: "base",
     devices,
     views,

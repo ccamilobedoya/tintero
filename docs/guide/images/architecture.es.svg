@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" width="960" height="400" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="14">
+  <title>Cómo encajan las piezas de Tintero</title>
+  <rect width="960" height="400" fill="#ffffff"/>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#333"/></marker>
+  </defs>
+  <!-- Sources -->
+  <g>
+    <rect x="16" y="60" width="190" height="280" rx="10" fill="#f4f4f2" stroke="#888"/>
+    <text x="111" y="88" text-anchor="middle" font-weight="bold">Tus fuentes</text>
+    <rect x="31" y="105" width="160" height="44" rx="6" fill="#fff" stroke="#888"/><text x="111" y="132" text-anchor="middle">Tareas (Trilium)</text>
+    <rect x="31" y="160" width="160" height="44" rx="6" fill="#fff" stroke="#888"/><text x="111" y="187" text-anchor="middle">Calendarios (iCal)</text>
+    <rect x="31" y="215" width="160" height="44" rx="6" fill="#fff" stroke="#888"/><text x="111" y="242" text-anchor="middle">Festivos</text>
+    <rect x="31" y="270" width="160" height="44" rx="6" fill="#fff" stroke="#888" stroke-dasharray="5 4"/><text x="111" y="297" text-anchor="middle">Tu integración</text>
+  </g>
+  <line x1="206" y1="200" x2="262" y2="200" stroke="#333" stroke-width="2" marker-end="url(#a)"/>
+  <text x="234" y="188" text-anchor="middle" font-size="12">lee</text>
+  <!-- Server -->
+  <g>
+    <rect x="262" y="40" width="330" height="320" rx="10" fill="#eef3fb" stroke="#4a6fa5" stroke-width="2"/>
+    <text x="427" y="68" text-anchor="middle" font-weight="bold">Servidor Tintero</text>
+    <rect x="282" y="85" width="290" height="50" rx="6" fill="#fff" stroke="#4a6fa5"/><text x="427" y="108" text-anchor="middle">Integraciones</text><text x="427" y="126" text-anchor="middle" font-size="12" fill="#555">solo hosts y rutas permitidas</text>
+    <rect x="282" y="150" width="290" height="50" rx="6" fill="#fff" stroke="#4a6fa5"/><text x="427" y="173" text-anchor="middle">Motor de vistas</text><text x="427" y="191" text-anchor="middle" font-size="12" fill="#555">dibuja imágenes de 1 bit (Chromium, sin red)</text>
+    <rect x="282" y="215" width="290" height="50" rx="6" fill="#fff" stroke="#4a6fa5"/><text x="427" y="238" text-anchor="middle">API de aparatos v1</text><text x="427" y="256" text-anchor="middle" font-size="12" fill="#555">índice · imágenes · zonas · acciones</text>
+    <text x="427" y="300" text-anchor="middle" font-size="12" fill="#555">Las llaves y los datos se quedan en el servidor</text>
+    <text x="427" y="320" text-anchor="middle" font-size="12" fill="#555">Los servicios locales solo escuchan en 127.0.0.1</text>
+  </g>
+  <line x1="592" y1="240" x2="752" y2="240" stroke="#333" stroke-width="2" marker-end="url(#a)" marker-start="url(#a)"/>
+  <text x="672" y="226" text-anchor="middle" font-size="12">HTTPS + mTLS</text>
+  <text x="672" y="260" text-anchor="middle" font-size="12">TCP de paso</text><text x="672" y="276" text-anchor="middle" font-size="12">(p. ej. Tailscale Funnel)</text>
+  <!-- Device -->
+  <g>
+    <rect x="752" y="100" width="192" height="240" rx="10" fill="#f4f4f2" stroke="#888"/>
+    <text x="848" y="128" text-anchor="middle" font-weight="bold">Pantalla e-ink</text>
+    <rect x="766" y="145" width="164" height="70" rx="4" fill="#fff" stroke="#333"/><text x="848" y="185" text-anchor="middle">e-paper de 7,5"</text>
+    <text x="848" y="240" text-anchor="middle">ESP32 + DESPI-C02</text>
+    <text x="848" y="262" text-anchor="middle" font-size="12" fill="#555">Botones Mover y Aceptar</text>
+    <text x="848" y="300" text-anchor="middle" font-size="12" fill="#555">Despierta, baja lo nuevo</text>
+    <text x="848" y="318" text-anchor="middle" font-size="12" fill="#555">y duerme next_wake_s</text>
+  </g>
+</svg>

@@ -1,5 +1,6 @@
 // Public holidays of the month calendar (F-013, ADR-0051, ADR-0052): corrections and the next one.
 import { addDays, dayKey, upperDate, validDate, type DayParts } from "./dates.ts";
+import { fill, messages, type Messages } from "./i18n/index.ts";
 
 export interface Holiday {
   date: string; // YYYY-MM-DD
@@ -37,11 +38,15 @@ export function nextHoliday(
   return best;
 }
 
-/** `HOY FESTIVO`, `FESTIVO LUN 2 NOV`, or nothing. */
-export function holidayLabel(list: Holiday[], today: DayParts): string | undefined {
+/** `HOY FESTIVO`, `FESTIVO LUN 2 NOV` (or the catalog's), or nothing. */
+export function holidayLabel(
+  list: Holiday[],
+  today: DayParts,
+  msgs: Messages = messages("es"),
+): string | undefined {
   const next = nextHoliday(list, today);
   if (next === undefined) return undefined;
-  if (next.date === dayKey(today)) return "HOY FESTIVO";
+  if (next.date === dayKey(today)) return msgs.holidayToday;
   const day = parse(next.date);
-  return day === undefined ? undefined : `FESTIVO ${upperDate(day)}`;
+  return day === undefined ? undefined : fill(msgs.holidayOn, { date: upperDate(day, msgs) });
 }

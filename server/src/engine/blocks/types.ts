@@ -3,6 +3,7 @@ import type { Panel } from "../../../../contract/src/index.ts";
 import type { DayParts } from "../dates.ts";
 import type { Slot, Source } from "../config.ts";
 import type { Raw } from "../html.ts";
+import type { Messages } from "../i18n/index.ts";
 import type { Metrics } from "../theme.ts";
 
 export interface BlockContext {
@@ -17,6 +18,8 @@ export interface BlockContext {
   slot: Slot;
   source: Source;
   timeZone: string;
+  /** Fixed texts of the views file's `locale`. */
+  msgs: Messages;
   today: DayParts;
   /** Public holidays already corrected: `dayKey` → name (F-013). */
   holidays: ReadonlyMap<string, string>;

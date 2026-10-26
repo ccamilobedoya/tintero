@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "timezone": "UTC",
+  "locale": "en",
+  "theme": "base",
+  "devices": {
+    "*": { "views": ["remote"] }
+  },
+  "views": [
+    {
+      "id": "remote",
+      "title": "Remote list",
+      "grid": {
+        "columns": [100],
+        "rows": [100],
+        "areas": [["list"]]
+      },
+      "slots": {
+        "list": {
+          "block": "task-list",
+          "source": "remote",
+          "options": { "group_by": "none" }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# Excepciones de tools/lib/public-scan.ts (F-018, R7): «<archivo o glob> <tipo>  # motivo».
+# Solo datos de prueba o de terceros que se revisaron a mano. Nunca un valor real.
+tools/lib/public-scan.test.ts home-path  # valores de relleno de las pruebas del escáner
+tools/lib/public-scan.test.ts email  # valores de relleno de las pruebas del escáner
+tools/lib/public-scan.test.ts ts-net  # valores de relleno de las pruebas del escáner
+tools/lib/public-scan.test.ts ipv4  # valores de relleno de las pruebas del escáner
+tools/lib/public-scan.test.ts private-key  # valores de relleno de las pruebas del escáner
+tools/lib/public-scan.test.ts entropy  # valores de relleno de las pruebas del escáner
+docs/fichas/F-018-repositorio-para-el-publico.md home-path  # valores de relleno de CA5
+docs/fichas/F-018-repositorio-para-el-publico.md email  # valores de relleno de CA5
+docs/fichas/F-018-repositorio-para-el-publico.md ts-net  # valores de relleno de CA5
+docs/fichas/F-018-repositorio-para-el-publico.md ipv4  # valores de relleno de CA5
+docs/fichas/F-018-repositorio-para-el-publico.md private-key  # valores de relleno de CA5
+docs/fichas/F-018-repositorio-para-el-publico.md entropy  # valores de relleno de CA5
+tools/lib/findings.test.ts home-path  # ruta de usuario inventada («x») de una prueba
+server/fonts/LICENSE-Terminus.txt email  # correos de los autores de la letra, en su licencia
+# Segundo detector (trufflehog): URL inventadas en dominios reservados «.example» de pruebas anteriores.
+server/src/engine/chromium.test.ts trufflehog:URI  # credenciales falsas en un dominio .example
+tests/acceptance/F-014/calendars-file.test.ts trufflehog:URI  # credenciales falsas en un dominio .example

@@ -1,9 +1,11 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- temp folders of the test */
 import { X509Certificate } from "node:crypto";
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -14,7 +16,7 @@ import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { fingerprint } from "../src/tls.ts";
 import * as fsp from "node:fs/promises";
-import { installFiles, main, pkiDevice, pkiInit, pkiServer } from "./pki.ts";
+import { installFiles, main, pkiDevice, pkiFirmware, pkiInit, pkiServer } from "./pki.ts";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
@@ -173,7 +175,7 @@ describe("pki", () => {
     expect(existsSync(empty)).toBe(false);
   });
 
-  it("the CLI exits 2 on rejection and 0 on success", async () => {
+  it("the CLI exits 2 on rejection and 0 on success (device and init)", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
     try {
@@ -188,5 +190,150 @@ describe("pki", () => {
       log.mockRestore();
       err.mockRestore();
     }
+  });
+});
+
+describe("pki firmware (R14, R15)", () => {
+  const HOST = "tintero.example.ts.net";
+  let pki: string;
+  const read = (...parts: string[]): string => readFileSync(join(pki, ...parts), "utf8");
+  /** The value of `static const char NAME[] = R"PEM(...)PEM";`. */
+  const pemOf = (header: string, name: string): string | undefined => {
+    const open = `${name}[] = R"PEM(`;
+    const from = header.indexOf(open);
+    if (from < 0) return undefined;
+    const start = from + open.length;
+    return header.slice(start, header.indexOf(')PEM";', start));
+  };
+
+  beforeAll(async () => {
+    pki = join(base, "fw-pki");
+    await pkiInit(pki);
+    await pkiServer(pki, HOST);
+    await pkiDevice(pki, "p1");
+    await pkiDevice(pki, "p2");
+  });
+
+  /** Runs the CLI with the console silenced; returns the exit code and what it printed. */
+  async function cli(args: string[]): Promise<{ code: number; output: string }> {
+    const lines: string[] = [];
+    const log = vi.spyOn(console, "log").mockImplementation((text) => void lines.push(`${text}`));
+    const err = vi.spyOn(console, "error").mockImplementation((text) => void lines.push(`${text}`));
+    try {
+      return { code: await main(args), output: lines.join("\n") };
+    } finally {
+      log.mockRestore();
+      err.mockRestore();
+    }
+  }
+
+  it("writes one device: host, id and its own PEMs, mode 600, no key on the console", async () => {
+    const out = join(base, "fw-ok", "c.h");
+    mkdirSync(join(base, "fw-ok"));
+    const { code, output } = await cli(["firmware", pki, "--host", HOST, "p1", "--out", out]);
+    expect(code).toBe(0);
+    expect(output).not.toContain("PRIVATE KEY");
+    expect(output).not.toContain("BEGIN");
+    expect(mode(out)).toBe(0o600);
+    const header = readFileSync(out, "utf8");
+    expect(header).toContain(`static const char TINTERO_HOST[] = "${HOST}";`);
+    expect(header).toContain('static const char TINTERO_DEVICE_ID[] = "p1";');
+    expect(pemOf(header, "TINTERO_CA_PEM")).toBe(read("ca.crt"));
+    expect(pemOf(header, "TINTERO_DEVICE_CERT_PEM")).toBe(read("devices", "p1.crt"));
+    expect(pemOf(header, "TINTERO_DEVICE_KEY_PEM")).toBe(read("devices", "p1.key"));
+    const body = (pem: string): string => pem.split("\n")[1] ?? "";
+    expect(header).not.toContain(body(read("devices", "p2.crt")));
+    expect(header).not.toContain(body(read("devices", "p2.key")));
+    expect(readdirSync(join(base, "fw-ok"))).toEqual(["c.h"]);
+  });
+
+  it("replaces an existing file atomically and leaves it at 600", async () => {
+    const out = join(base, "fw-replace.h");
+    writeFileSync(out, "old", { mode: 0o644 });
+    expect((await cli(["firmware", pki, "--host", HOST, "p2", "--out", out])).code).toBe(0);
+    expect(mode(out)).toBe(0o600);
+    expect(readFileSync(out, "utf8")).toContain('TINTERO_DEVICE_ID[] = "p2"');
+    expect(readdirSync(base).filter((name) => name.includes(".tmp"))).toEqual([]);
+  });
+
+  it("exits 2 and writes nothing on every bad input (CA14)", async () => {
+    const dir = join(base, "fw-bad");
+    mkdirSync(dir);
+    const out = join(dir, "c.h");
+    const bad = [
+      ["firmware", pki, "p1", "--out", out], // no --host
+      ["firmware", pki, "--host", "a b", "p1", "--out", out],
+      ["firmware", pki, "--host", "-bad-.example", "p1", "--out", out],
+      ["firmware", pki, "--host", HOST, "--out", out], // no device
+      ["firmware", pki, "--host", HOST, "p1", "p2", "--out", out], // two devices
+      ["firmware", pki, "--host", HOST, "p9", "--out", out], // no certificate
+      ["firmware", pki, "--host", HOST, "../p1", "--out", out],
+      ["firmware", pki, "--host", HOST, "p1", "--bogus", "--out", out],
+      ["firmware", pki, "--host", HOST, "p1", "--out"],
+      ["firmware", pki, "--host", HOST, "--host", HOST, "p1", "--out", out],
+      ["firmware", "--host", HOST, "p1", "--out", out], // no folder: "p1" would be the folder
+      ["firmware", pki, "--host", HOST, "p1", "--out", join(dir, "nope", "c.h")],
+      ["firmware", join(REPO, "pki-no"), "--host", HOST, "p1", "--out", out], // inside the repo
+    ];
+    for (const args of bad) {
+      expect((await cli(args)).code, args.join(" ")).toBe(2);
+      expect(readdirSync(dir)).toEqual([]);
+    }
+  });
+
+  it("refuses a PEM over 4 096 bytes, or one that is not a plain PEM", async () => {
+    const big = join(base, "fw-big");
+    cpSync(pki, big, { recursive: true });
+    const dir = join(base, "fw-big-out");
+    mkdirSync(dir);
+    const shaped = (n: number): string =>
+      `-----BEGIN CERTIFICATE-----\n${"A".repeat(n)}\n-----END CERTIFICATE-----\n`;
+    writeFileSync(join(big, "devices", "p1.crt"), shaped(5000));
+    expect(
+      (await cli(["firmware", big, "--host", HOST, "p1", "--out", join(dir, "c.h")])).code,
+    ).toBe(2);
+    writeFileSync(join(big, "devices", "p1.crt"), shaped(100).replace("AAAA", ')PEM";'));
+    expect(
+      (await cli(["firmware", big, "--host", HOST, "p1", "--out", join(dir, "c.h")])).code,
+    ).toBe(2);
+    writeFileSync(join(big, "devices", "p1.crt"), shaped(100));
+    expect(
+      (await cli(["firmware", big, "--host", HOST, "p1", "--out", join(dir, "c.h")])).code,
+    ).toBe(0);
+    expect(readdirSync(dir)).toEqual(["c.h"]);
+  });
+
+  it("refuses an output inside the repo that git does not ignore; accepts an ignored one", async () => {
+    const tracked = join(REPO, "docs", "c.h");
+    expect((await cli(["firmware", pki, "--host", HOST, "p1", "--out", tracked])).code).toBe(2);
+    expect(existsSync(tracked)).toBe(false);
+
+    const ignored = join(REPO, "firmware", "include", "tintero_certs.h");
+    const existed = existsSync(ignored);
+    try {
+      if (!existed) {
+        expect((await cli(["firmware", pki, "--host", HOST, "p1", "--out", ignored])).code).toBe(0);
+        expect(mode(ignored)).toBe(0o600);
+        expect(readFileSync(ignored, "utf8")).toContain(HOST);
+      }
+    } finally {
+      if (!existed) rmSync(ignored, { force: true });
+    }
+    expect(
+      readdirSync(join(REPO, "firmware", "include")).filter((n) => n.endsWith(".tmp")),
+    ).toEqual([]);
+  });
+
+  it("refuses an ignored output whose temporary file git would not ignore (writes nothing)", async () => {
+    // `*.log` is ignored, but `<name>.log.<hex>.tmp` is not.
+    const out = join(REPO, "tintero-fw-test.log");
+    expect((await cli(["firmware", pki, "--host", HOST, "p1", "--out", out])).code).toBe(2);
+    expect(existsSync(out)).toBe(false);
+    expect(readdirSync(REPO).filter((n) => n.startsWith("tintero-fw-test"))).toEqual([]);
+  });
+
+  it("pkiFirmware returns the path it wrote", async () => {
+    const out = join(base, "fw-path.h");
+    expect(await pkiFirmware(pki, HOST, "p1", out)).toBe(out);
   });
 });

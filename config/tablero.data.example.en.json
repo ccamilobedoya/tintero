@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "sources": {
+    "tablero": {
+      "type": "tasks",
+      "items": [
+        {
+          "id": "b-01",
+          "title": "Solder the adapter pins to the panel board",
+          "done": false,
+          "stage": "doing",
+          "due": "2026-10-26"
+        },
+        {
+          "id": "b-02",
+          "title": "Pay the water bill",
+          "done": false,
+          "stage": "todo",
+          "due": "2026-10-22"
+        },
+        {
+          "id": "b-03",
+          "title": "Write the spec for the tasks integration",
+          "done": false,
+          "stage": "doing"
+        },
+        {
+          "id": "b-04",
+          "title": "Call the fridge technician",
+          "done": false,
+          "stage": "todo"
+        },
+        {
+          "id": "b-05",
+          "title": "Fix the bathroom door that does not close well",
+          "done": false,
+          "stage": "todo",
+          "due": "2026-10-28"
+        },
+        {
+          "id": "b-06",
+          "title": "Check the backups",
+          "done": false,
+          "stage": "todo",
+          "due": "2026-10-30"
+        },
+        {
+          "id": "b-07",
+          "title": "Update the music server",
+          "done": false,
+          "stage": "todo"
+        },
+        {
+          "id": "b-08",
+          "title": "Coffee and sugar",
+          "done": false,
+          "stage": "todo"
+        },
+        {
+          "id": "b-09",
+          "title": "AA batteries for the remote",
+          "done": false,
+          "stage": "todo"
+        },
+        {
+          "id": "b-10",
+          "title": "Light bulbs for the kitchen",
+          "done": false,
+          "stage": "todo"
+        },
+        {
+          "id": "b-11",
+          "title": "Measure the idle power draw",
+          "done": false,
+          "stage": "todo"
+        },
+        {
+          "id": "b-12",
+          "title": "Change the water filter",
+          "done": true,
+          "stage": "done",
+          "doneAt": "2026-10-24T09:00:00-05:00"
+        },
+        {
+          "id": "b-13",
+          "title": "Order the spare ESP32",
+          "done": true,
+          "stage": "done",
+          "doneAt": "2026-10-24T10:30:00-05:00"
+        },
+        {
+          "id": "b-14",
+          "title": "Take out the recycling",
+          "done": true,
+          "stage": "done",
+          "doneAt": "2026-10-23T20:00:00-05:00"
+        }
+      ]
+    },
+    "calendario": {
+      "type": "events",
+      "items": []
+    }
+  }
+}

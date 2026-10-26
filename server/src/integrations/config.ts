@@ -38,12 +38,20 @@ export interface IcalIntegrationConfig {
   stateFile?: string;
 }
 
+/** The template integration (F-018): a public JSON file over https; off unless configured. */
+export interface ExampleJsonConfig {
+  source: string;
+  /** Always `https://`; the integration reads `<baseUrl>/tasks.json`. */
+  baseUrl: string;
+}
+
 export interface IntegrationsFile {
   version: 1;
   integrations: {
     "trilium-tareas"?: TriliumTasksConfig;
     festivos?: HolidaysIntegrationConfig;
     "ical-calendario"?: IcalIntegrationConfig;
+    "example-json"?: ExampleJsonConfig;
   };
 }
 
@@ -158,18 +166,36 @@ export function parseIntegrations(raw: string): IntegrationsFile {
     "trilium-tareas",
     "festivos",
     "ical-calendario",
+    "example-json",
   ]);
   const tasks = own(list, "trilium-tareas");
   const holidays = own(list, "festivos");
   const ical = own(list, "ical-calendario");
+  const example = own(list, "example-json");
   return {
     version: 1,
     integrations: {
       ...(tasks === undefined ? {} : { "trilium-tareas": parseTasks(tasks) }),
       ...(holidays === undefined ? {} : { festivos: parseHolidays(holidays) }),
       ...(ical === undefined ? {} : { "ical-calendario": parseIcal(ical) }),
+      ...(example === undefined ? {} : { "example-json": parseExampleJson(example) }),
     },
   };
+}
+
+function parseExampleJson(value: unknown): ExampleJsonConfig {
+  const p = "/integrations/example-json";
+  const obj = object(value, p, ["source", "baseUrl"]);
+  const source = text(own(obj, "source"), `${p}/source`, 1, 64);
+  const baseUrl = text(own(obj, "baseUrl"), `${p}/baseUrl`, 1, 300);
+  let secure = false;
+  try {
+    secure = parseBase(baseUrl).protocol === "https:";
+  } catch (error) {
+    if (!(error instanceof IntegrationHttpError)) throw error;
+  }
+  if (!secure) fail(`${p}/baseUrl`, "must be https://…");
+  return { source, baseUrl };
 }
 
 function parseIcal(value: unknown): IcalIntegrationConfig {
@@ -324,6 +350,15 @@ export function checkAgainstData(file: IntegrationsFile, data: DataFile): void {
     if (events?.type !== "events") {
       fail("/integrations/ical-calendario/source", "must be a source of type events");
     }
+  }
+  const example = file.integrations["example-json"];
+  if (example !== undefined) {
+    const pointer = "/integrations/example-json/source";
+    const found = Object.hasOwn(data.sources, example.source)
+      ? data.sources[example.source]
+      : undefined;
+    if (found?.type !== "tasks") fail(pointer, "must be a source of type tasks");
+    if (found?.readonly !== true) fail(pointer, "must be a read-only source");
   }
   const tasks = file.integrations["trilium-tareas"];
   if (tasks === undefined) return;

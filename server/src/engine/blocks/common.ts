@@ -2,6 +2,7 @@
 import type { Task } from "../config.ts";
 import { html, type Raw } from "../html.ts";
 import { fontCss } from "../theme.ts";
+import { fill } from "../i18n/index.ts";
 import { mmToPx } from "../units.ts";
 import type { BlockContext, BlockResult } from "./types.ts";
 
@@ -132,7 +133,7 @@ export function moreRow(context: BlockContext, y: number, hidden: number): Raw {
     class="a t"
     style="left:${metrics.focusPad}px;top:${y}px;width:${innerW(context)}px;height:${h}px;line-height:${h}px;${fontCss(metrics.font.detail)}"
   >
-    +${hidden} más
+    ${fill(context.msgs.more, { n: hidden })}
   </div>`;
 }
 
@@ -162,19 +163,17 @@ export function noFit(context: BlockContext): BlockResult {
       class="a t"
       style="left:${metrics.focusPad}px;top:0;width:${innerW(context)}px;height:${h}px;line-height:${h}px;${fontCss(metrics.font.text)}"
     >
-      No cabe
+      ${context.msgs.noFit}
     </div>`,
   };
 }
 
-const NO_CATEGORY = "Sin categoría";
-
-export function groupTasks(tasks: Task[], byCategory: boolean): Group<Task>[] {
+export function groupTasks(tasks: Task[], byCategory: boolean, noCategory: string): Group<Task>[] {
   if (!byCategory) return [{ items: tasks }];
   const order: string[] = [];
   const byName = new Map<string, Task[]>();
   for (const task of tasks) {
-    const name = task.category ?? NO_CATEGORY;
+    const name = task.category ?? noCategory;
     let list = byName.get(name);
     if (!list) {
       list = [];
@@ -184,8 +183,8 @@ export function groupTasks(tasks: Task[], byCategory: boolean): Group<Task>[] {
     list.push(task);
   }
   // Tasks without a category go last, whatever their position in the data.
-  const names = [...order.filter((name) => name !== NO_CATEGORY)];
-  if (byName.has(NO_CATEGORY)) names.push(NO_CATEGORY);
+  const names = [...order.filter((name) => name !== noCategory)];
+  if (byName.has(noCategory)) names.push(noCategory);
   return names.map((name) => ({ header: name, items: byName.get(name) ?? [] }));
 }
 

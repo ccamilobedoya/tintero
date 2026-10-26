@@ -1,0 +1,1052 @@
+{
+  "revision": 11,
+  "view": "front",
+  "scale": 5,
+  "frame": {
+    "x": -24,
+    "y": -686,
+    "width": 1329,
+    "height": 944
+  },
+  "parts": [
+    {
+      "id": "U1",
+      "type": "module",
+      "value": "ESP32 DevKit",
+      "pins": [
+        {
+          "pin": "EN",
+          "hole": "b1",
+          "node": "1:a-e",
+          "world": {
+            "x": 4.42,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 71.7,
+            "y": -23.4
+          }
+        },
+        {
+          "pin": "VP",
+          "hole": "b2",
+          "node": "2:a-e",
+          "world": {
+            "x": 6.96,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 80.7,
+            "y": -18.2
+          }
+        },
+        {
+          "pin": "VN",
+          "hole": "b3",
+          "node": "3:a-e",
+          "world": {
+            "x": 9.5,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 89.7,
+            "y": -13
+          }
+        },
+        {
+          "pin": "D34",
+          "hole": "b4",
+          "node": "4:a-e",
+          "world": {
+            "x": 12.04,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 98.7,
+            "y": -7.8
+          }
+        },
+        {
+          "pin": "D35",
+          "hole": "b5",
+          "node": "5:a-e",
+          "world": {
+            "x": 14.58,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 107.7,
+            "y": -2.6
+          }
+        },
+        {
+          "pin": "D32",
+          "hole": "b6",
+          "node": "6:a-e",
+          "world": {
+            "x": 17.12,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 116.6,
+            "y": 2.6
+          }
+        },
+        {
+          "pin": "D33",
+          "hole": "b7",
+          "node": "7:a-e",
+          "world": {
+            "x": 19.66,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 125.6,
+            "y": 7.7
+          }
+        },
+        {
+          "pin": "D25",
+          "hole": "b8",
+          "node": "8:a-e",
+          "world": {
+            "x": 22.2,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 134.6,
+            "y": 12.9
+          }
+        },
+        {
+          "pin": "D26",
+          "hole": "b9",
+          "node": "9:a-e",
+          "world": {
+            "x": 24.74,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 143.6,
+            "y": 18.1
+          }
+        },
+        {
+          "pin": "D27",
+          "hole": "b10",
+          "node": "10:a-e",
+          "world": {
+            "x": 27.28,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 152.6,
+            "y": 23.3
+          }
+        },
+        {
+          "pin": "D14",
+          "hole": "b11",
+          "node": "11:a-e",
+          "world": {
+            "x": 29.82,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 161.5,
+            "y": 28.5
+          }
+        },
+        {
+          "pin": "D12",
+          "hole": "b12",
+          "node": "12:a-e",
+          "world": {
+            "x": 32.36,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 170.5,
+            "y": 33.7
+          }
+        },
+        {
+          "pin": "D13",
+          "hole": "b13",
+          "node": "13:a-e",
+          "world": {
+            "x": 34.9,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 179.5,
+            "y": 38.8
+          }
+        },
+        {
+          "pin": "GND",
+          "hole": "b14",
+          "node": "14:a-e",
+          "world": {
+            "x": 37.44,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 188.5,
+            "y": 44
+          }
+        },
+        {
+          "pin": "VIN",
+          "hole": "b15",
+          "node": "15:a-e",
+          "world": {
+            "x": 39.98,
+            "y": 15.87
+          },
+          "screen": {
+            "x": 197.5,
+            "y": 49.2
+          }
+        },
+        {
+          "pin": "3V3",
+          "hole": "i15",
+          "node": "15:f-j",
+          "world": {
+            "x": 39.98,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 278.3,
+            "y": 2.6
+          }
+        },
+        {
+          "pin": "GND2",
+          "hole": "i14",
+          "node": "14:f-j",
+          "world": {
+            "x": 37.44,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 269.3,
+            "y": -2.6
+          }
+        },
+        {
+          "pin": "D15",
+          "hole": "i13",
+          "node": "13:f-j",
+          "world": {
+            "x": 34.9,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 260.3,
+            "y": -7.8
+          }
+        },
+        {
+          "pin": "D2",
+          "hole": "i12",
+          "node": "12:f-j",
+          "world": {
+            "x": 32.36,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 251.3,
+            "y": -13
+          }
+        },
+        {
+          "pin": "D4",
+          "hole": "i11",
+          "node": "11:f-j",
+          "world": {
+            "x": 29.82,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 242.4,
+            "y": -18.2
+          }
+        },
+        {
+          "pin": "RX2",
+          "hole": "i10",
+          "node": "10:f-j",
+          "world": {
+            "x": 27.28,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 233.4,
+            "y": -23.4
+          }
+        },
+        {
+          "pin": "TX2",
+          "hole": "i9",
+          "node": "9:f-j",
+          "world": {
+            "x": 24.74,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 224.4,
+            "y": -28.6
+          }
+        },
+        {
+          "pin": "D5",
+          "hole": "i8",
+          "node": "8:f-j",
+          "world": {
+            "x": 22.2,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 215.4,
+            "y": -33.7
+          }
+        },
+        {
+          "pin": "D18",
+          "hole": "i7",
+          "node": "7:f-j",
+          "world": {
+            "x": 19.66,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 206.4,
+            "y": -38.9
+          }
+        },
+        {
+          "pin": "D19",
+          "hole": "i6",
+          "node": "6:f-j",
+          "world": {
+            "x": 17.12,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 197.5,
+            "y": -44.1
+          }
+        },
+        {
+          "pin": "D21",
+          "hole": "i5",
+          "node": "5:f-j",
+          "world": {
+            "x": 14.58,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 188.5,
+            "y": -49.3
+          }
+        },
+        {
+          "pin": "RX0",
+          "hole": "i4",
+          "node": "4:f-j",
+          "world": {
+            "x": 12.04,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 179.5,
+            "y": -54.5
+          }
+        },
+        {
+          "pin": "TX0",
+          "hole": "i3",
+          "node": "3:f-j",
+          "world": {
+            "x": 9.5,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 170.5,
+            "y": -59.7
+          }
+        },
+        {
+          "pin": "D22",
+          "hole": "i2",
+          "node": "2:f-j",
+          "world": {
+            "x": 6.96,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 161.5,
+            "y": -64.9
+          }
+        },
+        {
+          "pin": "D23",
+          "hole": "i1",
+          "node": "1:f-j",
+          "world": {
+            "x": 4.42,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 152.6,
+            "y": -70
+          }
+        }
+      ],
+      "box": {
+        "x": 33.6,
+        "y": -108.8,
+        "width": 282.8,
+        "height": 169.8
+      },
+      "visible": 0.863,
+      "hiddenBy": [
+        {
+          "part": "W4",
+          "share": 0.05
+        },
+        {
+          "part": "EP1",
+          "share": 0.046
+        },
+        {
+          "part": "W3",
+          "share": 0.041
+        }
+      ],
+      "label": {
+        "text": "U1 · ESP32 DevKit",
+        "row": 0,
+        "box": {
+          "x": 114.8,
+          "y": -636.3,
+          "width": 120.5,
+          "height": 20
+        }
+      },
+      "leaderOver": []
+    },
+    {
+      "id": "SW1",
+      "type": "button",
+      "value": "push button",
+      "pins": [
+        {
+          "pin": "1",
+          "hole": "e21",
+          "node": "21:a-e",
+          "world": {
+            "x": 55.22,
+            "y": 23.49
+          },
+          "screen": {
+            "x": 278.3,
+            "y": 64.8
+          }
+        },
+        {
+          "pin": "2",
+          "hole": "f21",
+          "node": "21:f-j",
+          "world": {
+            "x": 55.22,
+            "y": 31.11
+          },
+          "screen": {
+            "x": 305.2,
+            "y": 49.2
+          }
+        },
+        {
+          "pin": "3",
+          "hole": "e23",
+          "node": "23:a-e",
+          "world": {
+            "x": 60.3,
+            "y": 23.49
+          },
+          "screen": {
+            "x": 296.2,
+            "y": 75.1
+          }
+        },
+        {
+          "pin": "4",
+          "hole": "f23",
+          "node": "23:f-j",
+          "world": {
+            "x": 60.3,
+            "y": 31.11
+          },
+          "screen": {
+            "x": 323.2,
+            "y": 59.6
+          }
+        }
+      ],
+      "box": {
+        "x": 276.8,
+        "y": 33,
+        "width": 47.8,
+        "height": 43
+      },
+      "visible": 0.982,
+      "hiddenBy": [
+        {
+          "part": "W4",
+          "share": 0.018
+        }
+      ],
+      "label": {
+        "text": "SW1 · push button",
+        "row": 0,
+        "box": {
+          "x": 244.5,
+          "y": -636.3,
+          "width": 120.5,
+          "height": 20
+        }
+      },
+      "leaderOver": [
+        {
+          "part": "EP1",
+          "px": 62
+        },
+        {
+          "part": "W2",
+          "px": 6
+        },
+        {
+          "part": "U1",
+          "px": 25
+        }
+      ]
+    },
+    {
+      "id": "SW2",
+      "type": "button",
+      "value": "push button",
+      "pins": [
+        {
+          "pin": "1",
+          "hole": "e27",
+          "node": "27:a-e",
+          "world": {
+            "x": 70.46,
+            "y": 23.49
+          },
+          "screen": {
+            "x": 332.2,
+            "y": 95.9
+          }
+        },
+        {
+          "pin": "2",
+          "hole": "f27",
+          "node": "27:f-j",
+          "world": {
+            "x": 70.46,
+            "y": 31.11
+          },
+          "screen": {
+            "x": 359.1,
+            "y": 80.3
+          }
+        },
+        {
+          "pin": "3",
+          "hole": "e29",
+          "node": "29:a-e",
+          "world": {
+            "x": 75.54,
+            "y": 23.49
+          },
+          "screen": {
+            "x": 350.1,
+            "y": 106.2
+          }
+        },
+        {
+          "pin": "4",
+          "hole": "f29",
+          "node": "29:f-j",
+          "world": {
+            "x": 75.54,
+            "y": 31.11
+          },
+          "screen": {
+            "x": 377.1,
+            "y": 90.7
+          }
+        }
+      ],
+      "box": {
+        "x": 330.7,
+        "y": 64.1,
+        "width": 47.8,
+        "height": 43
+      },
+      "visible": 1,
+      "hiddenBy": [],
+      "label": {
+        "text": "SW2 · push button",
+        "row": 1,
+        "box": {
+          "x": 294.4,
+          "y": -661.3,
+          "width": 120.5,
+          "height": 20
+        }
+      },
+      "leaderOver": [
+        {
+          "part": "EP1",
+          "px": 161
+        },
+        {
+          "part": "W2",
+          "px": 15
+        },
+        {
+          "part": "W5",
+          "px": 9
+        }
+      ]
+    },
+    {
+      "id": "W3",
+      "type": "wire",
+      "value": null,
+      "pins": [
+        {
+          "pin": "1",
+          "hole": "a6",
+          "node": "6:a-e",
+          "world": {
+            "x": 17.12,
+            "y": 13.33
+          },
+          "screen": {
+            "x": 107.7,
+            "y": 7.7
+          }
+        },
+        {
+          "pin": "2",
+          "hole": "a21",
+          "node": "21:a-e",
+          "world": {
+            "x": 55.22,
+            "y": 13.33
+          },
+          "screen": {
+            "x": 242.4,
+            "y": 85.5
+          }
+        }
+      ],
+      "box": {
+        "x": 104.2,
+        "y": -23.5,
+        "width": 141.6,
+        "height": 109.9
+      },
+      "visible": 0.885,
+      "hiddenBy": [
+        {
+          "part": "W4",
+          "share": 0.073
+        },
+        {
+          "part": "U1",
+          "share": 0.042
+        }
+      ],
+      "label": null,
+      "leaderOver": []
+    },
+    {
+      "id": "W4",
+      "type": "wire",
+      "value": null,
+      "pins": [
+        {
+          "pin": "1",
+          "hole": "a7",
+          "node": "7:a-e",
+          "world": {
+            "x": 19.66,
+            "y": 13.33
+          },
+          "screen": {
+            "x": 116.6,
+            "y": 12.9
+          }
+        },
+        {
+          "pin": "2",
+          "hole": "a27",
+          "node": "27:a-e",
+          "world": {
+            "x": 70.46,
+            "y": 13.33
+          },
+          "screen": {
+            "x": 296.2,
+            "y": 116.6
+          }
+        }
+      ],
+      "box": {
+        "x": 113.2,
+        "y": -25.7,
+        "width": 186.5,
+        "height": 143.2
+      },
+      "visible": 0.981,
+      "hiddenBy": [
+        {
+          "part": "W3",
+          "share": 0.019
+        }
+      ],
+      "label": null,
+      "leaderOver": []
+    },
+    {
+      "id": "W2",
+      "type": "wire",
+      "value": null,
+      "pins": [
+        {
+          "pin": "1",
+          "hole": "j15",
+          "node": "15:f-j",
+          "world": {
+            "x": 39.98,
+            "y": 41.27
+          },
+          "screen": {
+            "x": 287.3,
+            "y": -2.6
+          }
+        },
+        {
+          "pin": "2",
+          "hole": "j23",
+          "node": "23:f-j",
+          "world": {
+            "x": 60.3,
+            "y": 41.27
+          },
+          "screen": {
+            "x": 359.1,
+            "y": 38.8
+          }
+        }
+      ],
+      "box": {
+        "x": 283.9,
+        "y": -23.8,
+        "width": 78.6,
+        "height": 63.5
+      },
+      "visible": 0.724,
+      "hiddenBy": [
+        {
+          "part": "U1",
+          "share": 0.12
+        },
+        {
+          "part": "EP1",
+          "share": 0.095
+        },
+        {
+          "part": "W5",
+          "share": 0.06
+        }
+      ],
+      "label": null,
+      "leaderOver": []
+    },
+    {
+      "id": "EP1",
+      "type": "module",
+      "value": "DESPI-C02",
+      "pins": [
+        {
+          "pin": "BUSY",
+          "hole": "j11",
+          "node": "11:f-j",
+          "world": {
+            "x": 29.82,
+            "y": 41.27
+          },
+          "screen": {
+            "x": 251.3,
+            "y": -23.4
+          }
+        },
+        {
+          "pin": "RES",
+          "hole": "j10",
+          "node": "10:f-j",
+          "world": {
+            "x": 27.28,
+            "y": 41.27
+          },
+          "screen": {
+            "x": 242.4,
+            "y": -28.6
+          }
+        },
+        {
+          "pin": "D/C",
+          "hole": "j9",
+          "node": "9:f-j",
+          "world": {
+            "x": 24.74,
+            "y": 41.27
+          },
+          "screen": {
+            "x": 233.4,
+            "y": -33.7
+          }
+        },
+        {
+          "pin": "CS",
+          "hole": "j8",
+          "node": "8:f-j",
+          "world": {
+            "x": 22.2,
+            "y": 41.27
+          },
+          "screen": {
+            "x": 224.4,
+            "y": -38.9
+          }
+        },
+        {
+          "pin": "SCK",
+          "hole": "j7",
+          "node": "7:f-j",
+          "world": {
+            "x": 19.66,
+            "y": 41.27
+          },
+          "screen": {
+            "x": 215.4,
+            "y": -44.1
+          }
+        },
+        {
+          "pin": "SDI",
+          "hole": "j1",
+          "node": "1:f-j",
+          "world": {
+            "x": 4.42,
+            "y": 41.27
+          },
+          "screen": {
+            "x": 161.5,
+            "y": -75.2
+          }
+        },
+        {
+          "pin": "3.3V",
+          "hole": "h23",
+          "node": "23:f-j",
+          "world": {
+            "x": 60.3,
+            "y": 36.19
+          },
+          "screen": {
+            "x": 341.1,
+            "y": 49.2
+          }
+        },
+        {
+          "pin": "GND",
+          "hole": "a14",
+          "node": "14:a-e",
+          "world": {
+            "x": 37.44,
+            "y": 13.33
+          },
+          "screen": {
+            "x": 179.5,
+            "y": 49.2
+          }
+        }
+      ],
+      "box": {
+        "x": 153.1,
+        "y": -594.3,
+        "width": 1127.3,
+        "height": 648.5
+      },
+      "visible": 0.996,
+      "hiddenBy": [
+        {
+          "part": "U1",
+          "share": 0.004
+        },
+        {
+          "part": "W3",
+          "share": 0
+        },
+        {
+          "part": "W4",
+          "share": 0
+        }
+      ],
+      "label": {
+        "text": "EP1 · DESPI-C02",
+        "row": 0,
+        "box": {
+          "x": 396.3,
+          "y": -636.3,
+          "width": 107.7,
+          "height": 20
+        }
+      },
+      "leaderOver": []
+    },
+    {
+      "id": "W5",
+      "type": "wire",
+      "value": null,
+      "pins": [
+        {
+          "pin": "1",
+          "hole": "i23",
+          "node": "23:f-j",
+          "world": {
+            "x": 60.3,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 350.1,
+            "y": 44
+          }
+        },
+        {
+          "pin": "2",
+          "hole": "i29",
+          "node": "29:f-j",
+          "world": {
+            "x": 75.54,
+            "y": 38.73
+          },
+          "screen": {
+            "x": 404,
+            "y": 75.1
+          }
+        }
+      ],
+      "box": {
+        "x": 346.7,
+        "y": 25.8,
+        "width": 60.6,
+        "height": 50.2
+      },
+      "visible": 0.952,
+      "hiddenBy": [
+        {
+          "part": "EP1",
+          "share": 0.048
+        }
+      ],
+      "label": null,
+      "leaderOver": []
+    }
+  ],
+  "text": {
+    "smallest": {
+      "text": "2025.09.26",
+      "px": 2.9,
+      "part": "EP1"
+    },
+    "belowLimit": 55
+  },
+  "problems": [
+    {
+      "severity": "info",
+      "code": "LEADER_OVER_PART",
+      "params": {
+        "part": "SW1",
+        "over": "EP1, W2, U1"
+      }
+    },
+    {
+      "severity": "info",
+      "code": "LEADER_OVER_PART",
+      "params": {
+        "part": "SW2",
+        "over": "EP1, W2, W5"
+      }
+    },
+    {
+      "severity": "info",
+      "code": "PART_HIDDEN",
+      "params": {
+        "part": "W2",
+        "visible": 72,
+        "by": "U1",
+        "share": 12
+      }
+    },
+    {
+      "severity": "info",
+      "code": "TEXT_TOO_SMALL",
+      "params": {
+        "count": 55,
+        "limit": 6,
+        "parts": "EP1, U1",
+        "smallest": 2.9
+      }
+    }
+  ],
+  "issues": [],
+  "board": {
+    "id": "auto",
+    "columns": 36,
+    "strips": [
+      {
+        "rows": "a–e",
+        "rails": [
+          "B-",
+          "B+"
+        ]
+      },
+      {
+        "rows": "f–j",
+        "rails": [
+          "T-",
+          "T+"
+        ]
+      }
+    ],
+    "rails": [
+      "T-",
+      "T+",
+      "B-",
+      "B+"
+    ],
+    "railColumns": "2–6, 8–12, 14–18, 20–24, 26–30, 32–36",
+    "split": null,
+    "elastic": true
+  }
+}

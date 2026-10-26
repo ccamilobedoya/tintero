@@ -12,6 +12,7 @@ import {
   type EventTime,
 } from "../dates.ts";
 import { html, type Raw } from "../html.ts";
+import type { Messages } from "../i18n/index.ts";
 import { fontCss } from "../theme.ts";
 import { fitList, isTooSmall, moreRow, noFit, titleRow } from "./common.ts";
 import { pictogram } from "./pictograms.ts";
@@ -34,6 +35,7 @@ function agendaGroups(
   timeZone: string,
   holidays: ReadonlyMap<string, string> | undefined,
   column: boolean,
+  msgs: Messages,
 ): { header?: string; items: Entry[] }[] {
   const starts = events.map((event): Entry => ({ event, time: eventStart(event.start, timeZone) }));
   const out: { header?: string; items: Entry[] }[] = [];
@@ -52,10 +54,10 @@ function agendaGroups(
     const [first] = items;
     if (first === undefined) continue;
     if (column) {
-      first.day = dayLabel(day, today);
+      first.day = dayLabel(day, today, msgs);
       out.push({ items });
     } else {
-      out.push({ header: upperDate(day), items });
+      out.push({ header: upperDate(day, msgs), items });
     }
   }
   return out;
@@ -68,7 +70,7 @@ function row(context: BlockContext, entry: Entry, iconColumn: boolean, dayColumn
   const ih = h - 2 * pad;
   const zone =
     entry.event === undefined ? undefined : context.focus(entry.event.id, "open", context.w, h);
-  const time = entry.time.allDay ? "Todo el día" : hhmm(entry.time.minutes ?? 0);
+  const time = entry.time.allDay ? context.msgs.allDay : hhmm(entry.time.minutes ?? 0);
   const title = entry.event?.title ?? entry.holiday ?? "";
   const icon = entry.event === undefined ? "estrella" : entry.event.icon;
   const size = metrics.font.text.px;
@@ -114,6 +116,7 @@ export const agenda: Block = (context) => {
     context.timeZone,
     withHolidays ? context.holidays : undefined,
     dayColumn,
+    context.msgs,
   );
   const events = groups.reduce(
     (sum, group) => sum + group.items.filter((item) => item.event !== undefined).length,

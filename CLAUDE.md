@@ -9,7 +9,8 @@ El estado del proyecto, los próximos pasos y el contexto privado **no están en
 ## Reglas para todos
 - **La ficha manda.** Se programa lo que dice una ficha aprobada por el dueño, nada más. Si algo no cuadra, se detiene y se reporta.
 - **Los ADR obligan** (`docs/decisiones/`). Las reglas de seguridad están en `docs/seguridad.md`.
-- **Idioma:** código, identificadores y nombres de archivo de código en **inglés**; fichas, ADR, informes y documentación en **español**.
+- **Idioma** (ADR-0059): código, identificadores, comentarios y nombres de archivo de código en **inglés**; fichas, ADR, informes y documentos del proceso en **español**. Lo público (`README`, `SECURITY`, `CONTRIBUTING`, `docs/guide/`) va en **inglés con su par en español** (`*.es.md`, `docs/guide/es/`), con los mismos títulos.
+- **Antes de publicar** un cambio grande: `tools/revision-publicacion` limpio y la revisión independiente (ADR-0061).
 - **TypeScript estricto sobre Node 24.** Node corre `.ts` directamente; no hay paso de compilación para las herramientas.
 - **npm con protecciones:** instalar con `npm ci`; nunca `npm install <paquete>` sin que la ficha lo permita. Toda dependencia nueva se justifica y la revisión la marca.
 - **Nada de secretos** en el código, en los registros ni en las pruebas. No leer `.env*` ni `~/.config/`.
