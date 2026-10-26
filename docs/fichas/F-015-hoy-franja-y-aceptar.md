@@ -191,6 +191,7 @@ En «hoy», los cuatro bloques tienen el mismo encabezado; los eventos muestran 
 - **Revisión:** `tools/revisar --base main` **limpio** (salida 0), sin modelo.
 - **Mejoras anotadas:** (1) `tablero` a 200 ppp desborda con «Nada hecho hoy.» (ya en `main`); (2) con el aviso «sin datos desde», la etiqueta de una franja angosta se corta («PRÓX…»); (3) F-005 CA27 y F-002 CA21 intermitentes con carga; (4) los avisos `security/detect-*` de `tests/acceptance` siguen (85).
 - **Costo en agentes:** USD 4,26 (programador 1,20; verificador 2,47 + 0,33 + 0,24; integrador 0,02).
+- **En el panel real** (2026-10-25, con F-017 ya integrada): el dueño mandó una foto de «hoy» en el GDEY075T7, con el ESP32 por USB y sus propios datos. Se ve como en la referencia: la misma franja en los cuatro bloques (la negra solo en *En progreso*); la columna de día en los eventos (`Mar 27`, `Jue 29`, y vacía en el segundo evento del 29), con 3 eventos en la ventana y los títulos largos cortados con «…»; una tarea en progreso sin fecha en la fila corta de D2, con *Por hacer* justo debajo; en el mes, la etiqueta del festivo en letra normal (F-017), el domingo 25 invertido en negrita y las rayas bajo los días con eventos. La foto lleva datos personales, así que vive solo en la base de conocimiento del dueño (ADR-0023). No sirve para juzgar el fantasma ni los tiempos de refresco (M9).
 
 ## Resumen para aprobar
 
