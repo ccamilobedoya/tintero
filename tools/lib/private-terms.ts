@@ -4,7 +4,7 @@
 // Matches are reported as file:line only, never with the term itself.
 // CLI: --tree | --staged | --message <file> | --history   [--json <out>]
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { parsePatterns } from "./glob.ts";
@@ -48,7 +48,14 @@ function git(args: readonly string[]): string {
 
 function readRepoFile(file: string): string {
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- files listed by git in this repo
-  return existsSync(file) ? readFileSync(file, "utf8") : "";
+  if (!existsSync(file)) return "";
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- files listed by git in this repo
+  const info = lstatSync(file);
+  // A link is published as its target path (F-018): check that text, never what it points to.
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- files listed by git in this repo
+  if (info.isSymbolicLink()) return readlinkSync(file);
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- files listed by git in this repo
+  return info.isFile() ? readFileSync(file, "utf8") : "";
 }
 
 const SKIP = [/^node_modules\//, /^package-lock\.json$/, /\.(png|jpg|jpeg|gif|ico|bin)$/i];
