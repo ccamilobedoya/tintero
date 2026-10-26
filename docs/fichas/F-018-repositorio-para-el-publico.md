@@ -118,7 +118,17 @@ Etapas en este orden (la 0 ya se hizo al preparar la ficha y se repite en H). Ca
   export function messages(locale: Locale): Messages; // las mismas claves en todos los idiomas
   ```
 - `tools/lib/public-scan.ts`: la interfaz de R7; `tools/never-commit.txt` y `tools/public-scan-allow.txt`, un patrón por línea, `#` para comentarios.
-- `server/src/integrations/example-json.ts` (D8): el mismo contrato que `holidays-nager.ts`.
+- `server/src/integrations/example-json.ts` (D8), **aclarado el 2026-10-26 tras la fase de pruebas** (CA21):
+  ```ts
+  export const EXAMPLE_JSON_PATH = "/tasks.json"; // la única ruta, la que permite su manifiesto
+  export const EXAMPLE_JSON_HTTP_LIMITS = { maxBytes: 65_536, timeoutMs: 5000 } as const;
+  export interface ExampleTask { id: string; title: string; done: boolean; due?: string }
+  export function parseExampleTasks(json: unknown): ExampleTask[]; // lanza IntegrationHttpError("bad-json")
+  export function createExampleJson(options: {
+    http: GuardedHttp; source: string; engine: Pick<Engine, "setSource">; clock?: () => Date; log?: Log;
+  }): { start(): void; cycle(): Promise<void>; idle(): Promise<void>; stop(): Promise<void> };
+  ```
+  La respuesta es un arreglo JSON de 0 a 100 `{ "id", "title", "done", "due"? }`: `id` de 1 a 64 caracteres `[A-Za-z0-9_-]` y sin repetir, `title` de 1 a 200, `done` booleano, `due` `AAAA-MM-DD` válida. **Un solo campo mal rechaza toda la respuesta** (`bad-json`) y el motor conserva la última lectura buena; se entrega como fuente `tasks` con `setSource`. Los registros llevan conteos y códigos, nunca títulos.
 
 ## Criterios de aceptación
 
