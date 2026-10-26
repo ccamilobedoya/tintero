@@ -245,25 +245,25 @@ Una persona que llega al repo por GitHub entiende en inglés qué es Tintero, lo
   - Los comentarios en español que citan textos del catálogo.
   - Los huecos del kit de circuitos.
   - El firmware imprime la hora por serie en UTC.
-- **Costo en agentes:** USD 9,70 (programador 5,68; verificador 3,42; revisor 0,55; integrador ~0,05). No incluye los agentes del circuito ni de la prueba de humo, ni la sesión principal.
+- **Cambio de la puerta 2 (R18b, R21b, CA18b):** `README.md` gana «How it works» en inglés: el diagrama, la galería `today`/`board`/`agenda`, los dos botones y el circuito. `README.es.md` tiene el mismo apartado en español. Hay ejemplos en inglés de `tablero` y `agenda`, y `tools/imagenes-guia` dibuja las tres vistas en `-en` y `-es` (sale `calibracion.png`). Vuelta 5 del programador; pruebas de CA18b, con una prueba en negativo: una imagen `-es` en `README.md` hace fallar CA18b. Quedan 155 de 155 pruebas de F-018, `tools/revisar` limpio y la revisión de publicación limpia.
+- **Costo en agentes:** USD 10,24 (programador 5,96; verificador 3,67; revisor 0,55; integrador ~0,06). No incluye los agentes del circuito ni de la prueba de humo, ni la sesión principal.
 
 ## Resumen para aprobar
 ## Para aprobar · F-018 · El repositorio, listo para que otra persona lo use
 
 **Qué cambió:**
-- Licencia MIT y la documentación pública en inglés y español: README, guía, SECURITY y CONTRIBUTING.
+- Licencia MIT y la documentación pública en inglés y español: README (con «How it works» e imágenes en inglés), guía, SECURITY y CONTRIBUTING.
 - Las vistas en inglés o español, y el firmware en el repo con certificados de una sola pantalla.
 - El circuito de los botones y una plantilla de integración.
 - Controles que impiden publicar datos privados o llaves, más una revisión doble.
 
-**Criterios:** 147 de 147 pruebas de F-018. CA0, CA12a, CA17 y CA20 los comprobó el arquitecto; CA12b queda para el dueño. Vueltas: programador 4, verificación 2, revisión 1.
+**Criterios:** 155 de 155 pruebas de F-018. CA0, CA12a, CA17 y CA20 los comprobó el arquitecto; CA12b queda para el dueño. Vueltas: programador 5 (la 5, el cambio de la puerta 2), verificación 2, revisión 1.
 
 **Revisión:** herramientas limpias; revisor independiente con 4 mejoras, ninguna bloqueante (2 hechas, 2 para el dueño). Zonas sensibles: `tools/`, `CLAUDE.md`, `package.json` (solo la licencia), `server/scripts/pki.ts`.
 **Dependencias nuevas:** ninguna en npm; la imagen de trufflehog fijada por *digest*.
 
 **Riesgos o pendientes:**
 - Mirar la hoja de contactos.
-- Decidir los datos de ejemplo con pistas de lugar.
 - CA12b: grabar el firmware nuevo, que cambia los certificados a una sola pantalla: hay que regenerar `tintero_certs.h` con `npm run pki -- firmware`.
 - D9: los ajustes de GitHub.
 
