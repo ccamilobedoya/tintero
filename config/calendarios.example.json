@@ -1,0 +1,13 @@
+[
+  { "id": "casa", "icon": "casa", "url": "webcal://calendario.example/publico/casa.ics" },
+  {
+    "id": "personal",
+    "icon": "persona",
+    "url": "https://calendario.example/secreto/personal.ics"
+  },
+  {
+    "id": "trabajo",
+    "icon": "maletin",
+    "url": "https://calendario.example/secreto/trabajo.ics"
+  }
+]

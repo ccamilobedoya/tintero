@@ -251,3 +251,37 @@ describe("guardedHttp: manifests without a key (F-013)", () => {
     expect(fake.requests).toHaveLength(0);
   });
 });
+
+describe("guardedHttp: requestText (F-014)", () => {
+  const icalLike: Manifest = {
+    id: "ical-calendario",
+    version: "1",
+    delivers: "events",
+    needsKey: false,
+    hosts: "configured",
+    routes: [{ method: "GET", prefix: "/etapi/notes" }],
+    writes: false,
+    pollS: 240,
+  };
+
+  it("returns the body as it came, even when it is not JSON", async () => {
+    fake.override = { body: "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n", length: true };
+    const http = guardedHttp(new URL(fake.baseUrl), undefined, icalLike);
+    const answer = await http.requestText("/etapi/notes");
+    expect(answer).toEqual({ status: 200, text: "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n" });
+  });
+
+  it("keeps the guards of request: route, path and size", async () => {
+    const http = guardedHttp(new URL(fake.baseUrl), undefined, icalLike, { maxBytes: 100 });
+    expect(await codeOf(() => http.requestText("/other"))).toBe("route");
+    expect(await codeOf(() => http.requestText("/etapi/notes/../x"))).toBe("bad-path");
+    fake.override = { body: Buffer.alloc(101, 65), length: false };
+    expect(await codeOf(() => http.requestText("/etapi/notes"))).toBe("too-large");
+    expect(fake.requests).toHaveLength(1);
+  });
+
+  it("takes only a path: there is no method to choose", () => {
+    const http = guardedHttp(new URL(fake.baseUrl), undefined, icalLike);
+    expect(http.requestText.length).toBe(1);
+  });
+});

@@ -83,6 +83,17 @@ export function stageOf(task: Task): Stage {
   return task.stage ?? (task.done ? "done" : "todo");
 }
 
+export type Icon = "persona" | "maletin" | "casa" | "pastel" | "corazon" | "estrella";
+export const ICONS: readonly Icon[] = [
+  "persona",
+  "maletin",
+  "casa",
+  "pastel",
+  "corazon",
+  "estrella",
+];
+const CALENDAR_ID = /^[a-z0-9-]{1,32}$/;
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -90,6 +101,10 @@ export interface CalendarEvent {
   end?: string;
   location?: string;
   notes?: string;
+  /** Pictogram of the calendar the event comes from (F-014). */
+  icon?: Icon;
+  /** Id of that calendar. */
+  calendar?: string;
 }
 
 export type Source =
@@ -238,7 +253,7 @@ function readSlot(r: Reader, value: unknown, pointer: string): Slot {
       "task-list": ["group_by"],
       "task-board": ["stages", "lead", "group_by", "density"],
       "issue-list": ["description"],
-      agenda: ["days"],
+      agenda: ["days", "holidays"],
       "month-calendar": [],
       calibration: [],
     };
@@ -272,6 +287,9 @@ function readSlot(r: Reader, value: unknown, pointer: string): Slot {
     }
     if (own(options, "days") !== undefined) {
       r.integer(own(options, "days"), `${pointer}/options/days`, 1, 14);
+    }
+    if (own(options, "holidays") !== undefined) {
+      r.boolean(own(options, "holidays"), `${pointer}/options/holidays`);
     }
     slot.options = { ...options };
   }
@@ -460,7 +478,16 @@ const instant = (text: string): number =>
   Date.parse(text.length === 10 ? `${text}T00:00:00Z` : text);
 
 function readEvent(r: Reader, value: unknown, pointer: string): CalendarEvent {
-  const obj = r.object(value, pointer, ["id", "title", "start", "end", "location", "notes"]);
+  const obj = r.object(value, pointer, [
+    "id",
+    "title",
+    "start",
+    "end",
+    "location",
+    "notes",
+    "icon",
+    "calendar",
+  ]);
   const when = (key: "start" | "end"): string => {
     const text = r.string(own(obj, key), `${pointer}/${key}`, 10, 40);
     if (!validDate(text) && !validDateTime(text)) r.fail(`${pointer}/${key}`, "invalid date");
@@ -480,6 +507,16 @@ function readEvent(r: Reader, value: unknown, pointer: string): CalendarEvent {
   }
   if (own(obj, "notes") !== undefined) {
     event.notes = r.string(own(obj, "notes"), `${pointer}/notes`, 1, 1000);
+  }
+  if (own(obj, "icon") !== undefined) {
+    const icon = own(obj, "icon");
+    if (typeof icon !== "string" || !(ICONS as readonly string[]).includes(icon)) {
+      r.fail(`${pointer}/icon`, "must be one of the known pictograms");
+    }
+    event.icon = icon as Icon;
+  }
+  if (own(obj, "calendar") !== undefined) {
+    event.calendar = r.pattern(own(obj, "calendar"), `${pointer}/calendar`, CALENDAR_ID);
   }
   return event;
 }

@@ -63,6 +63,10 @@ Medidas del tema `base` (en `Metrics`; a 124 ppp / a 200 ppp): `focusRing` 0,6 m
 - **`full_refresh`.** El motor lo pone en `true` en el primer `index` de cada día local (zona horaria de la configuración) por aparato; tras reiniciar, el primer `index` da `true`.
 - **`Tintero-View`.** `index(device, panel, { view })` devuelve esa vista como `current` si está entre las del aparato (si no, la primera; el detalle recién abierto manda) y la dibuja antes que las demás.
 
+### Bloque `agenda`: pictogramas y festivos (F-014, ADR-0053)
+
+Si al menos una fila dibujada tiene `icon`, el bloque gana una primera columna de `texto + 6` px con un `<svg>` de `texto` × `texto` px (`viewBox 0 0 16 16`, `crispEdges`) en `y = fila + focusPad + floor((ih − texto) / 2)`; si ninguna lo tiene, se dibuja como antes. Los seis dibujos viven en `server/src/engine/blocks/pictograms.ts`. Con `options.holidays: true`, cada festivo del rango es la primera fila de su día, con la `estrella`; no es zona y cuenta para «+N más».
+
 ### Bloque `calibration` (F-008)
 
 Una hoja de prueba fija para decidir en el panel real, con el refresco rápido, los trazos y la letra de los detalles. No lleva `source` (si se pone, `ConfigError`), no tiene zonas, y el archivo de datos puede traer `"sources": {}`. Ejemplos: `config/calibracion.views.example.json` y `config/calibracion.data.example.json`.

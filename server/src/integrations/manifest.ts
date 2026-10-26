@@ -45,3 +45,15 @@ export const holidaysManifest: Manifest = {
   writes: false,
   pollS: 3600,
 };
+
+/** The owner's calendars by iCalendar address (F-014, ADR-0054): any HTTPS host the owner configures. */
+export const icalManifest: Manifest = {
+  id: "ical-calendario",
+  version: "1",
+  delivers: "events",
+  needsKey: false,
+  hosts: "configured",
+  routes: [{ method: "GET", prefix: "/" }],
+  writes: false,
+  pollS: 240,
+};
