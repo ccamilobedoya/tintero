@@ -8,6 +8,7 @@ import { parseArgs } from "node:util";
 import { parsePanelHeader, type Panel, type ZonesResponse } from "../../contract/src/index.ts";
 import { encodePng1 } from "../../emulator/src/png.ts";
 import { cdpBase } from "../src/engine/chromium.ts";
+import { readCapped } from "../src/tls.ts";
 import { validDateTime } from "../src/engine/dates.ts";
 import {
   ConfigError,
@@ -23,7 +24,8 @@ class UsageError extends Error {}
 
 const USAGE =
   "usage: render --views F --data F --panel w=800,h=480,dpi=124,depth=1 --out DIR\n" +
-  "  [--device ID] [--now RFC3339] [--chromium http://127.0.0.1:N]";
+  "  [--device ID] [--now RFC3339] [--chromium http://127.0.0.1:N] [--holidays F]";
+const MAX_HOLIDAYS_BYTES = 65_536;
 const BORDER = 2;
 const DEVICE = /^(\*|[a-z0-9-]{1,32})$/;
 
@@ -35,6 +37,8 @@ export interface RenderArgs {
   device: string;
   now?: Date;
   chromium?: string;
+  /** JSON file with `{date, name}` entries, shown as the public holidays. */
+  holidays?: string;
 }
 
 export function parseRenderArgs(argv: string[]): RenderArgs {
@@ -52,6 +56,7 @@ export function parseRenderArgs(argv: string[]): RenderArgs {
         device: { type: "string" },
         now: { type: "string" },
         chromium: { type: "string" },
+        holidays: { type: "string" },
       },
     }));
   } catch (error) {
@@ -59,7 +64,7 @@ export function parseRenderArgs(argv: string[]): RenderArgs {
       cause: error,
     });
   }
-  const { views, data, panel: panelText, out, device = "*", now, chromium } = values;
+  const { views, data, panel: panelText, out, device = "*", now, chromium, holidays } = values;
   if (views === undefined || data === undefined || panelText === undefined || out === undefined) {
     throw new UsageError("--views, --data, --panel and --out are required");
   }
@@ -84,6 +89,7 @@ export function parseRenderArgs(argv: string[]): RenderArgs {
     device,
     ...(now === undefined ? {} : { now: new Date(now) }),
     ...(chromium === undefined ? {} : { chromium: cdpBase(chromium) }),
+    ...(holidays === undefined ? {} : { holidays }),
   };
 }
 
@@ -135,6 +141,18 @@ export async function main(argv: string[], injected?: { renderer?: Renderer }): 
     return 2;
   }
 
+  // The holidays file is capped before it is parsed; any problem ends with code 2.
+  let holidays: unknown;
+  if (args.holidays !== undefined) {
+    try {
+      holidays = JSON.parse(readCapped(args.holidays, MAX_HOLIDAYS_BYTES).toString("utf8"));
+    } catch (error) {
+      const big = error instanceof Error && error.message === "file too large";
+      console.error(`holidays: ${big ? "file too large" : "cannot be read or is not valid JSON"}`);
+      return 2;
+    }
+  }
+
   let stopChromium: (() => Promise<void>) | undefined;
   let engine;
   try {
@@ -156,6 +174,13 @@ export async function main(argv: string[], injected?: { renderer?: Renderer }): 
       renderWaitMs: 60_000,
       ...(now === undefined ? {} : { clock: () => now }),
     });
+    if (args.holidays !== undefined) {
+      const set = engine.setHolidays(holidays);
+      if (!set.ok) {
+        console.error(`holidays: ${set.error}`);
+        return 2;
+      }
+    }
     const result = await engine.index(args.device, args.panel);
     if (!result.ok) {
       console.error("could not draw the views");

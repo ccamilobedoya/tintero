@@ -1,5 +1,5 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- temp folders of the test */
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -139,5 +139,41 @@ describe("main", () => {
     expect(err).toHaveBeenCalledWith(expect.stringContaining("overflow"));
     err.mockRestore();
     expect(code).toBe(1);
+  });
+});
+
+describe("--holidays (F-013)", () => {
+  const run = async (file: string, name: string): Promise<{ code: number; calls: string[] }> => {
+    const renderer = fakeRenderer();
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const code = await main(
+      [...base, "--now", "2026-10-23T12:00:00Z", "--out", join(dir, name), "--holidays", file],
+      { renderer },
+    );
+    log.mockRestore();
+    err.mockRestore();
+    return { code, calls: renderer.calls };
+  };
+
+  it("passes a valid file through setHolidays so the label is drawn", async () => {
+    const file = join(dir, "holidays.json");
+    writeFileSync(file, JSON.stringify([{ date: "2026-11-02", name: "Dia de los Santos" }]));
+    const { code, calls } = await run(file, "with");
+    expect(code).toBe(0);
+    expect(calls.some((html) => html.includes("FESTIVO LUN 2 NOV"))).toBe(true);
+  });
+
+  it("exits with 2 for a big file, a bad date or a file that is not JSON", async () => {
+    const big = join(dir, "big.json");
+    writeFileSync(big, " ".repeat(65_537));
+    const bad = join(dir, "bad.json");
+    writeFileSync(bad, JSON.stringify([{ date: "2026-02-30", name: "x" }]));
+    const text = join(dir, "text.json");
+    writeFileSync(text, "no");
+    for (const file of [big, bad, text, join(dir, "missing.json")]) {
+      expect((await run(file, "never-h")).code).toBe(2);
+    }
+    expect(existsSync(join(dir, "never-h"))).toBe(false);
   });
 });

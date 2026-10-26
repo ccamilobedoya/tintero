@@ -99,3 +99,34 @@ describe("checkAgainstData", () => {
     }).toThrow("/integrations/trilium-tareas/allowWrite");
   });
 });
+
+describe("festivos entry (F-013)", () => {
+  const wrapHolidays = (value: unknown): string =>
+    JSON.stringify({ version: 1, integrations: { festivos: value } });
+
+  it("takes the default base, an optional absolute state file and nothing else", () => {
+    expect(parseIntegrations(wrapHolidays({})).integrations.festivos).toEqual({
+      baseUrl: "https://date.nager.at",
+    });
+    expect(
+      parseIntegrations(
+        wrapHolidays({ baseUrl: "http://127.0.0.1:9000", stateFile: "/ruta/privada/f.json" }),
+      ).integrations.festivos,
+    ).toEqual({ baseUrl: "http://127.0.0.1:9000", stateFile: "/ruta/privada/f.json" });
+  });
+
+  it("rejects a base that is not https or loopback, a relative path and unknown fields", () => {
+    expect(errorOf(wrapHolidays({ baseUrl: "http://ejemplo.org" }))).toContain(
+      "/integrations/festivos/baseUrl",
+    );
+    expect(errorOf(wrapHolidays({ stateFile: "f.json" }))).toContain(
+      "/integrations/festivos/stateFile",
+    );
+    expect(errorOf(wrapHolidays({ key: "x" }))).toContain("/integrations/festivos/key");
+  });
+
+  it("the example file loads", () => {
+    const file = loadIntegrations(join(REPO, "config/integrations.example.json"));
+    expect(file.integrations.festivos?.baseUrl).toBe("https://date.nager.at");
+  });
+});

@@ -1,6 +1,7 @@
 {
   "version": 1,
   "timezone": "America/Lima",
+  "holidays": { "country": "CO" },
   "theme": "base",
   "devices": {
     "*": { "views": ["hoy", "tablero"] }

@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { guardedHttp, IntegrationHttpError, type HttpErrorCode } from "./http.ts";
-import { triliumTasksManifest, type Manifest } from "./manifest.ts";
+import { holidaysManifest, triliumTasksManifest, type Manifest } from "./manifest.ts";
 import { keyFileIn, startFakeEtapi, TOKEN, type FakeEtapi } from "./testing.ts";
 
 let fake: FakeEtapi;
@@ -216,5 +216,38 @@ describe("guardedHttp: limits and log", () => {
   it("returns null for an empty body", async () => {
     fake.override = { body: "", length: true };
     expect(await make().request("GET", "/notes/x")).toEqual({ status: 200, json: null });
+  });
+});
+
+describe("guardedHttp: manifests without a key (F-013)", () => {
+  it("sends no Authorization and reads no key file when needsKey is false", async () => {
+    const http = guardedHttp(new URL(fake.baseUrl), undefined, holidaysManifest);
+    expect(await codeOf(() => http.request("GET", "/api/v3/PublicHolidays/2026/CO"))).toBe(
+      "status",
+    );
+    expect(fake.requests).toHaveLength(1);
+    expect(fake.requests[0]?.auth).toBeUndefined();
+    // A key file given anyway is not read: an unreadable one changes nothing.
+    const other = guardedHttp(new URL(fake.baseUrl), join(fake.dir, "no-such"), holidaysManifest);
+    expect(await codeOf(() => other.request("GET", "/api/v3/PublicHolidays/2026/CO"))).toBe(
+      "status",
+    );
+    expect(fake.requests[1]?.auth).toBeUndefined();
+  });
+
+  it("still needs a key file when needsKey is true", () => {
+    expect(() => guardedHttp(new URL(fake.baseUrl), undefined, triliumTasksManifest)).toThrow(
+      expect.objectContaining({ code: "key-missing" }),
+    );
+  });
+
+  it("keeps the routes of the manifest and the origin rules", async () => {
+    const http = guardedHttp(new URL(fake.baseUrl), undefined, holidaysManifest);
+    expect(await codeOf(() => http.request("GET", "/notes"))).toBe("route");
+    expect(await codeOf(() => http.request("PATCH", "/api/v3/PublicHolidays/x"))).toBe("route");
+    expect(() => guardedHttp(new URL("http://ejemplo.org"), undefined, holidaysManifest)).toThrow(
+      expect.objectContaining({ code: "host" }),
+    );
+    expect(fake.requests).toHaveLength(0);
   });
 });

@@ -319,3 +319,59 @@ describe("loading from disk", () => {
     );
   });
 });
+
+describe("holidays in the views file (F-013)", () => {
+  const withHolidays = (holidays: unknown): string => JSON.stringify({ ...copy(), holidays });
+  const errorFor = (holidays: unknown): string => {
+    try {
+      parseViewsConfig(withHolidays(holidays));
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigError);
+      return (error as ConfigError).message;
+    }
+    throw new Error("it did not throw");
+  };
+
+  it("loads a valid block, with the lists optional", () => {
+    const full = parseViewsConfig(
+      withHolidays({
+        country: "CO",
+        add: [{ date: "2026-12-24", name: "Nochebuena" }],
+        remove: ["2026-01-12"],
+      }),
+    );
+    expect(full.holidays).toEqual({
+      country: "CO",
+      add: [{ date: "2026-12-24", name: "Nochebuena" }],
+      remove: ["2026-01-12"],
+    });
+    expect(parseViewsConfig(withHolidays({ country: "CO" })).holidays).toEqual({
+      country: "CO",
+      add: [],
+      remove: [],
+    });
+    expect(parseViewsConfig(JSON.stringify(copy())).holidays).toBeUndefined();
+    expect(loadViewsConfig(join(REPO, "config/tablero.views.example.json")).holidays?.country).toBe(
+      "CO",
+    );
+  });
+
+  it("points at the field that is wrong", () => {
+    expect(errorFor({ country: "co" })).toContain("/holidays/country");
+    expect(errorFor({})).toContain("/holidays/country");
+    expect(errorFor({ country: "CO", add: [{ date: "2026-02-30", name: "x" }] })).toContain(
+      "/holidays/add/0/date",
+    );
+    expect(errorFor({ country: "CO", add: [{ date: "2026-02-03", name: "" }] })).toContain(
+      "/holidays/add/0/name",
+    );
+    expect(
+      errorFor({ country: "CO", add: [{ date: "2026-02-03", name: "x", extra: 1 }] }),
+    ).toContain("/holidays/add/0/extra");
+    expect(errorFor({ country: "CO", remove: Array(51).fill("2026-01-12") })).toContain(
+      "/holidays/remove",
+    );
+    expect(errorFor({ country: "CO", remove: ["2026-13-01"] })).toContain("/holidays/remove/0");
+    expect(errorFor({ country: "CO", other: 1 })).toContain("/holidays/other");
+  });
+});
