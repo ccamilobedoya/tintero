@@ -200,11 +200,11 @@ Esta es la parte que **no puede fallar**. Ningún cambio de esta ficha llega a `
 Una persona que llega al repo por GitHub entiende en inglés qué es Tintero, lo ve funcionando con el emulador en minutos sin hardware, puede armar el circuito y grabar el firmware, genera sus propios certificados sin que una llave se acerque a git, y sabe cómo escribir una integración. Y en el repo no queda nada del dueño, de su casa ni de su infraestructura (salvo su correo como autor de los *commits*, por decisión suya), ni en los archivos de hoy ni en la historia: lo comprueban dos revisiones independientes.
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto).
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
-- [ ] Las dos revisiones de seguridad de la etapa H, limpias.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
+- [x] Todos los CA pasan en la verificación (informe adjunto).
+- [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
+- [x] `tools/check-scope` limpio para cada rol.
+- [x] Las dos revisiones de seguridad de la etapa H, limpias (falta la mirada del dueño a la hoja de contactos).
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones se actualizan al cierre.
 - [ ] El dueño aprobó integrar y publicar.
 
 ## Listo para programar (se marca antes de pedir aprobación)
@@ -221,7 +221,45 @@ Una persona que llega al repo por GitHub entiende en inglés qué es Tintero, lo
 ---
 
 ## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+- **Etapa 0 (historia):** sin brechas en las 50 ramas públicas. La revisaron la lista de términos privados, gitleaks, un barrido propio y trufflehog sin red y sin verificación. No hubo nada que quitar (R23 no se usó).
+- **Arquitecto (`arq/F-018`):** `tools/lib/public-scan.ts` (R7), `never-commit` en el *pre-commit* (R5), trufflehog 3.99.7 en `tools/revisar` (R8, D11), `tools/revision-publicacion` (revisión 1 y hoja de contactos), `tools/imagenes-guia` (R21), el diagrama de la guía y la regla de idioma de `CLAUDE.md`. Prueba en negativo: una llave plantada la atrapan gitleaks, `public-scan` y trufflehog. Las pruebas de aceptación encontraron tres defectos del escáner: un enlace simbólico, dos modos a la vez y un archivo borrado que seguía en el índice. Se corrigieron, y también el mismo caso del enlace en `private-terms.ts`.
+- **Circuito (F):** `docs/hardware/tintero-buttons/`, hecho con el agente `circuit-layout` (Sonnet) por la línea de comandos del kit. `review` APPROVED y la red, revisada aparte, igual a R17 (CA17). Huecos del kit anotados: `layout` no coloca el DESPI-C02 ni con `pins`, el DevKit queda en la fila a y `suggest` se traba con dos cables.
+- **Programador:**
+  - Vuelta 1: C, D, E y D8. **Decisión de seguridad del arquitecto:** una sola pantalla por archivo de certificados. Antes cada ESP32 llevaba las llaves de todas las pantallas.
+  - Vuelta 2: la documentación A y G.
+  - Vuelta 3: las iniciales de los días en el catálogo y `firmware/README` en los dos idiomas.
+  - Vuelta 4: las mejoras de la revisión: el temporal con la llave, el puerto del emulador y `--no-verify`.
+- **Firmware (CA12a):** compila limpio en un contenedor con PlatformIO 6.1.18 y una PKI de prueba, con el mismo tamaño que el original (61,8 % de la *flash*, 33,2 % de la RAM). **CA12b** (grabarlo y mirarlo en el panel) queda para el dueño.
+- **Verificación:**
+  - 147 de 147 pruebas de F-018. En todo el lote, 893 de 894: F-005 CA27 falla por carga y pasa sola (79 de 79).
+  - Se corrigieron pruebas que contradecían la ficha: CA9 (títulos), CA13 (la cabecera ASN.1 es común a toda llave P-256), CA21 (aclarado el contrato) y dos de `legal`.
+  - **CA20:** un agente sin la configuración del dueño siguió solo la guía y llegó a `today` con el emulador, y a una despertada completa por mTLS.
+- **Revisión:** `tools/revisar --base main` sale limpio en sus 16 herramientas, con zonas sensibles, y la revisión 1 de publicación, limpia. La revisión 2 (revisor Sonnet independiente): **aprobado con mejoras**, sin bloqueantes. Se hicieron la del temporal y la de `--no-verify`. El correo de los *commits* es D10. La pista de lugar en los ejemplos la decide el dueño.
+- **Mejoras anotadas:**
+  - Los datos de ejemplo en español traen el desfase `-05:00`, festivos `CO` y frases de rutina. Son públicos desde fichas anteriores y las pruebas de píxeles dependen de ellos.
+  - Los comentarios en español que citan textos del catálogo.
+  - Los huecos del kit de circuitos.
+  - El firmware imprime la hora por serie en UTC.
+- **Costo en agentes:** USD 9,70 (programador 5,68; verificador 3,42; revisor 0,55; integrador ~0,05). No incluye los agentes del circuito ni de la prueba de humo, ni la sesión principal.
 
 ## Resumen para aprobar
-*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
+## Para aprobar · F-018 · El repositorio, listo para que otra persona lo use
+
+**Qué cambió:**
+- Licencia MIT y la documentación pública en inglés y español: README, guía, SECURITY y CONTRIBUTING.
+- Las vistas en inglés o español, y el firmware en el repo con certificados de una sola pantalla.
+- El circuito de los botones y una plantilla de integración.
+- Controles que impiden publicar datos privados o llaves, más una revisión doble.
+
+**Criterios:** 147 de 147 pruebas de F-018. CA0, CA12a, CA17 y CA20 los comprobó el arquitecto; CA12b queda para el dueño. Vueltas: programador 4, verificación 2, revisión 1.
+
+**Revisión:** herramientas limpias; revisor independiente con 4 mejoras, ninguna bloqueante (2 hechas, 2 para el dueño). Zonas sensibles: `tools/`, `CLAUDE.md`, `package.json` (solo la licencia), `server/scripts/pki.ts`.
+**Dependencias nuevas:** ninguna en npm; la imagen de trufflehog fijada por *digest*.
+
+**Riesgos o pendientes:**
+- Mirar la hoja de contactos.
+- Decidir los datos de ejemplo con pistas de lugar.
+- CA12b: grabar el firmware nuevo, que cambia los certificados a una sola pantalla: hay que regenerar `tintero_certs.h` con `npm run pki -- firmware`.
+- D9: los ajustes de GitHub.
+
+**Decisión que se pide:** integrar `ver/F-018` a `main` y subirlo.
