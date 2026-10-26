@@ -10,6 +10,34 @@ Tintero prepares what an e-ink display shows: a to-do board, a calendar, public 
 
 *The `today` example view, drawn from the sample data in `config/`.*
 
+## How it works
+
+![Architecture: sources, integrations, the drawing engine, the mTLS API and the ESP32](docs/guide/images/architecture.en.svg)
+
+1. Your sources (tasks, calendars, public holidays) feed small integrations on the server.
+2. The engine turns them into 1-bit images, one per view, sized for the panel.
+3. A private API (mutual TLS: only your own displays can connect) serves those images.
+4. The ESP32 wakes up, downloads only what changed, shows it and goes back to sleep.
+
+### Views
+
+| ![The today view](docs/guide/images/hoy-en.png) | ![The board view](docs/guide/images/tablero-en.png) | ![The agenda view](docs/guide/images/agenda-en.png) |
+| :---------------------------------------------: | :-------------------------------------------------: | :-------------------------------------------------: |
+|          `today`: tasks, events, the month          |       `board`: to do, in progress and done        |        `agenda`: the week's events and holidays         |
+
+### Two buttons
+
+- **Move:** short press = next zone; long press = next view.
+- **Accept:** short press = check a task or open it; long press = go back or refresh now.
+
+The details are in [the firmware notes](firmware/README.md).
+
+### The circuit
+
+![The circuit: ESP32, the panel adapter and two buttons](docs/hardware/tintero-buttons/out/tintero-buttons.front.svg)
+
+Parts and wiring: [Hardware guide](docs/guide/en/hardware.md).
+
 ## What you need
 
 To see it working you only need a computer:

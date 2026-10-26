@@ -10,6 +10,34 @@ Tintero prepara lo que muestra una pantalla e-ink: un tablero de tareas, un cale
 
 *La vista de ejemplo `hoy`, dibujada con los datos de ejemplo de `config/`.*
 
+## Cómo funciona
+
+![Arquitectura: fuentes, integraciones, el motor que dibuja, la API con mTLS y el ESP32](docs/guide/images/architecture.es.svg)
+
+1. Tus fuentes (tareas, calendarios, festivos) alimentan pequeñas integraciones en el servidor.
+2. El motor las convierte en imágenes de 1 bit, una por vista, del tamaño del panel.
+3. Una API privada (TLS mutuo: solo se conectan tus propias pantallas) sirve esas imágenes.
+4. El ESP32 despierta, descarga solo lo que cambió, lo muestra y vuelve a dormir.
+
+### Vistas
+
+| ![La vista hoy](docs/guide/images/hoy-es.png) | ![La vista tablero](docs/guide/images/tablero-es.png) | ![La vista agenda](docs/guide/images/agenda-es.png) |
+| :-------------------------------------------: | :---------------------------------------------------: | :-------------------------------------------------: |
+|        `hoy`: tareas, eventos y el mes        |         `tablero`: por hacer, en curso y hechas       |      `agenda`: eventos de la semana y festivos      |
+
+### Dos botones
+
+- **Mover:** pulsación corta = siguiente zona; larga = siguiente vista.
+- **Aceptar:** pulsación corta = marcar una tarea o abrirla; larga = volver o actualizar ahora.
+
+Los detalles están en [las notas del firmware](firmware/README.md).
+
+### El circuito
+
+![El circuito: ESP32, el adaptador del panel y dos botones](docs/hardware/tintero-buttons/out/tintero-buttons.front.svg)
+
+Piezas y cableado: [guía de hardware](docs/guide/es/hardware.md).
+
 ## Qué hace falta
 
 Para verlo funcionar basta un computador:
