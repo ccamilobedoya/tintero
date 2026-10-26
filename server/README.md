@@ -2,6 +2,8 @@
 
 Servidor mínimo de Tintero (F-003): habla el contrato v1 con vistas de demostración (`demo`, `detalle`, `patron`) dibujadas por código en `raw1`, para cualquier panel declarado. Solo escucha en `127.0.0.1`, sin TLS (demostración local) o con TLS y certificado de cliente (F-004); el estado vive en memoria.
 
+> Guía de uso (inglés y español): [`docs/guide/`](../docs/guide/README.md). Para empezar sin hardware, mira [`getting-started.md`](../docs/guide/es/getting-started.md); para escribir un bloque, [`blocks.md`](../docs/guide/es/blocks.md), y una integración, [`integrations.md`](../docs/guide/es/integrations.md).
+
 ## Arrancar
 
 ```bash
