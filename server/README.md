@@ -154,7 +154,7 @@ El ESP32 no corre Tailscale, y un Funnel en el servidor publicaría su nombre en
 4. **Abrirlo** (lo hace el dueño): `cd <carpeta del nodo> && docker compose up -d`. **Cerrarlo:** `docker compose down`. Con `restart: unless-stopped`, una vez abierto vuelve solo tras reiniciar la máquina (es un servicio permanente); `down` lo deja cerrado también después de reiniciar. El contenedor tiene topes de procesos (128), memoria (256 MB) y registros (3 × 5 MB).
 5. Comprobar en los servidores DNS autoritativos que el nombre `tintero` resuelve y el del servidor **no** (NXDOMAIN).
 
-La URL de las pantallas es `https://tintero.<tailnet>.ts.net` (443). Qué necesita el ESP32: `firmware/README.md`.
+La URL de las pantallas es `https://tintero.<tailnet>.ts.net` (443). Qué necesita el ESP32: `firmware/README.es.md`.
 
 ## Como servicio (F-010)
 

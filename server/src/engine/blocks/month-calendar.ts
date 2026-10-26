@@ -8,7 +8,6 @@ import { mmToPx } from "../units.ts";
 import { innerW, isTooSmall, noFit, stripRow, titleRow } from "./common.ts";
 import type { Block, BlockContext } from "./types.ts";
 
-const LETTERS = ["L", "M", "M", "J", "V", "S", "D"];
 const RULE_H = 2;
 const DOT = 5;
 const DOT_ROOM = 14;
@@ -68,7 +67,7 @@ export const monthCalendar: Block = (context) => {
   const beside = !below && colW - numW >= DOT_ROOM;
   const hidden = below || beside ? 0 : withEvents.size;
 
-  const letters = LETTERS.map(
+  const letters = context.msgs.weekdayLetters.map(
     (letter, i) =>
       html`<div
         class="a"

@@ -51,7 +51,7 @@ El circuito de los dos pulsadores y el panel, dibujado sobre una protoboard:
 
 ## Compilar y grabar el firmware
 
-El firmware es C++ para [PlatformIO](https://platformio.org/); basta la línea de comandos `pio`. Está en `firmware/`. Sus notas (en español, con el detalle del protocolo) están en [`firmware/README.md`](../../../firmware/README.md).
+El firmware es C++ para [PlatformIO](https://platformio.org/); basta la línea de comandos `pio`. Está en `firmware/`. Sus notas (con el detalle del protocolo) están en [`firmware/README.es.md`](../../../firmware/README.es.md).
 
 1. **Wi-Fi.** Copia la plantilla y escribe tu red de 2,4 GHz. Git ignora este archivo:
 

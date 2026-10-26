@@ -51,7 +51,7 @@ The circuit of the two buttons and the panel is drawn on a breadboard:
 
 ## Build and flash the firmware
 
-The firmware is C++ for [PlatformIO](https://platformio.org/); the `pio` command line is enough. It lives in `firmware/`. Its own notes (in Spanish, with the protocol details) are in [`firmware/README.md`](../../../firmware/README.md).
+The firmware is C++ for [PlatformIO](https://platformio.org/); the `pio` command line is enough. It lives in `firmware/`. Its own notes (with the protocol details) are in [`firmware/README.md`](../../../firmware/README.md).
 
 1. **Wi-Fi.** Copy the template and write your 2.4 GHz network. Git ignores this file:
 

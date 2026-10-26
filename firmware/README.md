@@ -1,115 +1,117 @@
 # firmware
 
-Firmware del ESP32 (C++, PlatformIO). Lo escribe el dueño del proyecto; los agentes solo ayudan si él lo pide (ADR-0013). Esta carpeta es la copia maestra del firmware.
+[Leer en español](README.es.md)
 
-## Compilar y grabar
+ESP32 firmware (C++, PlatformIO). The project owner writes it; agents only help if asked (ADR-0013, in Spanish). This folder is the master copy of the firmware.
 
-Se necesita [PlatformIO](https://platformio.org/) (la línea de comandos `pio` basta), un ESP32 DevKit con el panel GDEY075T7 y el adaptador DESPI-C02, y una PKI propia (`npm run pki -- init`, `server` y `device`; ver la guía de certificados). Todo el firmware está en inglés en el código; esta guía está en español.
+## Build and flash
 
-1. **Wi-Fi.** Copia la plantilla y escribe tu red de 2,4 GHz (el archivo lo ignora git):
+You need [PlatformIO](https://platformio.org/) (the `pio` command line is enough), an ESP32 DevKit with the GDEY075T7 panel and the DESPI-C02 adapter, and your own PKI (`npm run pki -- init`, `server` and `device`; see the certificates guide). All the firmware code is in English; this guide is in English too (its Spanish pair is `README.es.md`).
+
+1. **Wi-Fi.** Copy the template and write your 2.4 GHz network (git ignores the file):
    ```bash
    cp firmware/include/secrets.h.example firmware/include/secrets.h
    ```
-2. **Certificados de esta pantalla.** Genera `firmware/include/tintero_certs.h` con el nombre del servidor, el id de la pantalla (`p1`), la CA y la llave y el certificado **de esa pantalla solamente** (una pantalla por archivo: cada aparato lleva solo su llave):
+2. **This display's certificates.** Generate `firmware/include/tintero_certs.h` with the server name, the display id (`p1`), the CA, and the key and certificate **of that display only** (one display per file: each device carries only its own key):
    ```bash
    npm run pki -- firmware /path/to/pki --host tintero.example.ts.net p1
    ```
-   El archivo queda con permisos 600, git lo ignora, y la herramienta se niega a escribir una llave en un archivo del repo que git no ignore. Nunca imprime una llave.
-3. **Compilar y grabar** (con el ESP32 conectado por USB):
+   The file gets mode 600, git ignores it, and the tool refuses to write a key into a repo file that git does not ignore. It never prints a key.
+3. **Build and flash** (with the ESP32 connected over USB):
    ```bash
    cd firmware
    pio run -t upload
-   pio device monitor    # opcional: el monitor serie a 115200
+   pio device monitor    # optional: the serial monitor at 115200
    ```
-   El firmware solo usa las constantes de ese archivo (`TINTERO_HOST`, `TINTERO_DEVICE_ID`, `TINTERO_CA_PEM`, `TINTERO_DEVICE_CERT_PEM`, `TINTERO_DEVICE_KEY_PEM`); el nombre del servidor no está en ningún otro archivo del repo. Para otra pantalla, vuelve a generar el archivo con su `pN` y graba.
-4. **Autorizar la pantalla.** La línea `<huella> pN` que imprime `npm run pki -- device` debe estar en la lista de aparatos del servidor; si no, todo responde 404 vacío.
+   The firmware only uses the constants of that file (`TINTERO_HOST`, `TINTERO_DEVICE_ID`, `TINTERO_CA_PEM`, `TINTERO_DEVICE_CERT_PEM`, `TINTERO_DEVICE_KEY_PEM`); the server name is in no other file of the repo. For another display, generate the file again with its `pN` and flash.
+4. **Authorize the display.** The `<fingerprint> pN` line that `npm run pki -- device` prints must be in the server's device list; otherwise every request gets an empty 404.
 
-El cableado del panel y de los dos botones (Mover en GPIO32 y Aceptar en GPIO33, cada uno entre su pin y 3V3, con la *pull-down* interna) está en `src/panel.cpp` y `src/buttons.cpp`.
+The wiring of the panel and of the two buttons (Move on GPIO32 and Accept on GPIO33, each between its pin and 3V3, with the internal *pull-down*) is in `src/panel.cpp` and `src/buttons.cpp`.
 
-## Licencia del binario
+## Binary license
 
-El código fuente del firmware es MIT, como el resto del repo. **Pero un binario compilado enlaza GxEPD2, que es GPL-3.0, y entonces el binario entero queda bajo GPL-3.0.** Por eso este repo **no publica binarios**, solo código fuente; quien compile y distribuya un binario debe cumplir la GPL-3.0 (ofrecer su código fuente y esa licencia). ArduinoJson es MIT. Ver `NOTICE`.
+The firmware source code is MIT, like the rest of the repo. **But a compiled binary links GxEPD2, which is GPL-3.0, so the whole binary falls under GPL-3.0.** That is why this repo **publishes no binaries**, only source; whoever builds and distributes a binary must comply with GPL-3.0 (offer its source code and that license). ArduinoJson is MIT. See `NOTICE`.
 
-## Seguridad del aparato
+## Device security
 
-- **Validación del servidor.** El firmware valida al servidor **solo** con la CA de Tintero (`setCACert`): nunca desactiva la validación del certificado ni usa las CA públicas, y toda petición lleva tiempos de espera y límites de tamaño antes de leer (sección 3).
-- **Las llaves quedan legibles en la *flash*.** Mientras no haya cifrado de la flash (L6), quien robe el aparato puede leer la llave de esa pantalla. Por eso cada aparato lleva **solo su propia llave**: robar uno no compromete a otro.
-- **Revocar una pantalla.** Quita su línea de la lista de aparatos del servidor y reinicia el servidor: desde ese momento esa pantalla recibe 404 vacío, aunque conserve sus llaves. Para volver a usarla, emite un certificado nuevo con otro id.
+- **Server validation.** The firmware validates the server **only** against the Tintero CA (`setCACert`): it never turns certificate validation off or uses the public CAs, and every request has timeouts and size limits before reading (section 3).
+- **Keys stay readable in *flash*.** Until flash encryption exists (L6), whoever steals the device can read that display's key. That is why each device carries **only its own key**: stealing one does not compromise another.
+- **Revoking a display.** Remove its line from the server's device list and restart the server: from then on that display gets an empty 404, even if it keeps its keys. To use it again, issue a new certificate with another id.
 
-## Qué necesita el ESP32 para hablar con Tintero
+## What the ESP32 needs to talk to Tintero
 
-Esta guía no tiene datos reales: el nombre público, las rutas y las llaves de cada pantalla viven fuera del repo (ADR-0023).
+This guide has no real data: the public name, the paths and each display's keys live outside the repo (ADR-0023, in Spanish).
 
-### 1. Archivos de la pantalla (los genera `npm run pki`, F-004/F-012)
-- `ca.crt`: la CA privada de Tintero. El ESP32 confía **solo** en ella (no en las CA públicas).
-- `pN.crt` y `pN.key`: el certificado y la llave de esa pantalla (ECDSA P-256, PEM). La llave **no sale del ESP32** (después, cifrado de la flash, L6).
-- La línea `<huella> pN` de la pantalla tiene que estar en la lista de aparatos del servidor; si no, todo responde 404 vacío.
+### 1. The display's files (generated by `npm run pki`, F-004/F-012)
+- `ca.crt`: Tintero's private CA. The ESP32 trusts **only** it (not the public CAs).
+- `pN.crt` and `pN.key`: that display's certificate and key (ECDSA P-256, PEM). The key **never leaves the ESP32** (later, flash encryption, L6).
+- The display's `<fingerprint> pN` line must be in the server's device list; otherwise every request gets an empty 404.
 
-Con Arduino (`WiFiClientSecure`): `setCACert(ca)`, `setCertificate(crt)`, `setPrivateKey(key)`. Con ESP-IDF (`esp_http_client`): `cert_pem`, `client_cert_pem`, `client_key_pem`. Este firmware recibe los tres, ya como texto, en `include/tintero_certs.h` (ver *Compilar y grabar*).
+With Arduino (`WiFiClientSecure`): `setCACert(ca)`, `setCertificate(crt)`, `setPrivateKey(key)`. With ESP-IDF (`esp_http_client`): `cert_pem`, `client_cert_pem`, `client_key_pem`. This firmware receives the three, already as text, in `include/tintero_certs.h` (see *Build and flash*).
 
-### 2. Antes del TLS: la hora
-El certificado del servidor se valida con fechas. Sin hora (el ESP32 arranca en 1970) el saludo TLS falla. Sincronizar por SNTP **antes** de conectar (o guardar la última hora buena en el RTC del ESP32 entre despertadas).
+### 2. Before TLS: the time
+The server certificate is validated against dates. Without a clock (the ESP32 boots in 1970) the TLS handshake fails. Sync over SNTP **before** connecting (or keep the last good time in the ESP32's RTC between wake-ups).
 
-### 3. Conexión
-- `https://<nombre-público>/` en el puerto **443**. El nombre (SNI) tiene que ser el del certificado del servidor.
-- **Una petición a la vez** (nunca en paralelo); se puede reusar la conexión dentro de una despertada.
-- **Tiempos de espera en toda petición** (conexión y lectura; p. ej. 10 s y 20 s): si el servidor no responde, dormir y probar en la próxima despertada.
-- **Límites antes de leer** (entrada externa): rechazar un `Content-Length` mayor que el esperado (índice ≤ 2048 bytes, zonas ≤ 4096, imagen = `bytes` del índice) y acotar `next_wake_s` a 30–86 400 s.
+### 3. Connection
+- `https://<public-name>/` on port **443**. The name (SNI) must be the one in the server certificate.
+- **One request at a time** (never in parallel); the connection may be reused within a wake-up.
+- **Timeouts on every request** (connect and read; e.g. 10 s and 20 s): if the server does not answer, sleep and try again on the next wake-up.
+- **Limits before reading** (external input): reject a `Content-Length` larger than expected (index ≤ 2048 bytes, zones ≤ 4096, image = the index's `bytes`) and clamp `next_wake_s` to 30–86 400 s.
 
-### 4. Cabeceras en **cada** petición
-| Cabecera | Valor |
-|----------|-------|
+### 4. Headers on **every** request
+| Header | Value |
+|--------|-------|
 | `Tintero-Protocol` | `1` |
-| `Tintero-Firmware` | texto, 1–32 caracteres (p. ej. `esp32-0.1`) |
-| `Tintero-Power` | `battery` o `usb` |
+| `Tintero-Firmware` | text, 1–32 characters (e.g. `esp32-0.1`) |
+| `Tintero-Power` | `battery` or `usb` |
 | `Tintero-Formats` | `raw1` |
 | `Tintero-Panel` | `w=800,h=480,dpi=124,depth=1` (GDEY075T7) |
-| `Tintero-Battery-mV`, `Tintero-RSSI` | opcionales |
-| `Tintero-View` | opcional: el id de la vista que muestra el aparato ahora (ver *Foco y acciones*) |
+| `Tintero-Battery-mV`, `Tintero-RSSI` | optional |
+| `Tintero-View` | optional: the id of the view the device shows now (see *Focus and actions*) |
 
-### 5. Una despertada
-1. `GET /api/v1/index` → `current`, `views[]` (con `hash`, `bytes`, `crc32`), `panel`, `next_wake_s` (cambia con `Tintero-Power`: 600 con `usb`, 1800 con `battery`, por defecto).
-2. Si el `panel` de la respuesta no es el que se declaró, no mostrar nada nuevo y volver en `next_wake_s`.
-3. Por cada vista cuya `hash` cambió (empezando por `current`): `GET /api/v1/views/{id}/image?h={hash}` y `GET /api/v1/views/{id}/zones?h={hash}`. Comprobar que la imagen tiene **exactamente** `bytes` (48 000 en el panel actual) y su **CRC-32** (el de zlib) antes de guardarla o mostrarla.
-4. Mostrar `current`; el foco (anillo) lo dibuja el ESP32 con refresco parcial sobre las zonas (ADR-0006, ver *Foco y acciones*). Si `full_refresh` es `true`, esa imagen se muestra con el refresco completo lento.
-5. Las acciones hechas (también sin red) van juntas en `POST /api/v1/actions` (1–8, cada una con un `id` único: el servidor ignora repetidas).
-6. Opcional: `POST /api/v1/log` con avisos cortos.
-7. Dormir `next_wake_s` segundos.
+### 5. One wake-up
+1. `GET /api/v1/index` → `current`, `views[]` (with `hash`, `bytes`, `crc32`), `panel`, `next_wake_s` (it changes with `Tintero-Power`: 600 with `usb`, 1800 with `battery`, by default).
+2. If the response's `panel` is not the one declared, show nothing new and come back in `next_wake_s`.
+3. For each view whose `hash` changed (starting with `current`): `GET /api/v1/views/{id}/image?h={hash}` and `GET /api/v1/views/{id}/zones?h={hash}`. Check that the image has **exactly** `bytes` (48 000 on the current panel) and its **CRC-32** (zlib's) before storing or showing it.
+4. Show `current`; the ESP32 draws the focus (ring) with a partial refresh over the zones (ADR-0006, see *Focus and actions*). If `full_refresh` is `true`, that image is shown with the slow full refresh.
+5. The actions taken (also offline) go together in `POST /api/v1/actions` (1–8, each with a unique `id`: the server ignores repeats).
+6. Optional: `POST /api/v1/log` with short notices.
+7. Sleep `next_wake_s` seconds.
 
-### 6. Formato `raw1`
-`ceil(ancho / 8) × alto` bytes; filas de arriba abajo, píxeles de izquierda a derecha, **bit más significativo primero**, **1 = negro**. Si el controlador del panel usa 1 = blanco, invertir los bytes al volcar.
+### 6. The `raw1` format
+`ceil(width / 8) × height` bytes; rows from top to bottom, pixels from left to right, **most significant bit first**, **1 = black**. If the panel controller uses 1 = white, invert the bytes when sending them.
 
-### 7. Botones (ADR-0005)
-- **Mover:** corto = siguiente zona (en el orden de `zones`); largo = siguiente vista (en el orden de `views`).
-- **Aceptar:** corto = la acción de la zona (`toggle` marca/desmarca, `open` abre el detalle); largo = volver (en un detalle) o actualizar ya (en una vista).
+### 7. Buttons (ADR-0005)
+- **Move:** short = next zone (in the order of `zones`); long = next view (in the order of `views`).
+- **Accept:** short = the zone's action (`toggle` checks/unchecks, `open` opens the detail); long = go back (in a detail) or refresh now (in a view).
 
-### 8. Respuestas que hay que manejar
-| Respuesta | Qué hacer |
-|-----------|-----------|
-| 404 sin cuerpo | la pantalla no está autorizada (o certificado ausente): revisar llaves y lista de aparatos |
-| 409 `stale_view` / `stale_zone` | pedir otra vez el índice |
-| 429 `too_many` / 503 `busy` | esperar `Retry-After` segundos y reintentar |
-| 304 | la imagen no cambió (con `If-None-Match`) |
-| fallo de TLS | revisar la hora, `ca.crt` y el nombre |
+### 8. Responses to handle
+| Response | What to do |
+|----------|------------|
+| 404 with no body | the display is not authorized (or its certificate is missing): check keys and the device list |
+| 409 `stale_view` / `stale_zone` | ask for the index again |
+| 429 `too_many` / 503 `busy` | wait `Retry-After` seconds and retry |
+| 304 | the image did not change (with `If-None-Match`) |
+| TLS failure | check the time, `ca.crt` and the name |
 
-### 9. Foco y acciones (F-008, ADR-0048 a ADR-0050)
-Lo que hace el aparato; el servidor ya entrega las zonas alineadas y con la banda en blanco.
+### 9. Focus and actions (F-008, ADR-0048 to ADR-0050)
+What the device does; the server already delivers the zones aligned and with the blank band.
 
-- **Zonas alineadas al byte:** `x` y `w` de cada zona son múltiplos de 8, así que la ventana parcial de una zona es exactamente la zona (sin partir bytes). `validateZones` da `unaligned` si no.
-- **El anillo punteado.** La respuesta de zonas trae `focus: { ring, pad, dash }` (a 124 ppp: 3, 6 y 8). Se **invierten** los píxeles de la zona a menos de `ring` de su borde; con `dash > 0`, un píxel de la franja de **arriba o de abajo** se invierte solo si `floor((x − zona.x) / dash)` es par, y uno de la franja **izquierda o derecha** (fuera de las de arriba y abajo) solo si `floor((y − zona.y) / dash)` es par. Con `dash = 0` el anillo es sólido. Por dentro de cada zona hay una banda de `pad` px **en blanco** (≥ `ring`): el anillo nunca toca contenido, y quitarlo es invertir otra vez.
-- **Estados:**
-  - *sin foco*: al despertar y al cambiar de vista; ninguna zona lleva borde.
-  - *foco*: anillo punteado en la zona. **Mover corto** = siguiente zona (la primera vez, la zona 1).
-  - *enviando*: al soltar **Aceptar**, anillo **sólido** por refresco parcial y `POST /api/v1/actions`.
-  - *aplicado*: la respuesta trae `index_changed: true` → `GET /api/v1/index` en la misma conexión (el servidor espera hasta 2 s el dibujo; con `503 busy` esperar `Retry-After` y reintentar **una** vez), bajar la imagen nueva y mostrarla con **un solo completo rápido**, con el anillo ya puesto en la zona con el **mismo id** (la tarea marcada pasa a *Hecho hoy* y el foco la sigue; deshacer es otro Aceptar) o, si ya no existe, en la zona del **mismo índice** (la última si hay menos).
-  - *descartado*: `stale` → sacar la acción de la cola y pedir el índice; `duplicate` → sacar de la cola.
-  - *sin red*: vuelve el anillo punteado y la acción queda en la cola (hasta 8), sin marca optimista (ADR-0025).
-- **Limpieza.** Un completo rápido al quedarse quieto (unos 30 s, quitando el foco) y tras un tope de parciales que se mide en el panel (para empezar, 10).
-- **`full_refresh`.** `true` = la **próxima** imagen que se muestre va con el refresco completo **lento**. El servidor lo pone en el primer `index` del día de cada pantalla.
-- **`Tintero-View`.** Mandar en cada petición el id de la vista que se muestra (también tras un cambio de vista con Mover largo, que el servidor no ve). El servidor dibuja esa vista primero y la devuelve como `current`; si no la conoce, la ignora. Un valor que no cumple `^[a-z0-9_-]{1,16}$` da `400 invalid_request`.
-- **Letra y trazos.** Con el refresco rápido los trazos de 1 px se ven tenues: el tema usa trazos de al menos 2 px. La vista `calibracion` (`config/calibracion.views.example.json`) sirve para decidir en el panel los grosores y la letra de los detalles (ADR-0049).
+- **Byte-aligned zones:** each zone's `x` and `w` are multiples of 8, so a zone's partial window is exactly the zone (no split bytes). `validateZones` reports `unaligned` otherwise.
+- **The dotted ring.** The zones response carries `focus: { ring, pad, dash }` (at 124 dpi: 3, 6 and 8). The zone's pixels closer than `ring` to its edge are **inverted**; with `dash > 0`, a pixel of the **top or bottom** strip is inverted only if `floor((x − zone.x) / dash)` is even, and one of the **left or right** strip (outside the top and bottom ones) only if `floor((y − zone.y) / dash)` is even. With `dash = 0` the ring is solid. Inside each zone there is a **blank** band of `pad` px (≥ `ring`): the ring never touches content, and removing it is inverting again.
+- **States:**
+  - *no focus*: on wake-up and when changing view; no zone has a border.
+  - *focus*: dotted ring on the zone. **Short Move** = next zone (the first time, zone 1).
+  - *sending*: on releasing **Accept**, a **solid** ring by partial refresh and `POST /api/v1/actions`.
+  - *applied*: the response carries `index_changed: true` → `GET /api/v1/index` on the same connection (the server waits up to 2 s for the drawing; on `503 busy` wait `Retry-After` and retry **once**), download the new image and show it with **a single fast full refresh**, with the ring already on the zone with the **same id** (the checked task moves to *Done today* and the focus follows it; undoing is another Accept) or, if it no longer exists, on the zone at the **same index** (the last one if there are fewer).
+  - *discarded*: `stale` → take the action out of the queue and ask for the index; `duplicate` → take it out of the queue.
+  - *offline*: the dotted ring returns and the action stays in the queue (up to 8), with no optimistic mark (ADR-0025).
+- **Cleanup.** A fast full refresh when idle (about 30 s, removing the focus) and after a cap of partial refreshes measured on the panel (to start, 10).
+- **`full_refresh`.** `true` = the **next** image shown uses the **slow** full refresh. The server sets it on each display's first `index` of the day.
+- **`Tintero-View`.** Send on every request the id of the view being shown (also after a view change with a long Move, which the server does not see). The server draws that view first and returns it as `current`; if it does not know it, it ignores it. A value that does not match `^[a-z0-9_-]{1,16}$` gets `400 invalid_request`.
+- **Type and strokes.** With the fast refresh, 1 px strokes look faint: the theme uses strokes of at least 2 px. The `calibracion` view (`config/calibracion.views.example.json`) lets you decide on the panel the stroke widths and the detail type (ADR-0049).
 
-### 10. Probar sin la pantalla
-- `npm run emulator -- --server <url> --ca ca.crt --cert pN.crt --key pN.key --wakes 1` se porta como el ESP32 y deja en una carpeta lo que mostraría el panel. Es la referencia de comportamiento.
-- `npm run contract:mock`: un simulador con las respuestas de ejemplo del contrato.
-- Todo el detalle: `contract/openapi/v1.json`, `contract/schema/v1/` y `docs/fichas/F-001-contrato-protocolo.md`.
+### 10. Testing without the display
+- `npm run emulator -- --server <url> --ca ca.crt --cert pN.crt --key pN.key --wakes 1` behaves like the ESP32 and leaves in a folder what the panel would show. It is the behavior reference.
+- `npm run contract:mock`: a simulator with the contract's example responses.
+- All the detail: `contract/openapi/v1.json`, `contract/schema/v1/` and `docs/fichas/F-001-contrato-protocolo.md` (in Spanish).
