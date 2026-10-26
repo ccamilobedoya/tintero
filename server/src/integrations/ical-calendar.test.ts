@@ -261,6 +261,13 @@ describe("mergeCalendars", () => {
     const { events } = mergeCalendars([filler, [long]], { y: 2026, m: 10, d: 25 }, "UTC");
     expect(events.some((e) => e.id === "long")).toBe(true);
   });
+
+  it("counts an event over 62 days that covers today as distance zero", () => {
+    const filler = Array.from({ length: 5 }, (_, i) => event(`2026-10-${26 + i}`, `f${i}`));
+    const long = event("2026-08-01", "long", "2026-12-31");
+    const { events } = mergeCalendars([filler, [long]], { y: 2026, m: 10, d: 25 }, "UTC", 5);
+    expect(events.some((e) => e.id === "long")).toBe(true);
+  });
 });
 
 // ---- the integration against a fake server ----
