@@ -193,3 +193,45 @@ export function parsePrivacy(data: unknown): Finding[] {
     };
   });
 }
+
+/** tools/lib/public-scan.ts --json (F-018): `{ hits: [{ file, line, kind }], binaries }`. */
+export function parsePublication(data: unknown): Finding[] {
+  return asArray(asRecord(data).hits).map((raw) => {
+    const hit = asRecord(raw);
+    return {
+      tool: "publicacion",
+      rule: asString(hit.kind),
+      file: asString(hit.file),
+      line: asNumber(hit.line),
+      blocking: true,
+    };
+  });
+}
+
+/** trufflehog --json (F-018, D11): one JSON object per line; every detection blocks, except the
+ *  ones listed as `trufflehog:<Detector>` in tools/public-scan-allow.txt. */
+export function parseTrufflehog(
+  raw: string,
+  isAllowed: (file: string, kind: string) => boolean,
+): Finding[] {
+  return raw
+    .split("\n")
+    .filter((line) => line.trim().startsWith("{"))
+    .flatMap((line) => {
+      const entry = asRecord(JSON.parse(line) as unknown);
+      if (entry.DetectorName === undefined) return [];
+      const data = asRecord(asRecord(entry.SourceMetadata).Data);
+      const where = asRecord(data.Git ?? data.Filesystem);
+      const file = asString(where.file).replace(/^\/src\//, "");
+      if (isAllowed(file, `trufflehog:${asString(entry.DetectorName)}`)) return [];
+      return [
+        {
+          tool: "trufflehog",
+          rule: asString(entry.DetectorName),
+          file,
+          line: asNumber(where.line),
+          blocking: true,
+        },
+      ];
+    });
+}

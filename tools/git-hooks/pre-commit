@@ -10,6 +10,9 @@ source tools/images.conf
 mapfile -t STAGED < <(git diff --cached --name-only --diff-filter=ACMR)
 [ "${#STAGED[@]}" -eq 0 ] && exit 0
 
+# 0. Archivos que nunca van al repo, por nombre, aunque se agreguen con `git add -f` (F-018, R5).
+node tools/lib/never-commit.ts --staged || exit 1
+
 # 1. Secretos: se copian los archivos tal como quedarán en el commit y se revisan con gitleaks.
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

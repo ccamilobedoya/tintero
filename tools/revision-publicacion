@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# Revisión 1 de la etapa H de F-018 (ADR-0061): todo lo que tiene que salir limpio antes de publicar,
+# sobre el árbol de trabajo y sobre la historia de TODAS las ramas. Falla cerrado: un paso que no corre bloquea.
+# Deja en .revisar/publicacion/ cada salida y la hoja de contactos (todas las imágenes en una página) para
+# la revisión 2. Uso: tools/revision-publicacion    · salida 0 limpio, 1 hallazgo o paso que no corrió.
+set -uo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+# shellcheck source=/dev/null
+source tools/images.conf
+OUT=.revisar/publicacion
+rm -rf "$OUT" && mkdir -p "$OUT"
+UIDGID="$(id -u):$(id -g)"
+COMMON="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
+GITENV=(-e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*')
+FAIL=0
+step() {
+  local name="$1"; shift
+  if "$@" >"$OUT/$name.txt" 2>&1; then echo "✅ $name"; else echo "❌ $name (ver $OUT/$name.txt)"; FAIL=1; fi
+}
+
+# 0. Todas las ramas públicas están en esta copia (si falta una, su historia no se revisa).
+missing() {
+  comm -13 <(git for-each-ref --format='%(refname)' refs/remotes/origin | sed 's#refs/remotes/origin/#refs/heads/#' | sort) \
+    <(git ls-remote --heads origin | awk '{print $2}' | sort) | { if read -r ref; then echo "rama sin traer: $ref"; exit 1; fi; }
+}
+step ramas missing
+
+# 1. Términos privados (lista fuera del repo; sin ella este paso NO pasa: falla cerrado).
+terms() {
+  local list="${TINTERO_PRIVATE_TERMS:-$HOME/.config/tintero/private-terms.txt}"
+  [ -s "$list" ] || { echo "no hay lista privada en $list"; return 1; }
+  node tools/lib/private-terms.ts --tree && node tools/lib/private-terms.ts --history
+}
+step privacidad terms
+
+# 2. gitleaks sobre el árbol de trabajo y sobre la historia de todas las ramas.
+step gitleaks-arbol docker run --rm --network none --user "$UIDGID" -v "$ROOT:/src:ro" "$GITLEAKS_IMAGE" \
+  dir /src --no-banner --redact --config /src/.gitleaks.toml --exit-code 1
+step gitleaks-historia docker run --rm --network none --user "$UIDGID" -v "$ROOT:/src:ro" -v "$COMMON:$COMMON:ro" \
+  "${GITENV[@]}" "$GITLEAKS_IMAGE" git /src --no-banner --redact --config /src/.gitleaks.toml --exit-code 1 \
+  --log-opts=--all
+
+# 3. El escáner propio (R7), con su inventario de archivos que no son texto.
+step public-scan-arbol node tools/lib/public-scan.ts --tree --json "$OUT/public-scan-arbol.json"
+step public-scan-historia node tools/lib/public-scan.ts --history --json "$OUT/public-scan-historia.json"
+
+# 4. trufflehog (D11), sin red y sin verificación; las excepciones salen de tools/public-scan-allow.txt.
+printf '%s\n' '(^|/)node_modules/' '(^|/)\.git(/|$)' '(^|/)\.revisar/' '(^|/)\.agentes/' '(^|/)\.pio/' \
+  '(^|/)package-lock\.json$' '(^|/)coverage/' >"$OUT/trufflehog-exclude.txt"
+truffle() {
+  local raw="$1"; shift
+  docker run --rm --network none --user "$UIDGID" "$@" >"$raw" 2>"$raw.err" || return 1
+  node -e '
+    const { parseTrufflehog } = await import(process.argv[1] + "/tools/lib/findings.ts");
+    const { allowed, parseAllow } = await import(process.argv[1] + "/tools/lib/public-scan.ts");
+    const fs = await import("node:fs");
+    const rules = parseAllow(fs.readFileSync(process.argv[1] + "/tools/public-scan-allow.txt", "utf8"));
+    const found = parseTrufflehog(fs.readFileSync(process.argv[2], "utf8"), (f, k) => allowed({ file: f, kind: k }, rules));
+    for (const f of found) console.log(`${f.rule} · ${f.file}:${f.line ?? 0}`);
+    process.exitCode = found.length === 0 ? 0 : 1;
+  ' "$ROOT" "$raw"
+}
+step trufflehog-arbol truffle "$OUT/trufflehog-arbol.json" -v "$ROOT:/src:ro" "$TRUFFLEHOG_IMAGE" filesystem /src \
+  --no-verification --no-update --json --exclude-paths "/src/$OUT/trufflehog-exclude.txt"
+step trufflehog-historia truffle "$OUT/trufflehog-historia.json" -v "$ROOT:/src:ro" -v "$COMMON:$COMMON:ro" "${GITENV[@]}" \
+  "$TRUFFLEHOG_IMAGE" git file:///src --no-verification --no-update --json
+
+# 5. Ningún archivo que siga git coincide con la lista de los que nunca se guardan (R5).
+step nunca node tools/lib/never-commit.ts --tree
+
+# 6. Hoja de contactos: todas las imágenes que siguen git, en una página, para que el dueño las mire.
+contact_sheet() {
+  local html="$OUT/hoja-de-contactos.html"
+  {
+    echo '<!doctype html><meta charset="utf-8"><title>Hoja de contactos</title>'
+    echo '<style>body{font:14px sans-serif;margin:16px;background:#fff;color:#111}figure{display:inline-block;margin:8px;vertical-align:top;max-width:820px}img{max-width:800px;border:1px solid #999}</style>'
+    echo "<h1>Imágenes del repo ($(git rev-parse --short HEAD))</h1>"
+    git ls-files -z | tr '\0' '\n' | grep -iE '\.(png|jpe?g|gif|svg|webp)$' | while read -r file; do
+      case "$file" in *.svg) type=svg+xml ;; *.png) type=png ;; *.gif) type=gif ;; *.webp) type=webp ;; *) type=jpeg ;; esac
+      printf '<figure><img src="data:image/%s;base64,%s"><figcaption>%s</figcaption></figure>\n' "$type" "$(base64 -w0 "$file")" "$file"
+    done
+  } >"$html"
+  echo "$html"
+}
+step hoja-de-contactos contact_sheet
+
+echo
+[ "$FAIL" -eq 0 ] && echo "Revisión 1: LIMPIA. Falta la revisión 2 (revisor y dueño)." || echo "Revisión 1: NO pasa."
+exit "$FAIL"

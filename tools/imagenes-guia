@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Imágenes de la guía pública (F-018, R21, ADR-0062): solo datos de ejemplo de config/, reloj y panel fijos.
+# Escribe docs/guide/images/<nombre>.png. Volver a correrlo da los mismos bytes (CA19).
+# Uso: tools/imagenes-guia    (necesita Docker para el Chromium del motor, como `npm run render`)
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+OUT=docs/guide/images
+NOW=2026-10-26T13:00:00Z
+PANEL=w=800,h=480,dpi=124,depth=1
+HOLIDAYS=tests/acceptance/F-013/fixtures/nager-CO-2026.json # festivos públicos de 2026, sin datos personales
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+# <nombre de la imagen> <archivo de vistas> <archivo de datos> <id de la vista>
+IMAGES=(
+  "hoy-en config/hoy.views.example.en.json config/hoy.data.example.en.json hoy"
+  "hoy-es config/hoy.views.example.json config/hoy.data.example.json hoy"
+  "tablero-es config/tablero.views.example.json config/tablero.data.example.json tablero"
+  "agenda-es config/agenda.views.example.json config/agenda.data.example.json agenda"
+  "calibracion config/calibracion.views.example.json config/calibracion.data.example.json calibracion"
+)
+
+mkdir -p "$OUT"
+for entry in "${IMAGES[@]}"; do
+  read -r name views data id <<<"$entry"
+  for file in "$views" "$data"; do
+    [ -f "$file" ] || { echo "❌ falta $file" >&2; exit 1; }
+  done
+  dir="$TMP/$name"
+  npm run --silent render -- --views "$views" --data "$data" --panel "$PANEL" --out "$dir" \
+    --now "$NOW" --holidays "$HOLIDAYS" >/dev/null || { echo "❌ no se pudo dibujar $name" >&2; exit 1; }
+  [ -s "$dir/$id.png" ] || { echo "❌ $name no dejó $id.png" >&2; exit 1; }
+  cp "$dir/$id.png" "$OUT/$name.png"
+  echo "✅ $OUT/$name.png"
+done
+
+# Ninguna imagen sale con metadatos ni con algo que no pueda publicarse.
+node tools/lib/public-scan.ts --tree

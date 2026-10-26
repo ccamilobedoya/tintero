@@ -12,15 +12,27 @@ import {
   parseNpmAudit,
   parseOsv,
   parsePrivacy,
+  parsePublication,
   parsePrettier,
   parseSemgrep,
   parseTrivyConfig,
+  parseTrufflehog,
   parseTsc,
   parseVitest,
 } from "./findings.ts";
 import { changedFiles, defaultBase, showFile } from "./git.ts";
 import { matchesAny, parsePatterns } from "./glob.ts";
 import { asRecord } from "./json.ts";
+import { allowed, parseAllow } from "./public-scan.ts";
+
+/** The exceptions of tools/public-scan-allow.txt (F-018), also for trufflehog. */
+function allowIn(root: string): (file: string, kind: string) => boolean {
+  const rules = parseAllow(
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- fixed file of this repo
+    readFileSync(join(root, "tools/public-scan-allow.txt"), "utf8").slice(0, 64 * 1024),
+  );
+  return (file, kind) => allowed({ file, kind }, rules);
+}
 
 const MAX_FINDING_LINES = 15;
 const MAX_LIST = 6;
@@ -56,11 +68,24 @@ const TOOLS: readonly ToolSpec[] = [
   { name: "hadolint", output: "hadolint.json", parse: (raw) => parseHadolint(json(raw)) },
   { name: "trivy", output: "trivy.json", parse: (raw) => parseTrivyConfig(json(raw)) },
   { name: "privacidad", output: "privacidad.json", parse: (raw) => parsePrivacy(json(raw)) },
+  { name: "publicacion", output: "publicacion.json", parse: (raw) => parsePublication(json(raw)) },
+  { name: "nunca", output: "nunca.txt", parse: () => [] },
+  {
+    name: "trufflehog",
+    output: "trufflehog.json",
+    parse: (raw, root) => parseTrufflehog(raw, allowIn(root)),
+  },
+  {
+    name: "trufflehog-history",
+    output: "trufflehog-history.json",
+    parse: (raw, root) => parseTrufflehog(raw, allowIn(root)),
+  },
 ];
 
 /** Tools that exit non-zero when they find something; for the rest a non-zero exit means failure. */
 const EXITS_ON_FINDINGS = new Set([
   "privacidad",
+  "publicacion",
   "tsc",
   "eslint",
   "prettier",
