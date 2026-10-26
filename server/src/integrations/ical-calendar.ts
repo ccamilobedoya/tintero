@@ -25,7 +25,8 @@ const INTEGRATION = "ical-calendario";
 /** Limits the guarded client of every calendar must be built with (R3). */
 export const ICAL_HTTP_LIMITS = { maxBytes: 8_388_608, timeoutMs: 15_000 } as const;
 const MAX_VEVENTS = 20_000;
-const MAX_REPETITIONS = 2000;
+const MAX_REPETITIONS = 2000; // repetitions inside the window, per calendar
+const MAX_STEPS = 100_000; // iterator steps, also those before the window
 const MAX_TITLE = 200;
 const MAX_STATE_BYTES = 4_194_304;
 const SOURCE_LIMIT = 500;
@@ -150,6 +151,7 @@ export function parseCalendar(
   const seen = new Set<string>();
   let truncated = 0;
   let expanded = 0;
+  let steps = 0;
 
   const emit = (
     uid: string,
@@ -237,22 +239,35 @@ export function parseCalendar(
         if (statusOf(item) === "CANCELLED") continue;
         const fallback = zoneOf(item);
         const iterator = item.iterator();
+        const noExceptions = Object.keys(item.exceptions).length === 0;
+        const durationSeconds = Math.max(0, Math.abs(item.duration.toSeconds()));
+        const skipMs = durationSeconds * 1000 + 2 * 86_400_000;
+        const skipDays = Math.ceil(durationSeconds / 86_400) + 2;
         for (;;) {
-          if (expanded >= MAX_REPETITIONS) {
+          if (expanded >= MAX_REPETITIONS || steps >= MAX_STEPS) {
             truncated++;
             break;
           }
           const next = iterator.next() as ICAL.Time | null; // the types miss the end: it gives null
           if (!next) break;
-          expanded++;
+          steps++;
           const origin = point(next, fallback);
           if (origin.allDay ? origin.text >= toKey : origin.value >= toMs) break;
+          // Far before the window and no moved occurrences: skip the costly details.
+          if (
+            noExceptions &&
+            (origin.allDay ? origin.text : origin.value) <
+              (origin.allDay ? dayKey(addDays(window.from, -skipDays)) : fromMs - skipMs)
+          )
+            continue;
           const details = item.getOccurrenceDetails(next) as unknown as {
             item: ICAL.Event;
             startDate: ICAL.Time;
             endDate: ICAL.Time;
           };
+          const before = events.length;
           emit(item.uid, details.item, item, details.startDate, details.endDate, fallback);
+          if (events.length > before) expanded++;
         }
       } catch {
         // a recurrence that cannot be expanded is left out; the others go on

@@ -133,10 +133,30 @@ describe("parseCalendar", () => {
   });
 
   it("caps the repetitions of a calendar", () => {
-    const text = wrap(["UID:d", "DTSTART:20150101T100000Z", "RRULE:FREQ=DAILY", "SUMMARY:Diario"]);
+    const text = wrap(["UID:d", "DTSTART:20261001T100000Z", "RRULE:FREQ=HOURLY", "SUMMARY:Horas"]);
     const { events, truncated } = parseCalendar(text, TRABAJO, WINDOW, "UTC");
     expect(truncated).toBeGreaterThan(0);
     expect(events.length).toBeLessThanOrEqual(2000);
+  });
+
+  it("counts only the repetitions inside the window", () => {
+    const text = wrap(["UID:d", "DTSTART:20190101T100000Z", "RRULE:FREQ=DAILY", "SUMMARY:Diario"]);
+    const { events, truncated } = parseCalendar(text, TRABAJO, WINDOW, "UTC");
+    expect(truncated).toBe(0);
+    expect(events).toHaveLength(94);
+  });
+
+  it("stops an iterator that never reaches the window", () => {
+    const text = wrap([
+      "UID:m",
+      "DTSTART:20190101T100000Z",
+      "RRULE:FREQ=MINUTELY",
+      "SUMMARY:Minuto",
+    ]);
+    const started = Date.now();
+    const { truncated } = parseCalendar(text, TRABAJO, WINDOW, "UTC");
+    expect(truncated).toBeGreaterThan(0);
+    expect(Date.now() - started).toBeLessThan(3000);
   });
 
   it("expands an endless event that starts inside the window", () => {
