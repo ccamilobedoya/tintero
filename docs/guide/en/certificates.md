@@ -89,6 +89,8 @@ npm run emulator -- --server https://localhost:8443 --store /tmp/tintero-emu \
   --key /path/to/pki-test/devices/p1.key --wakes 1
 ```
 
+The port in the emulator's `--server` must be the same `--port` you started the server with (8443 in the example). If 8443 is already taken, use another port in both.
+
 If `/tmp/tintero-emu/screen.png` appears, the whole chain works. Delete the throwaway folder when you are done. For the real thing, point `--server` at your public name with the real files.
 
 ## Keep the authority safe

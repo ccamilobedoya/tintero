@@ -275,8 +275,10 @@ export async function pkiFirmware(
   const key = readPem(join(real, "devices", `${id}.key`));
   const target = realTarget(out);
   if (!existsSync(dirname(target))) throw new PkiError("the output folder does not exist");
-  await ensureIgnoredByGit(target);
   const temp = `${target}.${randomBytes(6).toString("hex")}.tmp`;
+  // The temporary file holds the key too: git must ignore it as well as the destination.
+  await ensureIgnoredByGit(target);
+  await ensureIgnoredByGit(temp);
   try {
     await writeFile(temp, firmwareHeader(host, id, ca, cert, key), { flag: "wx", mode: 0o600 });
     await chmod(temp, 0o600);

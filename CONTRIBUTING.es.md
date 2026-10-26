@@ -32,6 +32,7 @@ Escribe pruebas unitarias para el código que agregues. El código, los identifi
 
 - **Nada personal, nada de tu propia infraestructura, ningún secreto.** Ni nombres reales, ni redes de tu casa o tu oficina, ni nombres `*.ts.net`, direcciones IP, correos, rutas de tu máquina, llaves, tokens o direcciones de calendarios. Usa valores de relleno como `tintero.example.ts.net`, `example.com`, `p1` y `/path/to/pki`.
 - Archivos como `secrets.h`, `tintero_certs.h`, `*.key`, `*.pem`, `devices.txt` y `.env*` los bloquea por nombre el hook de *pre-commit* (la lista completa está en `tools/never-commit.txt`).
+- Los hooks se pueden saltar con `git commit --no-verify`; por favor no lo hagas. Antes de publicar se corre `tools/revision-publicacion`, que revisa el árbol y la historia sin depender de los hooks.
 - Toda entrada de afuera (red, archivos, cabeceras, salida de otros programas) lleva un límite de tamaño **antes** de interpretarse.
 - Los servicios locales escuchan solo en `127.0.0.1`. Por favor, no agregues ejemplos ni documentos que usen HTTP sin TLS, permisos abiertos o que apaguen la revisión de certificados.
 

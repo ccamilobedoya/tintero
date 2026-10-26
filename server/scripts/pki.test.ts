@@ -324,6 +324,14 @@ describe("pki firmware (R14, R15)", () => {
     ).toEqual([]);
   });
 
+  it("refuses an ignored output whose temporary file git would not ignore (writes nothing)", async () => {
+    // `*.log` is ignored, but `<name>.log.<hex>.tmp` is not.
+    const out = join(REPO, "tintero-fw-test.log");
+    expect((await cli(["firmware", pki, "--host", HOST, "p1", "--out", out])).code).toBe(2);
+    expect(existsSync(out)).toBe(false);
+    expect(readdirSync(REPO).filter((n) => n.startsWith("tintero-fw-test"))).toEqual([]);
+  });
+
   it("pkiFirmware returns the path it wrote", async () => {
     const out = join(base, "fw-path.h");
     expect(await pkiFirmware(pki, HOST, "p1", out)).toBe(out);
