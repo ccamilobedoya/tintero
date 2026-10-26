@@ -5,7 +5,7 @@
 // Exceptions: tools/public-scan-allow.txt, one "<file glob> <kind>  # reason" per line.
 // CLI: --tree | --history   [--json <out>]   · exit 0 clean, 1 findings (or a read error), 2 usage.
 import { execFileSync } from "node:child_process";
-import { readFileSync, statSync, writeFileSync } from "node:fs";
+import { lstatSync, readFileSync, readlinkSync, writeFileSync } from "node:fs";
 import { matchesAny } from "./glob.ts";
 
 export const KINDS = [
@@ -40,7 +40,7 @@ export interface AllowRule {
 
 const MAX_FILE_BYTES = 16 * 1024 * 1024;
 const MAX_LINE_CHARS = 20_000;
-const SKIP = [/^node_modules\//, /(^|\/)package-lock\.json$/];
+const SKIP = [/^node_modules(\/|$)/, /(^|\/)package-lock\.json$/];
 
 const HOME = /\/home\/[a-z_][a-z0-9_-]*\/|\b[A-Za-z]:\\{1,2}Users\\{1,2}[A-Za-z0-9._-]+/;
 const EMAIL = /[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
@@ -195,13 +195,25 @@ function scanTree(binaries: BinaryEntry[]): ScanHit[] {
   return files.flatMap((file) => {
     try {
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- files listed by git in this repo
-      const size = statSync(file).size;
-      if (size > MAX_FILE_BYTES) return [{ file, line: 0, kind: "unreadable" as const }];
+      const info = lstatSync(file);
+      // A link is published as its target path: scan that text, never what it points to.
+      if (info.isSymbolicLink())
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- files listed by git in this repo
+        return scanText(readlinkSync(file)).map((hit) => ({ file, ...hit }));
+      if (!info.isFile()) return [];
+      if (info.size > MAX_FILE_BYTES) return [{ file, line: 0, kind: "unreadable" as const }];
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- files listed by git in this repo, size checked above
       return scanBlob(file, readFileSync(file), binaries);
     } catch (error) {
-      // A file listed by git but deleted from the working tree has nothing to publish.
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      // Deleted from the working tree but still in the index: the index copy is what a commit
+      // would publish, so that is what gets scanned. Anything else that cannot be read blocks.
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        try {
+          return scanBlob(file, git(["show", `:${file}`]), binaries);
+        } catch {
+          return [{ file, line: 0, kind: "unreadable" as const }];
+        }
+      }
       return [{ file, line: 0, kind: "unreadable" as const }];
     }
   });
@@ -242,10 +254,12 @@ function scanHistory(binaries: BinaryEntry[]): ScanHit[] {
 }
 
 function main(): number {
-  const [mode] = process.argv.slice(2);
-  const jsonIndex = process.argv.indexOf("--json");
-  const jsonOut = jsonIndex >= 0 ? process.argv[jsonIndex + 1] : undefined;
-  if ((mode !== "--tree" && mode !== "--history") || (jsonIndex >= 0 && jsonOut === undefined)) {
+  const args = process.argv.slice(2);
+  const [mode, ...rest] = args;
+  // Exactly one mode, then optionally `--json <out>`: anything else is a usage error.
+  const jsonOut = rest[0] === "--json" && rest.length === 2 ? rest[1] : undefined;
+  const valid = rest.length === 0 || jsonOut !== undefined;
+  if ((mode !== "--tree" && mode !== "--history") || !valid) {
     process.stderr.write("Uso: public-scan --tree | --history [--json <salida>]\n");
     return 2;
   }
