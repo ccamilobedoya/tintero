@@ -75,19 +75,50 @@ export function fitList<T>(
   return { placed, hidden, moreY: hidden > 0 ? y : undefined };
 }
 
-/** The block's own title row (only if the slot has a `title`); returns its height. */
-export function titleRow(context: BlockContext): { html: Raw; height: number } {
+/** Section strip (ADR-0056): label on the left, `right` on the right, a `line` rule at the bottom. */
+export function stripRow(
+  context: BlockContext,
+  label: string,
+  right: string,
+  y: number,
+  options: { lead?: boolean; dropRight?: boolean } = {},
+): Raw {
+  const m = context.metrics;
+  const lead = options.lead === true;
+  const text = label.toUpperCase();
+  const common = `line-height:${m.strip}px;letter-spacing:1px;${fontCss(m.font.detail, true)}${lead ? ";background:#000;color:#fff" : ""}`;
+  const box = `left:0;top:${y}px;width:${context.w}px;height:${m.strip}px;padding:0 ${m.focusPad}px`;
+  const body =
+    options.dropRight === true
+      ? html`<div
+          class="a"
+          style="${box};overflow:hidden;display:flex;flex-wrap:wrap;justify-content:space-between;column-gap:${m.gap}px;${common}"
+        >
+          <span style="white-space:nowrap">${text}</span
+          ><span style="white-space:nowrap">${right}</span>
+        </div>`
+      : html`<div
+          class="a"
+          style="${box};display:grid;grid-template-columns:minmax(0,1fr) max-content;column-gap:${m.gap}px;${common}"
+        >
+          <span class="t">${text}</span><span style="white-space:nowrap">${right}</span>
+        </div>`;
+  const rule = lead
+    ? html``
+    : html`<div
+        class="a"
+        style="left:0;top:${y + m.strip - m.line}px;width:${context.w}px;height:${m.line}px;background:#000"
+      ></div>`;
+  return html`${body}${rule}`;
+}
+
+/** The block's title as a strip (only with `slot.title`); the stale notice wins over `right`. */
+export function titleRow(context: BlockContext, right = ""): { html: Raw; height: number } {
   const { metrics, slot } = context;
   if (slot.title === undefined) return { html: html``, height: 0 };
-  const h = metrics.titleRow;
   return {
-    height: h,
-    html: html`<div
-      class="a t"
-      style="left:${metrics.focusPad}px;top:0;width:${innerW(context)}px;height:${h}px;line-height:${h}px;${fontCss(metrics.font.title, true)}"
-    >
-      ${slot.title}
-    </div>`,
+    height: metrics.strip,
+    html: stripRow(context, slot.title, context.stale ?? right, 0),
   };
 }
 

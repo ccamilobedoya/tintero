@@ -177,9 +177,8 @@ export function createEngine(options: EngineOptions): Engine {
   let holidays: ReadonlyMap<string, string> = new Map();
   let holidaysDigest = sha(JSON.stringify([...holidays]));
 
-  // Last good read of each source, and the stage a task had before it was marked done.
+  // Last good read of each source.
   const readAts = new Map<string, Date>();
-  const previousStage = new Map<string, Stage>();
 
   const deviceViews = new Map(Object.entries(config.devices));
   const defs = new Map(config.views.map((view) => [view.id, view]));
@@ -509,7 +508,6 @@ export function createEngine(options: EngineOptions): Engine {
     if (action.act === "toggle" && checkable && !target.readonly) {
       const source = sources[target.sourceId];
       if (source?.type !== "tasks") return { status: "stale", changed: false } as const;
-      const remember = `${target.sourceId}\n${target.itemId}`;
       const changes: ToggleChange[] = [];
       replaceSource(target.sourceId, {
         ...source,
@@ -519,27 +517,17 @@ export function createEngine(options: EngineOptions): Engine {
           if (task.stage === undefined && target.block === "task-list") {
             return { ...task, done: !task.done };
           }
-          if (stageOf(task) !== "done") {
-            previousStage.set(remember, stageOf(task));
-            changes.push({
-              sourceId: target.sourceId,
-              taskId: task.id,
-              stage: "done",
-              previous: stageOf(task),
-            });
-            return { ...task, stage: "done", done: true, doneAt: clock().toISOString() };
+          // D3 (ADR-0055): todo -> doing -> done -> todo.
+          const previous = stageOf(task);
+          const next: Stage =
+            previous === "todo" ? "doing" : previous === "doing" ? "done" : "todo";
+          changes.push({ sourceId: target.sourceId, taskId: task.id, stage: next, previous });
+          if (next === "done") {
+            return { ...task, stage: next, done: true, doneAt: clock().toISOString() };
           }
-          const back = previousStage.get(remember) ?? "todo";
-          previousStage.delete(remember);
-          changes.push({
-            sourceId: target.sourceId,
-            taskId: task.id,
-            stage: back,
-            previous: "done",
-          });
-          const reopened: Task = { ...task, stage: back, done: false };
-          delete reopened.doneAt;
-          return reopened;
+          const moved: Task = { ...task, stage: next, done: false };
+          delete moved.doneAt;
+          return moved;
         }),
       });
       enqueueWhere((d) => usesSource(d, target.sourceId));

@@ -4,6 +4,7 @@ import type { CalendarEvent } from "../config.ts";
 import {
   addDays,
   dayKey,
+  dayLabel,
   eventStart,
   hhmm,
   upperDate,
@@ -21,6 +22,8 @@ interface Entry {
   event?: CalendarEvent;
   holiday?: string;
   time: EventTime;
+  /** Column layout: the day text, only on the first row of each day. */
+  day?: string;
 }
 
 /** Events per day inside the window; holiday first, then all-day, then by time (ties keep the data order). */
@@ -30,9 +33,10 @@ function agendaGroups(
   days: number,
   timeZone: string,
   holidays: ReadonlyMap<string, string> | undefined,
-): { header: string; items: Entry[] }[] {
+  column: boolean,
+): { header?: string; items: Entry[] }[] {
   const starts = events.map((event): Entry => ({ event, time: eventStart(event.start, timeZone) }));
-  const out: { header: string; items: Entry[] }[] = [];
+  const out: { header?: string; items: Entry[] }[] = [];
   for (let i = 0; i < days; i++) {
     const day = addDays(today, i);
     const key = dayKey(day);
@@ -45,12 +49,19 @@ function agendaGroups(
       );
     const name = holidays?.get(key);
     if (name !== undefined) items.unshift({ holiday: name, time: { day, allDay: true } });
-    if (items.length > 0) out.push({ header: upperDate(day), items });
+    const [first] = items;
+    if (first === undefined) continue;
+    if (column) {
+      first.day = dayLabel(day, today);
+      out.push({ items });
+    } else {
+      out.push({ header: upperDate(day), items });
+    }
   }
   return out;
 }
 
-function row(context: BlockContext, entry: Entry, iconColumn: boolean): Raw {
+function row(context: BlockContext, entry: Entry, iconColumn: boolean, dayColumn: boolean): Raw {
   const { metrics } = context;
   const h = metrics.row;
   const pad = metrics.focusPad;
@@ -77,7 +88,14 @@ function row(context: BlockContext, entry: Entry, iconColumn: boolean): Raw {
     ${zone === undefined ? html`` : html` data-zone="${zone}"`}
     style="grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center;height:${h}px;padding:${pad}px;overflow:hidden"
   >
-    ${cell}<span style="white-space:nowrap;line-height:${ih}px;${fontCss(metrics.font.detail)}"
+    ${
+      dayColumn
+        ? html`<span
+            style="white-space:nowrap;line-height:${ih}px;${fontCss(metrics.font.detail, true)}"
+            >${entry.day ?? ""}</span
+          >`
+        : html``
+    }${cell}<span style="white-space:nowrap;line-height:${ih}px;${fontCss(metrics.font.detail)}"
       >${time}</span
     ><span class="t" style="line-height:${ih}px;${fontCss(metrics.font.text)}">${title}</span>
   </div>`;
@@ -86,19 +104,26 @@ function row(context: BlockContext, entry: Entry, iconColumn: boolean): Raw {
 export const agenda: Block = (context) => {
   const { metrics, slot, source } = context;
   if (source.type !== "events") return noFit(context);
-  const title = titleRow(context);
-  const minH = 2 * metrics.margin + title.height + metrics.groupRow + metrics.row + metrics.moreRow;
-  if (isTooSmall(context, 40, minH)) return noFit(context);
+  const dayColumn = slot.options.layout === "column";
   const days = typeof slot.options.days === "number" ? slot.options.days : 7;
   const withHolidays = slot.options.holidays === true;
+  const groups = agendaGroups(
+    source.items,
+    context.today,
+    days,
+    context.timeZone,
+    withHolidays ? context.holidays : undefined,
+    dayColumn,
+  );
+  const events = groups.reduce(
+    (sum, group) => sum + group.items.filter((item) => item.event !== undefined).length,
+    0,
+  );
+  const title = titleRow(context, String(events));
+  const minH = 2 * metrics.margin + title.height + metrics.groupRow + metrics.row + metrics.moreRow;
+  if (isTooSmall(context, 40, minH)) return noFit(context);
   const fitted = fitList(
-    agendaGroups(
-      source.items,
-      context.today,
-      days,
-      context.timeZone,
-      withHolidays ? context.holidays : undefined,
-    ),
+    groups,
     () => metrics.row,
     metrics.groupRow,
     metrics.moreRow,
@@ -110,9 +135,11 @@ export const agenda: Block = (context) => {
       entry.kind === "item" &&
       (entry.item.event === undefined || entry.item.event.icon !== undefined),
   );
-  const columns = iconColumn
-    ? `${metrics.font.text.px + 6}px max-content minmax(0,1fr)`
-    : "max-content minmax(0,1fr)";
+  const columns = `${dayColumn ? "max-content " : ""}${
+    iconColumn
+      ? `${metrics.font.text.px + 6}px max-content minmax(0,1fr)`
+      : "max-content minmax(0,1fr)"
+  }`;
   const parts = fitted.placed.map((entry) =>
     entry.kind === "header"
       ? html`<div
@@ -121,7 +148,7 @@ export const agenda: Block = (context) => {
         >
           ${entry.text}
         </div>`
-      : row(context, entry.item, iconColumn),
+      : row(context, entry.item, iconColumn, dayColumn),
   );
   const more =
     fitted.moreY === undefined

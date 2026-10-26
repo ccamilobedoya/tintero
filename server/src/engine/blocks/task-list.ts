@@ -57,7 +57,7 @@ export const taskList: Block = (context) => {
   const { metrics, slot, source } = context;
   if (source.type !== "tasks") return noFit(context);
   const grouped = slot.options.group_by !== "none";
-  const title = titleRow(context);
+  const title = titleRow(context, String(source.items.length));
   const minH =
     2 * metrics.margin +
     title.height +

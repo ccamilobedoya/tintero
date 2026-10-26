@@ -13,14 +13,21 @@ const HOLIDAYS = new Map([
   ["2026-11-16", "Independencia de Cartagena"],
 ]);
 
-function build(at: string, options: { holidays: boolean; icons?: boolean }) {
+function build(
+  at: string,
+  options: { holidays: boolean; icons?: boolean; layout?: "days" | "column" },
+) {
   const config = parseViewsConfig(read("agenda.views.example.json"));
   const data = parseDataFile(read("agenda.data.example.json"), config);
   const def = config.views[0];
   if (!def) throw new Error("no view");
   const slot = def.slots.eventos;
   if (!slot) throw new Error("no slot");
-  slot.options = { days: 7, holidays: options.holidays };
+  slot.options = {
+    days: 7,
+    holidays: options.holidays,
+    ...(options.layout === undefined ? {} : { layout: options.layout }),
+  };
   const source = data.sources.calendario;
   if (source?.type === "events" && options.icons === false) {
     for (const item of source.items) delete item.icon;
@@ -65,5 +72,25 @@ describe("agenda: pictograms (F-014)", () => {
     expect(off.zones).toHaveLength(2);
     expect(off.html).not.toContain("Dia de los Santos");
     expect(svgs(off.html)).toBe(2);
+  });
+});
+
+describe("agenda: layout column (F-015)", () => {
+  it("writes the day only on the first row of each day and has no day rows", () => {
+    const built = build("2026-10-26T13:00:00Z", { holidays: false, layout: "column" });
+    expect(built.html).toContain("Hoy");
+    expect(built.html).toContain("Mañana");
+    expect(built.html.split(">Hoy<").length - 1).toBe(1);
+    expect(built.html).not.toContain("LUN 26 OCT");
+    expect(built.html).toContain(
+      "grid-template-columns:max-content 22px max-content minmax(0,1fr)",
+    );
+  });
+
+  it("keeps the day rows with layout days or none", () => {
+    const days = build("2026-10-26T13:00:00Z", { holidays: false, layout: "days" });
+    const none = build("2026-10-26T13:00:00Z", { holidays: false });
+    expect(days.html).toContain("LUN 26 OCT");
+    expect(none.html).toBe(days.html);
   });
 });

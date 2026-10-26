@@ -82,14 +82,14 @@ describe("month-calendar: marks (F-013)", () => {
 
   it("draws today inverted in a box of 32 x 24 and does not hide anything", () => {
     const today = number(list, 25);
-    expect(today).toMatchObject({ x: 748, y: 400, w: 32, h: 24 });
+    expect(today).toMatchObject({ x: 748, y: 402, w: 32, h: 24 });
     expect(today?.style).toContain("background:#000;color:#fff");
     expect(hidden).toBe(0);
   });
 
   it("puts a 2 px rule of the text width under every day an event covers", () => {
     const six = rules(list).find((box) => box.x === 561);
-    expect(six).toMatchObject({ x: 561, y: 356, w: 16, h: 2 });
+    expect(six).toMatchObject({ x: 561, y: 358, w: 16, h: 2 });
     const trip = rules(list)
       .filter((box) => box.y >= 461)
       .map((box) => box.x);
@@ -119,17 +119,17 @@ describe("month-calendar: marks (F-013)", () => {
 
   it("makes the box lower in a month of six weeks and keeps the rule inside the row", () => {
     const six = boxes({ panel: P124, at: "2026-11-02T13:00:00Z" }).boxes;
-    expect(number(six, 2)).toMatchObject({ x: 514, y: 322, w: 32, h: 22 });
-    expect(rules(six).find((box) => box.x === 522)).toMatchObject({ y: 346, w: 16, h: 2 });
+    expect(number(six, 2)).toMatchObject({ x: 514, y: 324, w: 32, h: 22 });
+    expect(rules(six).find((box) => box.x === 522)).toMatchObject({ y: 348, w: 16, h: 2 });
   });
 
   it("draws a 5 x 5 dot at the side when the rule does not fit (portrait)", () => {
     const portrait = boxes({ panel: V124, at: "2026-11-02T13:00:00Z" });
-    expect(number(portrait.boxes, 2)).toMatchObject({ x: 32, y: 685, w: 32, h: 20 });
+    expect(number(portrait.boxes, 2)).toMatchObject({ x: 32, y: 687, w: 32, h: 20 });
     expect(rules(portrait.boxes)).toHaveLength(0);
     const dots = portrait.boxes.filter((box) => box.w === 5 && box.h === 5);
-    expect(dots.find((box) => box.x === 66)).toMatchObject({ x: 66, y: 692 });
-    expect(dots.find((box) => box.x === 258)).toMatchObject({ y: 692 });
+    expect(dots.find((box) => box.x === 66)).toMatchObject({ x: 66, y: 694 });
+    expect(dots.find((box) => box.x === 258)).toMatchObject({ y: 694 });
     expect(portrait.hidden).toBe(0);
   });
 });

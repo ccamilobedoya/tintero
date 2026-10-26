@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "sources": {
+    "tablero": {
+      "type": "tasks",
+      "items": [
+        {
+          "id": "b-01",
+          "title": "Soldar los pines del adaptador a la placa del panel",
+          "done": false,
+          "stage": "doing",
+          "due": "2026-10-26"
+        },
+        {
+          "id": "b-02",
+          "title": "Pagar la factura del agua",
+          "done": false,
+          "stage": "todo",
+          "due": "2026-10-22"
+        },
+        {
+          "id": "b-03",
+          "title": "Escribir la ficha de la integración de tareas",
+          "done": false,
+          "stage": "doing"
+        },
+        {
+          "id": "b-04",
+          "title": "Llamar al técnico de la nevera",
+          "done": false,
+          "stage": "todo"
+        },
+        {
+          "id": "b-05",
+          "title": "Arreglar la puerta del baño que no cierra bien",
+          "done": false,
+          "stage": "todo",
+          "due": "2026-10-28"
+        },
+        {
+          "id": "b-06",
+          "title": "Revisar las copias de seguridad",
+          "done": false,
+          "stage": "todo",
+          "due": "2026-10-30"
+        },
+        {
+          "id": "b-07",
+          "title": "Actualizar el servidor de música",
+          "done": false,
+          "stage": "todo"
+        },
+        {
+          "id": "b-08",
+          "title": "Café y azúcar",
+          "done": false,
+          "stage": "todo"
+        },
+        {
+          "id": "b-09",
+          "title": "Pilas AA para el control",
+          "done": false,
+          "stage": "todo"
+        },
+        {
+          "id": "b-10",
+          "title": "Bombillos para la cocina",
+          "done": false,
+          "stage": "todo"
+        },
+        {
+          "id": "b-11",
+          "title": "Medir el consumo en reposo",
+          "done": false,
+          "stage": "todo"
+        },
+        {
+          "id": "b-12",
+          "title": "Cambiar el filtro del agua",
+          "done": true,
+          "stage": "done",
+          "doneAt": "2026-10-24T09:00:00-05:00"
+        },
+        {
+          "id": "b-13",
+          "title": "Pedir el ESP32 de repuesto",
+          "done": true,
+          "stage": "done",
+          "doneAt": "2026-10-24T10:30:00-05:00"
+        },
+        {
+          "id": "b-14",
+          "title": "Sacar el reciclaje",
+          "done": true,
+          "stage": "done",
+          "doneAt": "2026-10-23T20:00:00-05:00"
+        }
+      ]
+    },
+    "calendario": {
+      "type": "events",
+      "items": [
+        {
+          "id": "a1",
+          "title": "Daily del equipo",
+          "start": "2026-10-26T09:00:00-05:00",
+          "icon": "maletin"
+        },
+        {
+          "id": "a2",
+          "title": "Gimnasio",
+          "start": "2026-10-26T18:30:00-05:00",
+          "icon": "persona"
+        },
+        {
+          "id": "a3",
+          "title": "Técnico de la nevera",
+          "start": "2026-10-27T10:00:00-05:00",
+          "icon": "casa"
+        },
+        {
+          "id": "a4",
+          "title": "Revisión del sprint",
+          "start": "2026-10-27T15:00:00-05:00",
+          "icon": "maletin"
+        },
+        { "id": "a5", "title": "Cumpleaños de la abuela", "start": "2026-10-28", "icon": "pastel" },
+        {
+          "id": "a6",
+          "title": "Comité de arquitectura",
+          "start": "2026-10-28T11:00:00-05:00",
+          "icon": "maletin"
+        },
+        {
+          "id": "a7",
+          "title": "Clase de cerámica",
+          "start": "2026-10-28T18:30:00-05:00",
+          "icon": "persona"
+        },
+        { "id": "a8", "title": "Pagar la administración", "start": "2026-10-29", "icon": "casa" },
+        {
+          "id": "a9",
+          "title": "1:1 con el líder",
+          "start": "2026-10-29T08:30:00-05:00",
+          "icon": "maletin"
+        },
+        { "id": "a10", "title": "Cine", "start": "2026-10-30T20:00:00-05:00", "icon": "persona" },
+        { "id": "a11", "title": "Mercado", "start": "2026-10-31T10:00:00-05:00", "icon": "casa" },
+        {
+          "id": "a12",
+          "title": "Almuerzo familiar",
+          "start": "2026-11-02T12:30:00-05:00",
+          "icon": "corazon"
+        },
+        {
+          "id": "a13",
+          "title": "Planear la semana",
+          "start": "2026-11-01T19:00:00-05:00",
+          "icon": "persona"
+        }
+      ]
+    }
+  }
+}

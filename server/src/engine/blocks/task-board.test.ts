@@ -36,7 +36,7 @@ const ids = (view: string, built: { zones: { id: string }[] }) =>
     });
 
 describe("task-board layout", () => {
-  it("`hoy` shows the lead stage, 5 todo rows and 4 hidden (rows of 30 px)", () => {
+  it("`hoy` shows the lead stage, 6 todo rows and 3 hidden (rows of 30 px)", () => {
     const built = buildView(def("hoy"), { panel: P124, config, sources: data.sources, at: AT });
     expect(ids("hoy", built)).toEqual([
       "b-01",
@@ -46,10 +46,11 @@ describe("task-board layout", () => {
       "b-05",
       "b-06",
       "b-07",
+      "b-08",
       "b-12",
       "b-13",
     ]);
-    expect(built.hidden).toEqual({ tareas: 4, hechas: 0, mes: 0 });
+    expect(built.hidden).toEqual({ tareas: 3, hechas: 0, mes: 0 });
     expect(built.tooSmall).toEqual([]);
     expect(built.html).toContain("EN PROGRESO");
     expect(built.html).toContain("HECHO HOY");
@@ -72,7 +73,7 @@ describe("task-board layout", () => {
   it("uses `portrait` in a vertical panel without `tooSmall`", () => {
     const built = buildView(def("hoy"), { panel: V124, config, sources: data.sources, at: AT });
     expect(built.tooSmall).toEqual([]);
-    expect(built.hidden.tareas).toBe(5);
+    expect(built.hidden.tareas).toBe(4);
   });
 
   it("an empty lead stage keeps its strip and the empty row", () => {
@@ -248,7 +249,7 @@ describe("engine", () => {
     return engine;
   };
 
-  it("marks a task done and brings it back to its previous stage", async () => {
+  it("cycles a task through the stages and ends where it began", async () => {
     const engine = setup();
     await engine.index("local", P124);
     const before = await engine.index("local", P124);
@@ -264,9 +265,15 @@ describe("engine", () => {
     const view = after.ok ? after.value.views[0] : undefined;
     expect(view?.zones).toHaveLength(13);
     expect(view?.zones.at(-3)?.id).toBe(zoneId("hoy", "tablero", "b-01"));
-    const again = view?.zones.find((z) => z.id === zoneId("hoy", "tablero", "b-01"));
-    expect(engine.apply("local", act("hoy", again?.id ?? "")).status).toBe("applied");
-    await engine.idle();
+    // done -> todo -> doing (ADR-0055): the third Accept is back where it started.
+    for (let i = 0; i < 2; i++) {
+      const now = await engine.index("local", P124);
+      const zone = now.ok
+        ? now.value.views[0]?.zones.find((z) => z.id === zoneId("hoy", "tablero", "b-01"))
+        : undefined;
+      expect(engine.apply("local", act("hoy", zone?.id ?? "")).status).toBe("applied");
+      await engine.idle();
+    }
     const last = await engine.index("local", P124);
     expect(last.ok && last.value.views[0]?.hash).toBe(hoy?.hash);
     await engine.close();

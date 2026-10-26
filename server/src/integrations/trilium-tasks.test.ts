@@ -198,21 +198,24 @@ describe("createTriliumTasks", () => {
     ]);
   });
 
-  it("marks done and undoes, end to end", async () => {
+  it("cycles todo, doing, done and todo again, end to end", async () => {
     const r = rig();
     await r.tasks.cycle();
     expect(r.toggle("a", "tarjeta00001")).toBe("applied");
     await r.tasks.idle();
     expect(fake.patches().map((p) => p.url + p.body)).toEqual([
-      '/etapi/attributes/atrstatus001{"value":"Hecho"}',
+      '/etapi/attributes/atrstatus001{"value":"En progreso"}',
     ]);
     expect(r.toggle("b", "tarjeta00001")).toBe("applied");
+    await r.tasks.idle();
+    expect(fake.patches().at(-1)?.body).toBe('{"value":"Hecho"}');
+    expect(r.toggle("c", "tarjeta00001")).toBe("applied");
     await r.tasks.idle();
     expect(fake.patches().at(-1)?.body).toBe('{"value":"Por hacer"}');
     expect(fake.label("tarjeta00001", "status")).toBe("Por hacer");
   });
 
-  it("a quick mark and undo write at most twice and end where they began", async () => {
+  it("two quick marks write at most twice and end in done", async () => {
     const r = rig();
     await r.tasks.cycle();
     fake.delayMs = 300;
@@ -220,10 +223,10 @@ describe("createTriliumTasks", () => {
     r.toggle("b", "tarjeta00001");
     await r.tasks.idle();
     expect(fake.patches().length).toBeLessThanOrEqual(2);
-    expect(fake.label("tarjeta00001", "status")).toBe("Por hacer");
+    expect(fake.label("tarjeta00001", "status")).toBe("Hecho");
     fake.delayMs = 0;
     await r.tasks.cycle();
-    expect(r.calls.at(-1)?.items.find((t) => t.id === "tarjeta00001")?.stage).toBe("todo");
+    expect(r.calls.at(-1)?.items.find((t) => t.id === "tarjeta00001")?.stage).toBe("done");
   });
 
   it("lets Trilium win when the card changed meanwhile", async () => {
@@ -258,7 +261,7 @@ describe("createTriliumTasks", () => {
     await r.tasks.cycle();
     expect(fake.requests.map((q) => q.method)).toEqual(["GET", "PATCH", "GET", "GET"]);
     expect(r.lines).toContainEqual(expect.objectContaining({ result: "written" }));
-    expect(r.calls.at(-1)?.items.find((t) => t.id === "tarjeta00001")?.stage).toBe("done");
+    expect(r.calls.at(-1)?.items.find((t) => t.id === "tarjeta00001")?.stage).toBe("doing");
     expect(r.calls.at(-1)?.readAt).toEqual(r.clock.now);
   });
 
@@ -339,17 +342,17 @@ describe("createTriliumTasks", () => {
     r.toggle("a", "tarjeta00001");
     await r.tasks.idle();
     expect(loadState(stateFile, BOARD, r.clock.now).state?.pending.tarjeta00001?.next).toBe(
-      "Hecho",
+      "En progreso",
     );
     await r.tasks.stop();
 
     const again = rig({ stateFile }, clientFor(), new Date("2026-10-24T17:30:00Z"));
     expect(again.calls[0]?.readAt).toEqual(NOW);
     expect(again.calls[0]?.items.map((t) => t.id)).toHaveLength(4);
-    expect(again.calls[0]?.items.find((t) => t.id === "tarjeta00001")?.stage).toBe("done");
+    expect(again.calls[0]?.items.find((t) => t.id === "tarjeta00001")?.stage).toBe("doing");
     fake.offline = false;
     await again.tasks.cycle();
-    expect(fake.patches().map((p) => p.body)).toEqual(['{"value":"Hecho"}']);
+    expect(fake.patches().map((p) => p.body)).toEqual(['{"value":"En progreso"}']);
     await again.tasks.idle();
     expect(loadState(stateFile, BOARD, again.clock.now).state?.pending).toEqual({});
   });

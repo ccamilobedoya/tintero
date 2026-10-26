@@ -1,85 +1,77 @@
-/* eslint-disable security/detect-non-literal-fs-filename, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- carpetas temporales propias y JSON de prueba */
-import { execFile, spawn, spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, readdirSync, symlinkSync } from "node:fs";
+/* eslint-disable security/detect-non-literal-fs-filename, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- JSON de prueba */
+import { execFile } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
-import { decodePng1 } from "../F-002/helpers.ts";
-import { ROOT, rmDir, runNpm, tmpDir } from "./helpers.ts";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createEngine, parseDataFile, parseViewsConfig } from "../../../server/src/engine/index.ts";
+import {
+  P124,
+  ROOT,
+  V124,
+  index8,
+  launchChromium,
+  makeClock,
+  runNpm,
+  type TestChromium,
+} from "./helpers.ts";
 
-const dir = tmpDir("tintero-f014-prev-");
-afterAll(() => {
-  rmDir(dir);
-});
+// Aclarado por F-015: la igualdad píxel a píxel ya no puede darse (F-015 cambia los títulos); se prueba la propiedad que protegía.
+describe("CA13 sin pictogramas, la cuadrícula no cambia", () => {
+  let cr: TestChromium;
+  beforeAll(async () => {
+    cr = await launchChromium();
+  }, 300_000);
+  afterAll(async () => {
+    await cr.stop();
+  }, 120_000);
 
-/** El último commit de `ficha/F-014` antes de esta ficha (lo que había al aprobarse). */
-const BASE_REF = "1cd67561643a2ad890698539bae8ebc6cb8fe33c";
-
-function renderIn(
-  cwd: string,
-  out: string,
-  panel: string,
-): Promise<{ code: number | null; log: string }> {
-  mkdirSync(out, { recursive: true });
-  return new Promise((resolve) => {
-    const p = spawn(
-      process.execPath,
-      [
-        "server/scripts/render.ts",
-        "--views",
-        "config/views.example.json",
-        "--data",
-        "config/data.example.json",
-        "--panel",
-        panel,
-        "--out",
-        out,
-        "--now",
-        "2026-10-23T12:00:00Z",
-      ],
-      { cwd, stdio: ["ignore", "pipe", "pipe"] },
-    );
-    let log = "";
-    p.stdout.on("data", (d: Buffer) => (log += d.toString()));
-    p.stderr.on("data", (d: Buffer) => (log += d.toString()));
-    const t = setTimeout(() => p.kill("SIGKILL"), 280_000);
-    p.on("close", (code) => {
-      clearTimeout(t);
-      resolve({ code, log });
-    });
-  });
-}
-
-describe("CA13 sin pictogramas, la imagen no cambia", () => {
-  it("views.example + data.example: cada vista idéntica píxel a píxel a la de antes de la ficha", async () => {
-    const base = join(dir, "base");
-    mkdirSync(base);
-    const tar = join(dir, "base.tar");
-    const a = spawnSync("git", ["-C", ROOT, "archive", "--format=tar", "-o", tar, BASE_REF]);
-    expect(a.status, String(a.stderr)).toBe(0);
-    const x = spawnSync("tar", ["-xf", tar, "-C", base]);
-    expect(x.status, String(x.stderr)).toBe(0);
-    symlinkSync(join(ROOT, "node_modules"), join(base, "node_modules"));
-
-    for (const [name, panel] of [
-      ["p124", "w=800,h=480,dpi=124,depth=1"],
-      ["v124", "w=480,h=800,dpi=124,depth=1"],
-    ] as const) {
-      const before = join(dir, `antes-${name}`);
-      const now = join(dir, `ahora-${name}`);
-      const rb = await renderIn(base, before, panel);
-      expect(rb.code, rb.log).toBe(0);
-      const rn = await renderIn(ROOT, now, panel);
-      expect(rn.code, rn.log).toBe(0);
-      const files = readdirSync(before).sort();
-      expect(files.length).toBeGreaterThan(0);
-      expect(readdirSync(now).sort()).toEqual(files);
-      for (const f of files.filter((n) => n.endsWith(".png"))) {
-        const pa = decodePng1(new Uint8Array(readFileSync(join(before, f))));
-        const pn = decodePng1(new Uint8Array(readFileSync(join(now, f))));
-        expect(Buffer.from(pn.rows).equals(Buffer.from(pa.rows)), `${name}/${f}`).toBe(true);
+  it.each([
+    ["P124", P124],
+    ["V124", V124],
+  ] as const)(
+    "views.example + data.example en %s: ningún bloque agenda tiene <svg y su cuadrícula no lleva columna de pictograma",
+    async (_name, panel) => {
+      const config = parseViewsConfig(
+        readFileSync(join(ROOT, "config/views.example.json"), "utf8"),
+      );
+      const data = parseDataFile(
+        readFileSync(join(ROOT, "config/data.example.json"), "utf8"),
+        config,
+      );
+      const engine = createEngine({
+        nextWakeS: 1800,
+        clock: makeClock("2026-10-23T12:00:00Z").clock,
+        config,
+        data,
+        renderer: cr.renderer,
+      });
+      const n0 = cr.renderer.calls.length;
+      try {
+        await index8(engine, "local", panel);
+        await engine.idle();
+      } finally {
+        await engine.close();
       }
-    }
-  }, 700_000);
+      const grids: string[] = [];
+      for (const c of cr.renderer.calls.slice(n0)) {
+        for (const m of c.html.matchAll(
+          /class="a"\s+style="[^"]*?grid-template-columns:([^;"]*)/g,
+        )) {
+          grids.push(m[1] ?? "");
+        }
+        // solo la agenda dibuja pictogramas: una página con bloque agenda no debe traer <svg
+        if (c.html.includes('class="a"')) expect(c.html).not.toContain("<svg");
+      }
+      expect(grids.length).toBeGreaterThan(0);
+      for (const g of grids) {
+        // sin pictograma: "max-content minmax(0,1fr)" (más "max-content" delante si hay columna de día); nunca "Npx …"
+        expect(g, g).not.toMatch(/\d+px/);
+        expect(g, g).toContain("minmax(0,1fr)");
+        expect(g.trim().split(/\s+(?![^()]*\))/).length, g).toBeLessThanOrEqual(3);
+      }
+    },
+    300_000,
+  );
 });
 
 describe("CA14 lo que ya existe", () => {

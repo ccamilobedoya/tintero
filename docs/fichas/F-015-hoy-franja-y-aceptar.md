@@ -1,6 +1,6 @@
 # F-015 · «Hoy» con un solo encabezado y Aceptar que avanza una etapa
 
-**Estado:** aprobada · el dueño la aprobó el 2026-10-25 (puerta 1; D1 a D3, ADR-0055 y ADR-0056)
+**Estado:** verificada · espera la puerta 2 · el dueño la aprobó el 2026-10-25 (puerta 1; D1 a D3, ADR-0055 y ADR-0056)
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna.
 
@@ -140,8 +140,9 @@ Salen de correr F-001 a F-014 contra la implementación de referencia (2026-10-2
   - F-009 CA9: la marca pendiente que se escribe al volver es `{"value":"En progreso"}`.
 - **Encabezado del mes** (regla 4): F-013 CA6 a CA9 y CA19. **Todas las `y` de los días del mes bajan 2 px**; las `x` no cambian. Los rectángulos de la etiqueta del próximo festivo (`y 249–268`) siguen sirviendo: la etiqueta queda dentro (`y 255–264`) y la raya nueva está en `y 270–271`.
 - **Pruebas que corren las anteriores:** F-013 CA20 y F-014 CA14 pasan solas cuando pasan las de arriba.
+- **F-014 CA13** *(aclarado el 2026-10-25 tras la verificación 1)*: comparaba píxel a píxel las vistas de `config/views.example.json` + `config/data.example.json` con las de antes de F-014, y F-015 cambia a propósito los títulos de esas vistas (la franja), así que esa igualdad ya no puede darse. Se reemplaza por la propiedad que protegía: con esos ejemplos (ningún evento con `icon`), en P124 y V124, el HTML de cada bloque `agenda` no tiene ningún `<svg` y su cuadrícula tiene dos columnas (`grid-template-columns` sin la columna de pictograma).
 
-**No cambian por esta ficha** y fallan igual en `main` cuando se corren en una copia sin `.git` ni configuración local (no son hallazgos): F-002 CA19, F-007 CA6, F-010 CA4, F-012 CA1 y F-014 CA13. F-002 CA21 (Prism) falló una vez y pasó en `main`; si vuelve a fallar, se reporta aparte.
+**No cambian por esta ficha** y fallan igual en `main` cuando se corren en una copia sin `.git` ni configuración local (no son hallazgos): F-002 CA19, F-007 CA6, F-010 CA4 y F-012 CA1. F-002 CA21 (Prism) y F-005 CA27 fallan a veces con todo el lote por carga y pasan solas.
 
 ## Hallazgo previo (no es de esta ficha)
 Con los ejemplos del tablero en P200 y un día sin tareas hechas (`2026-10-26`), la vista `tablero` da `overflow = ["hechas"]` (la fila «Nada hecho hoy.»). Pasa igual en `main`. Se anota como mejora.
@@ -164,9 +165,9 @@ Dibujar `hoy` en P124 no pasa de lo medido en F-008 (se anota antes y después e
 En «hoy», los cuatro bloques tienen el mismo encabezado; los eventos muestran 4 filas con el día a la izquierda y «Por hacer» una tarea más. Un Aceptar sobre una tarea de *Por hacer* la lleva a *En progreso* (y a Trilium), el siguiente a *Hecho* y el siguiente otra vez a *Por hacer*.
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto).
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
+- [x] Todos los CA pasan en la verificación (informe adjunto).
+- [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
+- [x] `tools/check-scope` limpio para cada rol.
 - [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
 - [ ] El dueño aprobó integrar.
 
@@ -182,7 +183,26 @@ En «hoy», los cuatro bloques tienen el mismo encabezado; los eventos muestran 
 ---
 
 ## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+- **Código** (programador, vuelta 1, sin desvíos): `stripRow` y `titleRow(context, right?)` en `common.ts`; franjas de `task-board` con `stripRow`; título del mes como franja con `dropRight`; `layout` de `agenda` y `dayLabel`; D2 en `task-board`; ciclo en `engine.apply` (sin el mapa `previousStage`); ejemplos `config/hoy.{views,data}.example.json`; README de `server/` y `config/`. Pruebas unitarias nuevas o cambiadas en `month-calendar`, `task-board`, `trilium-tasks`, `agenda` y `strip.test.ts` (500 pasan).
+- **Igual a la referencia:** la vista `hoy` del programador (P124, los ejemplos de hoy) sale **idéntica byte a byte** a la de la implementación de referencia del arquitecto, y con las mismas zonas.
+- **Pruebas** (verificador, fase pruebas): 45 de F-015 y las de *Pruebas anteriores que cambian*; ningún CA marcado no verificable. Dos valores los calculó el verificador y no estaban escritos (F-008 CA6 tras dos `toggle`: `hidden.tareas = 2`; F-006 CA6 tras el segundo: `hash` distinto).
+- **Verificación 1:** **CUMPLE**, 45 de 45. Fuera de F-015, **F-014 CA13** fallaba por píxeles: comparaba con la imagen de antes de F-014 las vistas de los ejemplos de F-005, cuyos títulos F-015 cambia a propósito. La ficha decía que era del entorno: **error del arquitecto** (en la copia sin `.git` fallaba antes por otra causa y la tapaba). Se aclaró en *Pruebas anteriores que cambian* (la propiedad que protegía: sin pictogramas, no hay columna de pictograma). F-002 CA21 (Prism) falló con todo el lote; solo, pasa (2 de 2 en `ver/F-015` y en `main`).
+- **Verificación 2** (solo pruebas): F-014 CA13 reformulada pasa; F-015 45 de 45; F-014 entera pasa. CA14 de F-014 (que vuelve a correr las anteriores) falló una vez con cuatro Chromium a la vez (F-005 `busy`) y pasó sola: el intermitente de carga ya conocido.
+- **Revisión:** `tools/revisar --base main` **limpio** (salida 0), sin modelo.
+- **Mejoras anotadas:** (1) `tablero` a 200 ppp desborda con «Nada hecho hoy.» (ya en `main`); (2) con el aviso «sin datos desde», la etiqueta de una franja angosta se corta («PRÓX…»); (3) F-005 CA27 y F-002 CA21 intermitentes con carga; (4) los avisos `security/detect-*` de `tests/acceptance` siguen (85).
+- **Costo en agentes:** USD 4,26 (programador 1,20; verificador 2,47 + 0,33 + 0,24; integrador 0,02).
 
 ## Resumen para aprobar
-*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
+
+## Para aprobar · F-015 · «Hoy» con un solo encabezado y Aceptar que avanza una etapa
+
+**Qué cambió:** todos los bloques llevan la misma franja de encabezado (también los eventos y el mes). En «hoy», el día de los eventos va en una columna y caben 4 en vez de 3; una tarea en progreso sin fecha ya no deja una línea vacía, así que cabe una tarea más en *Por hacer*. Aceptar sobre una tarea la pasa a la etapa siguiente: *Por hacer* → *En progreso* → *Hecho* → *Por hacer*, y se escribe en Trilium.
+
+**Criterios:** 15 de 15 pasan · vueltas: programación 1, verificación 2 (la segunda solo para una prueba de F-014 que la ficha había clasificado mal)
+
+**Revisión:** limpia · zonas sensibles: no
+**Dependencias nuevas:** ninguna
+
+**Riesgos o pendientes:** al integrar, el arquitecto pone `layout: "column"` en la vista `hoy` real y reinicia el servicio; no se probó en el panel. F-016 (Jira) sigue bloqueada.
+
+**Decisión que se pide:** integrar a `main`

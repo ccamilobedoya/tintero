@@ -56,26 +56,27 @@ describe("CA19 npm run render --holidays", () => {
         raw1,
         P124.w,
         [
-          [748, 400],
-          [779, 400],
-          [748, 423],
-          [779, 423],
-          [561, 356],
-          [576, 357],
-          [646, 461],
-          [685, 461],
-          [724, 462],
+          // F-015 (regla 4): todas las `y` de los días del mes bajan 2 px
+          [748, 402],
+          [779, 402],
+          [748, 425],
+          [779, 425],
+          [561, 358],
+          [576, 359],
+          [646, 463],
+          [685, 463],
+          [724, 464],
         ],
         [
-          [747, 410],
-          [780, 410],
-          [607, 461],
-          [560, 356],
+          [747, 412],
+          [780, 412],
+          [607, 463],
+          [560, 358],
         ],
       ),
     ).toEqual([]);
     expect(blackIn(raw1, P124.w, { x0: 640, x1: 793, y0: 249, y1: 268 })).toBeGreaterThan(0);
-    expect(isBlack(raw1, P124.w, 748, 400)).toBe(true);
+    expect(isBlack(raw1, P124.w, 748, 402)).toBe(true);
   }, 300_000);
 
   it("un archivo de 65 KiB sale con código 2", async () => {
