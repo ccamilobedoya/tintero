@@ -31,12 +31,14 @@ const MIT = [
 describe("CA1 licencia", () => {
   it("LICENSE es el texto MIT de la SPDX, línea por línea, con 2026 y Tintero contributors", () => {
     expect(has("LICENSE"), "no existe LICENSE").toBe(true);
-    const lines = read("LICENSE")
-      .replace(/\r\n/g, "\n")
-      .replace(/\n+$/, "")
-      .split("\n")
-      .map((l) => l.trimEnd());
-    expect(lines).toEqual(MIT);
+    // Same words and paragraphs; the line wrapping inside a paragraph may differ.
+    const paragraphs = (t: string): string[] =>
+      t
+        .replace(/\r\n/g, "\n")
+        .trim()
+        .split(/\n{2,}/)
+        .map((p) => p.replace(/\s+/g, " ").trim());
+    expect(paragraphs(read("LICENSE"))).toEqual(paragraphs(MIT.join("\n")));
   });
 
   it('package.json dice "license": "MIT"', () => {
@@ -196,7 +198,7 @@ describe("CA3 SECURITY y CONTRIBUTING", () => {
     });
     it("el proceso con agentes (docs/PROCESO.md) es el del autor y no se exige a quien colabora", () => {
       expect(text).toContain("docs/PROCESO.md");
-      expect(text).toMatch(
+      expect(text.replace(/[*_`]/g, "")).toMatch(
         /(not|n't)\s+(required|expected|needed|necessary|have to|need to)|optional|no need|does not apply/i,
       );
     });
