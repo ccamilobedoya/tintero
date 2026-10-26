@@ -1,0 +1,16 @@
+# Archivos que nunca se guardan en el repo, aunque se agreguen con `git add -f` (F-018, R5).
+# Un patrón por línea («**» = cualquier carpeta, también la raíz); «!» delante = excepción.
+**/secrets.h
+**/tintero_certs.h
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.pem
+!**/*.example.pem
+**/devices.txt
+**/calendarios.json
+**/integrations.json
+**/views.json
+**/state.json
+**/.env*
+!**/.env.example

@@ -43,6 +43,21 @@ if git rev-parse --verify -q HEAD >/dev/null; then
 else
   skip gitleaks-history "sin commits"
 fi
+# Segundo detector de secretos (F-018, D11): sin red y sin verificación, así ningún hallazgo sale de la máquina.
+# Solo lo que podría publicarse: fuera dependencias, salidas, git y lo que ignora .gitignore por diseño.
+printf '%s\n' '(^|/)node_modules/' '(^|/)\.git(/|$)' '(^|/)\.revisar/' '(^|/)\.agentes/' '(^|/)\.pio/' \
+  '(^|/)package-lock\.json$' '(^|/)coverage/' >"$OUT/trufflehog-exclude.txt"
+run trufflehog trufflehog.json docker run --rm --network none --user "$UIDGID" -v "$PWD:/src:ro" \
+  "$TRUFFLEHOG_IMAGE" filesystem /src --no-verification --no-update --json \
+  --exclude-paths "/src/$OUT/trufflehog-exclude.txt" &
+if git rev-parse --verify -q HEAD >/dev/null; then
+  COMMON="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
+  run trufflehog-history trufflehog-history.json docker run --rm --network none --user "$UIDGID" \
+    -v "$PWD:/src:ro" -v "$COMMON:$COMMON:ro" -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory \
+    -e GIT_CONFIG_VALUE_0='*' "$TRUFFLEHOG_IMAGE" git file:///src --no-verification --no-update --json &
+else
+  skip trufflehog-history "sin commits"
+fi
 
 # Herramientas locales (CPU), en secuencia.
 TERMS="${TINTERO_PRIVATE_TERMS:-$HOME/.config/tintero/private-terms.txt}"
@@ -51,6 +66,9 @@ if [ -f "$TERMS" ] && grep -qv -e '^#' -e '^[[:space:]]*$' "$TERMS"; then
 else
   skip privacidad "sin lista privada"
 fi
+# Lo que un repo público no puede llevar (F-018, R7/R8) y los archivos que nunca se guardan (R5).
+run_to_file publicacion node tools/lib/public-scan.ts --tree --json "$OUT/publicacion.json"
+run nunca nunca.txt node tools/lib/never-commit.ts --tree
 if git ls-files --cached --others --exclude-standard tests/acceptance | grep -q '\.ts$'; then
   run tsc tsc.txt sh -c 'npx --no-install tsc --noEmit --pretty false; a=$?; npx --no-install tsc --noEmit --pretty false -p tests/acceptance; b=$?; exit $((a|b))'
 else

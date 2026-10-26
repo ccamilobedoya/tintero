@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "lang": "en",
+  "title": {
+    "en": "ESP32 driving a 7.5\" e-paper panel with two push buttons",
+    "es": "ESP32 con un panel e-paper de 7,5\" y dos pulsadores"
+  },
+  "board": "auto",
+  "clearance": 3,
+  "parts": [
+    {
+      "id": "U1",
+      "part": "ESP32-DEVKIT",
+      "type": "module",
+      "description": {
+        "en": "ESP32 DevKit. Drives the e-paper panel over SPI (GPIO4, 16, 17, 5, 18, 23) and reads the two buttons on GPIO32 and GPIO33.",
+        "es": "ESP32 DevKit. Maneja el panel e-paper por SPI (GPIO4, 16, 17, 5, 18, 23) y lee los dos pulsadores en GPIO32 y GPIO33."
+      },
+      "pin1": "b1"
+    },
+    {
+      "id": "SW1",
+      "type": "button",
+      "description": {
+        "en": "Move button, between GPIO32 (D32) and 3V3. No external resistor: the firmware enables the ESP32's internal pull-down, so pressed = HIGH. GPIO32 is an RTC pin, so it can wake the ESP32 from deep sleep later.",
+        "es": "Botón Mover, entre GPIO32 (D32) y 3V3. Sin resistencia externa: el firmware activa el pull-down interno del ESP32, así que pulsado = HIGH. GPIO32 es un pin RTC, por lo que más adelante puede despertar al ESP32 del sueño profundo."
+      },
+      "pins": [
+        "e21",
+        "f21",
+        "e23",
+        "f23"
+      ]
+    },
+    {
+      "id": "SW2",
+      "type": "button",
+      "description": {
+        "en": "Accept button, between GPIO33 (D33) and 3V3. No external resistor: the firmware enables the ESP32's internal pull-down, so pressed = HIGH. GPIO33 is an RTC pin, so it can wake the ESP32 from deep sleep later.",
+        "es": "Botón Aceptar, entre GPIO33 (D33) y 3V3. Sin resistencia externa: el firmware activa el pull-down interno del ESP32, así que pulsado = HIGH. GPIO33 es un pin RTC, por lo que más adelante puede despertar al ESP32 del sueño profundo."
+      },
+      "pins": [
+        "e27",
+        "f27",
+        "e29",
+        "f29"
+      ]
+    },
+    {
+      "id": "W3",
+      "type": "wire",
+      "color": "yellow",
+      "pins": [
+        "a6",
+        "a21"
+      ]
+    },
+    {
+      "id": "W4",
+      "type": "wire",
+      "color": "orange",
+      "pins": [
+        "a7",
+        "a27"
+      ]
+    },
+    {
+      "id": "W2",
+      "type": "wire",
+      "color": "orange",
+      "pins": [
+        "j15",
+        "j23"
+      ]
+    },
+    {
+      "id": "EP1",
+      "type": "module",
+      "part": "DESPI-C02",
+      "rese": "0.47",
+      "panel": true,
+      "pins": {
+        "BUSY": "j11",
+        "RES": "j10",
+        "D/C": "j9",
+        "CS": "j8",
+        "SCK": "j7",
+        "SDI": "j1",
+        "3.3V": "h23",
+        "GND": "a14"
+      },
+      "description": {
+        "en": "SPI to the ESP32 with GxEPD2's default pins; RESE on 0.47 for the panel's UC8179. Powered from the 3V3 pin.",
+        "es": "SPI al ESP32 con los pines por defecto de GxEPD2; RESE en 0,47 para el UC8179 del panel. Se alimenta del pin 3V3."
+      }
+    },
+    {
+      "id": "W5",
+      "type": "wire",
+      "color": "red",
+      "pins": [
+        "i23",
+        "i29"
+      ]
+    }
+  ],
+  "spec": {
+    "nets": [
+      [
+        "EP1.BUSY",
+        "U1.D4"
+      ],
+      [
+        "EP1.RES",
+        "U1.RX2"
+      ],
+      [
+        "EP1.D/C",
+        "U1.TX2"
+      ],
+      [
+        "EP1.CS",
+        "U1.D5"
+      ],
+      [
+        "EP1.SCK",
+        "U1.D18"
+      ],
+      [
+        "EP1.SDI",
+        "U1.D23"
+      ],
+      [
+        "EP1.3.3V",
+        "U1.3V3"
+      ],
+      [
+        "EP1.GND",
+        "U1.GND"
+      ],
+      [
+        "SW1.1",
+        "U1.D32"
+      ],
+      [
+        "SW1.4",
+        "U1.3V3"
+      ],
+      [
+        "SW2.1",
+        "U1.D33"
+      ],
+      [
+        "SW2.4",
+        "U1.3V3"
+      ]
+    ],
+    "wires": [
+      "W1",
+      "W2"
+    ]
+  },
+  "revision": 11
+}
