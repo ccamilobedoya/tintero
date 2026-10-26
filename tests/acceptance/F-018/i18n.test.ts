@@ -165,7 +165,10 @@ function spanishLeft(html: string, data: string): string[] {
 /** Vistas de `hoy` y `tablero` con título en inglés (el título es del usuario, no del catálogo). */
 const englishTitles = (o: Loose): void => {
   o.locale = "en";
-  for (const v of o.views as { id: string; title: string }[]) v.title = `View ${v.id}`;
+  const titles = ["Today view", "Board view", "Schedule view", "Extra view"];
+  for (const [i, v] of (o.views as { title: string }[]).entries()) {
+    v.title = titles.at(i) ?? "Another view";
+  }
 };
 
 // --- CA8 ------------------------------------------------------------------------------------

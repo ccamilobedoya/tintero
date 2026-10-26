@@ -3,6 +3,11 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ConfigError } from "../../../server/src/engine/config.ts";
 import { parseIntegrations } from "../../../server/src/integrations/config.ts";
+import {
+  createExampleJson,
+  EXAMPLE_JSON_PATH,
+  parseExampleTasks,
+} from "../../../server/src/integrations/example-json.ts";
 import { guardedHttp, IntegrationHttpError } from "../../../server/src/integrations/http.ts";
 import * as manifests from "../../../server/src/integrations/manifest.ts";
 import type { Manifest } from "../../../server/src/integrations/manifest.ts";
@@ -46,7 +51,7 @@ describe("CA21 y R22 example-json", () => {
 
   it("http: (fuera de 127.0.0.1) → ConfigError que nombra baseUrl y no repite el valor", () => {
     const message = messageOf(() => {
-      parse({ baseUrl: "http://example.com/data" });
+      parse({ source: "tareas", baseUrl: "http://example.com/data" });
     });
     expect(message).toContain("example-json");
     expect(message).toContain("baseUrl");
@@ -55,7 +60,7 @@ describe("CA21 y R22 example-json", () => {
 
   it("https: no es rechazada por la baseUrl", () => {
     const message = messageOf(() => {
-      parse({ baseUrl: "https://example.com/" });
+      parse({ source: "tareas", baseUrl: "https://example.com/" });
     });
     expect(message).not.toContain("baseUrl");
   });
@@ -83,20 +88,21 @@ function exampleFiles(): string[] {
 
 describe("CA21 el cliente con guardia, con el manifiesto de example-json", () => {
   const hits: string[] = [];
+  const mode = { current: "" };
   let server: Server;
   let base: URL;
   beforeAll(async () => {
     server = createServer((req, res) => {
       const url = req.url ?? "";
       hits.push(url);
-      if (url.endsWith("exact")) {
+      if (mode.current === "exact") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(`[${" ".repeat(65_534)}]`);
-      } else if (url.endsWith("big")) {
+      } else if (mode.current === "big") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(`[${" ".repeat(65_535)}]`);
-      } else if (url.endsWith("redirect")) {
-        res.writeHead(302, { location: `${url.slice(0, url.lastIndexOf("/") + 1)}target` });
+      } else if (mode.current === "redirect") {
+        res.writeHead(302, { location: "/target" });
         res.end();
       } else {
         res.writeHead(200, { "content-type": "application/json" });
@@ -120,16 +126,18 @@ describe("CA21 el cliente con guardia, con el manifiesto de example-json", () =>
     if (m === undefined) throw new Error("no hay manifiesto example-json");
     return guardedHttp(base, undefined, m, { maxBytes: 65_536, timeoutMs: 3000 });
   };
-  const path = (name: string): string => `${manifest()?.routes[0]?.prefix ?? "/"}${name}`;
+  const path = (): string => EXAMPLE_JSON_PATH;
 
   it("una respuesta de 64 KiB exactos se lee", async () => {
-    const r = await client().request("GET", path("exact"));
+    mode.current = "exact";
+    const r = await client().request("GET", path());
     expect(r.status).toBe(200);
   });
 
   it("64 KiB + 1 byte → error too-large (antes de parsear: el cuerpo es JSON válido)", async () => {
+    mode.current = "big";
     const error = await client()
-      .request("GET", path("big"))
+      .request("GET", path())
       .then(
         () => undefined,
         (e: unknown) => e,
@@ -140,13 +148,67 @@ describe("CA21 el cliente con guardia, con el manifiesto de example-json", () =>
 
   it("una redirección → error, y no se sigue", async () => {
     hits.length = 0;
+    mode.current = "redirect";
     const error = await client()
-      .request("GET", path("redirect"))
+      .request("GET", path())
       .then(
         () => undefined,
         (e: unknown) => e,
       );
     expect(error).toBeInstanceOf(Error);
     expect(hits.some((u) => u.endsWith("target"))).toBe(false);
+  });
+});
+
+// --- un campo de tipo incorrecto o un id repetido no llega al motor ---------------------------
+
+const good = { id: "a1", title: "Water the plants", done: false, due: "2026-10-30" };
+const badAnswers: [string, unknown][] = [
+  ["done de tipo incorrecto", [{ ...good, done: "no" }]],
+  ["title de tipo incorrecto", [{ ...good, title: 5 }]],
+  ["due que no es fecha", [{ ...good, due: "mañana" }]],
+  ["id repetido", [good, { ...good, title: "Otra" }]],
+  ["no es una lista", { items: [good] }],
+];
+
+/** Cuenta cuántas veces llega algo al motor falso. */
+const fakeEngine = (calls: unknown[]): { setSource: (...args: unknown[]) => { ok: true } } => ({
+  setSource: (...args: unknown[]) => {
+    calls.push(args);
+    return { ok: true };
+  },
+});
+
+const runCycle = async (json: unknown, calls: unknown[]): Promise<void> => {
+  const integration = createExampleJson({
+    http: { request: () => Promise.resolve({ status: 200, json }) } as never,
+    source: "tareas",
+    engine: fakeEngine(calls) as never,
+    log: () => undefined,
+  });
+  await integration.cycle();
+  await integration.stop();
+};
+
+describe("CA21 un campo incorrecto no llega al motor", () => {
+  it("parseExampleTasks acepta lo bueno", () => {
+    expect(parseExampleTasks([good])).toEqual([good]);
+  });
+
+  for (const [name, answer] of badAnswers) {
+    it(`${name} → bad-json y setSource no se llama`, async () => {
+      expect(() => parseExampleTasks(answer)).toThrow(
+        expect.objectContaining({ code: "bad-json" }) as Error,
+      );
+      const calls: unknown[] = [];
+      await runCycle(answer, calls);
+      expect(calls).toHaveLength(0);
+    });
+  }
+
+  it("una respuesta buena sí llega al motor (la prueba mide algo)", async () => {
+    const calls: unknown[] = [];
+    await runCycle([good], calls);
+    expect(calls).toHaveLength(1);
   });
 });

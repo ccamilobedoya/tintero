@@ -163,13 +163,13 @@ describe("CA13 pki firmware escribe el encabezado de una sola pantalla", () => {
     for (const file of ["devices/p2.crt", "devices/p2.key"]) {
       const p2 = body(pem(file));
       expect(flat, file).not.toContain(p2);
-      expect(flat, `${file} (primeros 40 caracteres)`).not.toContain(p2.slice(0, 40));
+      expect(flat, `${file} (últimos 40 caracteres)`).not.toContain(p2.slice(-40));
     }
   });
 
   it("la salida de la herramienta no contiene PRIVATE KEY ni el cuerpo de la llave", () => {
     expect(run1.all).not.toContain("PRIVATE KEY");
-    expect(run1.all).not.toContain(body(pem("devices/p1.key")).slice(0, 40));
+    expect(run1.all).not.toContain(body(pem("devices/p1.key")).slice(-40));
   });
 
   it("si el destino existe lo reemplaza (modo 600, sin temporales) con la otra pantalla", () => {

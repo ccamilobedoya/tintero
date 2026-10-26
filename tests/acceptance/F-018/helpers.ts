@@ -1,6 +1,7 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- archivos del repo y carpetas temporales propias */
 import { spawnSync } from "node:child_process";
 import {
+  appendFileSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -87,6 +88,8 @@ export function cloneRepo(): string {
     if (has(rel)) cpSync(join(ROOT, rel), join(dir, rel), { recursive: true, force: true });
   }
   symlinkSync(join(ROOT, "node_modules"), join(dir, "node_modules"), "dir");
+  // `node_modules/` in .gitignore does not match a symlink: hide it so scanners don't read it as a file.
+  appendFileSync(join(dir, ".git", "info", "exclude"), "node_modules\n");
   git(dir, "add", "tools", ".gitignore", ".gitleaks.toml");
   git(dir, "commit", "--quiet", "--no-verify", "--allow-empty", "-m", "base de la copia");
   return dir;
