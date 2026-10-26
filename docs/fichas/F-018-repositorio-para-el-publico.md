@@ -160,7 +160,7 @@ Etapas en este orden (la 0 ya se hizo al preparar la ficha y se repite en H). Ca
 **D · Firmware**
 - **CA11.** `public-scan --tree` y la lista de términos privados sobre `firmware/` → 0. `grep -rn setInsecure firmware/` → nada. `grep -rn 'TINTERO_HOST\[\] = "' firmware/src firmware/include` → nada (el nombre solo está en el archivo generado, que git ignora).
 - **CA12a (arquitecto, A4).** Desde una copia limpia: copiar `secrets.h.example` a `secrets.h`, generar `tintero_certs.h` con D5 y una PKI de prueba, y `pio run` → compila.
-- **CA12b (lo corre el dueño).** Grabado en el ESP32 con sus llaves reales, el panel muestra `hoy` como antes de la ficha.
+- **CA12b (lo corre el dueño).** Grabado en el ESP32 con sus llaves reales, el panel muestra `hoy` como antes de la ficha. ✅ **Pasó el 2026-10-26:** con el `tintero_certs.h` de una sola pantalla, el ESP32 se identifica como `p1`, baja el índice (200) y la imagen de `hoy` (48 000 bytes) y refresca el panel en 2,3 s; despierta cada 600 s con USB.
 
 **E · Certificados**
 - **CA13.** Con una PKI de prueba en una carpeta temporal (`init`, `server`, `device p1`, `device p2`): `pki firmware <pki> --host tintero.example.ts.net p1 --out <tmp>/c.h` → el archivo tiene modo 600, trae `TINTERO_HOST` = `tintero.example.ts.net`, `TINTERO_DEVICE_ID` = `p1`, `TINTERO_CA_PEM`, `TINTERO_DEVICE_CERT_PEM` y `TINTERO_DEVICE_KEY_PEM`, cada PEM igual al de su archivo, y **ningún** byte del certificado ni de la llave de `p2`; la salida de la herramienta no contiene `PRIVATE KEY`.
@@ -244,7 +244,7 @@ Una persona que llega al repo por GitHub entiende en inglés qué es Tintero, lo
   - Vuelta 2: la documentación A y G.
   - Vuelta 3: las iniciales de los días en el catálogo y `firmware/README` en los dos idiomas.
   - Vuelta 4: las mejoras de la revisión: el temporal con la llave, el puerto del emulador y `--no-verify`.
-- **Firmware (CA12a):** compila limpio en un contenedor con PlatformIO 6.1.18 y una PKI de prueba, con el mismo tamaño que el original (61,8 % de la *flash*, 33,2 % de la RAM). **CA12b** (grabarlo y mirarlo en el panel) queda para el dueño.
+- **Firmware (CA12a):** compila limpio en un contenedor con PlatformIO 6.1.18 y una PKI de prueba, con el mismo tamaño que el original (61,8 % de la *flash*, 33,2 % de la RAM). **CA12b** (grabarlo y mirarlo en el panel): el dueño lo grabó desde su PC el 2026-10-26 y el panel muestra `hoy`.
 - **Verificación:**
   - 147 de 147 pruebas de F-018. En todo el lote, 893 de 894: F-005 CA27 falla por carga y pasa sola (79 de 79).
   - Se corrigieron pruebas que contradecían la ficha: CA9 (títulos), CA13 (la cabecera ASN.1 es común a toda llave P-256), CA21 (aclarado el contrato) y dos de `legal`.
