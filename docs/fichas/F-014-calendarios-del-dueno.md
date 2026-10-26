@@ -1,6 +1,6 @@
 # F-014 · Los calendarios del dueño en la pantalla, con un símbolo por calendario
 
-**Estado:** aprobada · el dueño la aprobó el 2026-10-25 (D1 a D7; ADR-0053 y ADR-0054)
+**Estado:** verificada (espera la puerta 2, después de F-013) · el dueño la aprobó el 2026-10-25 (D1 a D7; ADR-0053 y ADR-0054)
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** `ical.js@2.2.1` exacta (MPL-2.0, sin dependencias propias, firma del registro verificada, 1,4 MB): lee iCalendar con repeticiones, excepciones y zonas horarias (ADR-0054). Se instala con `npm install --save-exact ical.js@2.2.1`.
 **Rama:** sale de `ficha/F-014`, que trae `ver/F-013` (y con ella F-008). No entra a `main` antes que F-013.
@@ -204,9 +204,9 @@ END:VCALENDAR
 En la agenda de pantalla completa salen los eventos de iCloud, del Google personal y del corporativo, cada uno con su pictograma, y los festivos con la estrella. En el resumen de «hoy» salen los mismos eventos sin festivos, y el mes marca cada día con algo. Si un calendario falla, los demás siguen y la pantalla avisa «sin datos desde».
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto).
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
+- [x] Todos los CA pasan en la verificación (informe adjunto).
+- [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
+- [x] `tools/check-scope` limpio para cada rol.
 - [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
 - [ ] El dueño aprobó integrar.
 
@@ -222,7 +222,25 @@ En la agenda de pantalla completa salen los eventos de iCloud, del Google person
 ---
 
 ## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+- **Código:** `Icon`/`ICONS` e `icon`/`calendar` en `CalendarEvent`; `pictograms.ts`; columna de pictogramas y filas de festivo (sin zona) en `agenda`; `requestText` (comparte `perform` con `request`); integración `ical-calendario` (`parseCalendar`, `mergeCalendars`, `createIcalCalendars`, `loadCalendars`, estado 600 atómico) cableada en `main.ts`; ejemplos `agenda.views`, `agenda.data` y `calendarios`. Fuera de la lista: `trilium-tasks.ts` (4 líneas, su envoltura del cliente necesitaba `requestText`) y `dates.ts` (`eventSpan`). `ical.js` se usa con `exceptions: []` y las excepciones se unen por UID: así no escanea el archivo entero por cada evento (20 000 eventos, unos 7 MB, en 0,8 s).
+- **Vueltas:** el programador hizo 3. La vuelta 2 salió de su propia duda antes de verificar: contaba el tope de 2 000 desde el inicio de la serie, y una reunión diaria de hace años se habría cortado antes de esta semana. Se aclararon R3 y CA3 (las 2 000 cuentan en la ventana, más un tope de 100 000 pasos; con 200 000 tardaba 2,4 s). La vuelta 3 vino de la verificación 1: **CA4** fallaba con un evento de más de 62 días que cubre hoy (se aclaró R6). Verificación 2: **CUMPLE**, 65 de 65; CA15 lo cerró el arquitecto (`npm ls ical.js` = 2.2.1 y 206 de 206 firmas).
+- **CA14:** en la vuelta 1 cayeron los intermitentes conocidos (F-005 CA27 y el presupuesto de F-008 CA4, que pasan solos); en la vuelta 2 pasó entero.
+- **La imagen real** de `agenda` coincide con la de la referencia (1-nov, con festivo).
+- **Revisión:** `tools/revisar` limpio con salida 3 (dependencia nueva y `http.ts`); revisor en modo juicio: **sin bloqueantes**, 4 mejoras anotadas.
+- **Mejoras anotadas:** (1) `ICAL.parse` y la expansión son síncronos: medir el peor caso con excepciones o ceder el turno entre calendarios; (2) `loadCalendars` revisa el modo y lee el contenido con dos `open` (la misma ventana mínima que `readKey`): leer del mismo descriptor; (3) las direcciones con `?` se rechazan (`parseBase`): anotarlo en `config/README.md`; (4) anotar en el ADR que MPL-2.0 no obliga mientras no se modifique `ical.js`, y que `hosts: "configured"` acepta cualquier host https del archivo 600.
+- **Costo en agentes:** USD 4,55 (verificador 1,60, programador 2,75, revisor 0,17, integrador 0,04).
 
 ## Resumen para aprobar
-*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
+
+## Para aprobar · F-014 · Los calendarios del dueño en la pantalla, con un símbolo por calendario
+
+**Qué cambió:** Tintero lee los calendarios por su dirección iCalendar (iCloud público, Google personal y corporativo), con repeticiones y zonas horarias, cada 4 minutos y sin OAuth. Los junta en una fuente y la agenda muestra cada evento con el pictograma de su calendario. En la agenda de pantalla completa salen también los festivos con la estrella; en el resumen de «hoy», no.
+
+**Criterios:** 15 de 15 pasan · vueltas: verificación 2, programación 3, revisión 1
+
+**Revisión:** 4 mejoras anotadas · zonas sensibles: `server/src/integrations/http.ts`, `package.json`
+**Dependencias nuevas:** `ical.js@2.2.1` (MPL-2.0, sin dependencias propias, firmas verificadas)
+
+**Riesgos o pendientes:** no entra a `main` antes que F-013 (que espera a F-008). Para usarlo, el dueño crea el archivo de calendarios (600) con sus direcciones, sin pasarlas por el chat.
+
+**Decisión que se pide:** integrar a `main` después de F-013
