@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Imágenes de la guía pública (F-018, R21, ADR-0062): solo datos de ejemplo de config/, reloj y panel fijos.
+# Imágenes de la guía pública (F-018, R21 y R21b, ADR-0062): cada vista en inglés (README.md) y en español: solo datos de ejemplo de config/, reloj y panel fijos.
 # Escribe docs/guide/images/<nombre>.png. Volver a correrlo da los mismos bytes (CA19).
 # Uso: tools/imagenes-guia    (necesita Docker para el Chromium del motor, como `npm run render`)
 set -euo pipefail
@@ -16,9 +16,10 @@ trap 'rm -rf "$TMP"' EXIT
 IMAGES=(
   "hoy-en config/hoy.views.example.en.json config/hoy.data.example.en.json hoy"
   "hoy-es config/hoy.views.example.json config/hoy.data.example.json hoy"
+  "tablero-en config/tablero.views.example.en.json config/tablero.data.example.en.json tablero"
   "tablero-es config/tablero.views.example.json config/tablero.data.example.json tablero"
+  "agenda-en config/agenda.views.example.en.json config/agenda.data.example.en.json agenda"
   "agenda-es config/agenda.views.example.json config/agenda.data.example.json agenda"
-  "calibracion config/calibracion.views.example.json config/calibracion.data.example.json calibracion"
 )
 
 mkdir -p "$OUT"
