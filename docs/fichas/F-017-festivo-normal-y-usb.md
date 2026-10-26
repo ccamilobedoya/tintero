@@ -1,6 +1,6 @@
 # F-017 · Etiqueta del festivo en letra normal y despertar cada 10 min con USB
 
-**Estado:** aprobada · el dueño pidió los dos cambios el 2026-10-25 y que no se esperara su aprobación (ni para la ficha ni para integrar si sale limpio); ADR-0057 y ajuste de ADR-0056
+**Estado:** verificada · el dueño pidió los dos cambios el 2026-10-25 y que no se esperara su aprobación (ni para la ficha ni para integrar si sale limpio); ADR-0057 y ajuste de ADR-0056
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna.
 
@@ -91,9 +91,9 @@ Sin cambios: el índice con USB es el mismo trabajo que con batería.
 La etiqueta del próximo festivo se ve como antes de F-015, en letra normal junto al mes en negrita. Una pantalla enchufada por USB vuelve a preguntar cada 10 minutos; con batería, cada 30.
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto).
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
+- [x] Todos los CA pasan en la verificación (informe adjunto).
+- [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
+- [x] `tools/check-scope` limpio para cada rol.
 - [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
 - [ ] El dueño aprobó integrar (preaprobado si sale limpio).
 
@@ -109,7 +109,24 @@ La etiqueta del próximo festivo se ve como antes de F-015, en letra normal junt
 ---
 
 ## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+- **Código** (programador, vuelta 1, sin desvíos ni dudas): `plainRight` en `stripRow` y en el título del mes; `--next-wake-usb-s` (600) y `ServerConfig.nextWakeUsbS`; `next_wake_s` según `Tintero-Power` con motor y en el modo demostración; `index({ wakeS })` guardado por pantalla y usado por `prewarm`; `server/README.md` y la línea de `next_wake_s` en `firmware/README.md`. 504 pruebas unitarias pasan.
+- **Pruebas** (verificador, fase pruebas): 23 en `tests/acceptance/F-017/`, con la imagen de `main` grabada para CA3. Nota: el primer `prewarm` de un motor dibuja también una sonda de letras; CA7 cuenta solo los dibujos de vista.
+- **Verificación 1:** **CUMPLE**, CA1 a CA9. Con el lote completo y la máquina con carga 4–6, fallan presupuestos de tiempo (F-005 CA27, F-008 CA4, **F-015 CA5** y las que las corren, F-013 CA20 y F-014 CA14); todas pasan solas. Ninguna prueba anterior cambió, como predijo la referencia.
+- **Revisión:** `tools/revisar --base main` **limpio** (salida 0), sin modelo.
+- **Mejoras anotadas:** F-015 CA5 (presupuesto de 420 ms) se suma a los intermitentes por carga; conviene un modo de las pruebas de tiempo que no corra en paralelo con el resto del lote.
+- **Costo en agentes:** USD 1,46 (programador 0,38; verificador 0,91 + 0,16; integrador 0,02).
 
 ## Resumen para aprobar
-*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
+
+## Para aprobar · F-017 · Etiqueta del festivo en letra normal y despertar cada 10 min con USB
+
+**Qué cambió:** en la franja del mes, «FESTIVO LUN 2 NOV» vuelve a la letra normal de antes de F-015. Una pantalla enchufada por USB recibe `next_wake_s = 600` (10 min); con batería sigue en 1800. Los dos valores se configuran (`--next-wake-usb-s`, `--next-wake-s`) y el servidor dibuja por adelantado según el intervalo de cada pantalla.
+
+**Criterios:** 9 de 9 pasan · vueltas: programación 1, verificación 1
+
+**Revisión:** limpia · zonas sensibles: no
+**Dependencias nuevas:** ninguna
+
+**Riesgos o pendientes:** al integrar, reiniciar el servicio `tintero`. No se probó con el panel.
+
+**Decisión que se pide:** integrar a `main` (preaprobado por el dueño si salía limpio)

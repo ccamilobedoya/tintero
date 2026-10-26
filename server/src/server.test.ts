@@ -109,8 +109,12 @@ describe("options", () => {
     expect(parseOptions([])).toEqual({
       port: 8790,
       host: "127.0.0.1",
-      config: { nextWakeS: 1800, headersTimeoutMs: 10_000 },
+      config: { nextWakeS: 1800, nextWakeUsbS: 600, headersTimeoutMs: 10_000 },
     });
+    expect(parseOptions(["--next-wake-usb-s", "900"]).config.nextWakeUsbS).toBe(900);
+    for (const bad of ["29", "86401", "10m"]) {
+      expect(() => parseOptions(["--next-wake-usb-s", bad])).toThrow(/--next-wake-usb-s/);
+    }
     expect(parseOptions(["--port", "0", "--next-wake-s", "60"]).config.nextWakeS).toBe(60);
     expect(() => parseOptions(["--port", "99999"])).toThrow(UsageError);
     expect(() => parseOptions(["--bogus"])).toThrow(UsageError);

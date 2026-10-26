@@ -26,6 +26,8 @@ import { contentKey, makeViews, type DemoView } from "./views.ts";
 
 export interface ServerConfig {
   nextWakeS: number;
+  /** `next_wake_s` for a screen on `Tintero-Power: usb` (ADR-0057); none → `nextWakeS`. */
+  nextWakeUsbS?: number;
   headersTimeoutMs: number;
   requestTimeoutMs?: number; // 15000
   handshakeTimeoutMs?: number; // 10000
@@ -299,18 +301,21 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
   app.get("/api/v1/index", async (request, reply) => {
     const panel = deviceOf(request, reply);
     if (!panel) return reply;
+    const wakeS =
+      request.headers["tintero-power"] === "usb"
+        ? (config.nextWakeUsbS ?? config.nextWakeS)
+        : config.nextWakeS;
     if (engine) {
       const view = shownView.get(request);
-      const result = await engine.index(
-        deviceId(request),
-        panel,
-        view === undefined ? {} : { view },
-      );
+      const result = await engine.index(deviceId(request), panel, {
+        wakeS,
+        ...(view === undefined ? {} : { view }),
+      });
       if (!result.ok) return busy(reply);
       const body: IndexResponse = {
         protocol: 1,
         server_time: Math.floor(Date.now() / 1000),
-        next_wake_s: config.nextWakeS,
+        next_wake_s: wakeS,
         full_refresh: result.value.fullRefresh,
         panel,
         current: result.value.current,
@@ -339,7 +344,7 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
     const body: IndexResponse = {
       protocol: 1,
       server_time: Math.floor(Date.now() / 1000),
-      next_wake_s: config.nextWakeS,
+      next_wake_s: wakeS,
       full_refresh: false,
       panel,
       current: state.current,

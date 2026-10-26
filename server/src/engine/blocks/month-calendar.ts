@@ -24,6 +24,7 @@ function monthHeader(context: BlockContext): { html: Raw; height: number } {
     height: metrics.strip,
     html: stripRow(context, `${MONTHS_LONG[today.m - 1] ?? ""} ${today.y}`, label ?? "", 0, {
       dropRight: true,
+      plainRight: true,
     }),
   };
 }

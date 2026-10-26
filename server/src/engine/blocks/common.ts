@@ -81,10 +81,14 @@ export function stripRow(
   label: string,
   right: string,
   y: number,
-  options: { lead?: boolean; dropRight?: boolean } = {},
+  options: { lead?: boolean; dropRight?: boolean; plainRight?: boolean } = {},
 ): Raw {
   const m = context.metrics;
   const lead = options.lead === true;
+  const rightStyle =
+    options.plainRight === true
+      ? "white-space:nowrap;font-weight:400;letter-spacing:0"
+      : "white-space:nowrap";
   const text = label.toUpperCase();
   const common = `line-height:${m.strip}px;letter-spacing:1px;${fontCss(m.font.detail, true)}${lead ? ";background:#000;color:#fff" : ""}`;
   const box = `left:0;top:${y}px;width:${context.w}px;height:${m.strip}px;padding:0 ${m.focusPad}px`;
@@ -94,14 +98,13 @@ export function stripRow(
           class="a"
           style="${box};overflow:hidden;display:flex;flex-wrap:wrap;justify-content:space-between;column-gap:${m.gap}px;${common}"
         >
-          <span style="white-space:nowrap">${text}</span
-          ><span style="white-space:nowrap">${right}</span>
+          <span style="white-space:nowrap">${text}</span><span style="${rightStyle}">${right}</span>
         </div>`
       : html`<div
           class="a"
           style="${box};display:grid;grid-template-columns:minmax(0,1fr) max-content;column-gap:${m.gap}px;${common}"
         >
-          <span class="t">${text}</span><span style="white-space:nowrap">${right}</span>
+          <span class="t">${text}</span><span style="${rightStyle}">${right}</span>
         </div>`;
   const rule = lead
     ? html``

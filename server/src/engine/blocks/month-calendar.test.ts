@@ -117,6 +117,13 @@ describe("month-calendar: marks (F-013)", () => {
     ).not.toContain("FESTIVO");
   });
 
+  it("draws the holiday label in plain weight, the month stays bold (F-017)", () => {
+    const html = boxes({ panel: P124, at: "2026-10-25T20:00:00Z" }).html;
+    expect(html).toMatch(/font-weight:400;letter-spacing:0">FESTIVO LUN 2 NOV</);
+    expect(html).toMatch(/letter-spacing:1px;[^"]*font-weight:700/);
+    expect(html).toContain("OCTUBRE 2026");
+  });
+
   it("makes the box lower in a month of six weeks and keeps the rule inside the row", () => {
     const six = boxes({ panel: P124, at: "2026-11-02T13:00:00Z" }).boxes;
     expect(number(six, 2)).toMatchObject({ x: 514, y: 324, w: 32, h: 22 });
