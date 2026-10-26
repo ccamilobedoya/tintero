@@ -24,6 +24,7 @@ import {
 import type { Renderer } from "./chromium.ts";
 import { dayKey, localParts, staleLabel, validDate } from "./dates.ts";
 import { applyCorrections, type Holiday } from "./holidays.ts";
+import { messages } from "./i18n/index.ts";
 import { buildDetailView, buildView, zoneId, type BuiltView } from "./view.ts";
 import { checkThemeGlyphs, themeMetrics } from "./theme.ts";
 
@@ -244,7 +245,7 @@ export function createEngine(options: EngineOptions): Engine {
   function staleFor(d: Descriptor, at: Date): Record<string, string> {
     const out = new Map<string, string>();
     for (const id of usedSources(d)) {
-      const label = staleLabel(readAts.get(id), at, config.timezone);
+      const label = staleLabel(readAts.get(id), at, config.timezone, messages(config.locale));
       if (label !== undefined) out.set(id, label);
     }
     return Object.fromEntries(out);
@@ -259,6 +260,7 @@ export function createEngine(options: EngineOptions): Engine {
         d.detail ? ["detail", d.parent, d.detail.itemId] : (defJson.get(d.id) ?? ""),
         "base",
         config.timezone,
+        config.locale,
         used.map((id) => [id, digestOf(id), Object.hasOwn(stale, id) ? stale[id] : null]), // eslint-disable-line security/detect-object-injection -- guarded by hasOwn
         usesCalendar(d) ? holidaysDigest : null,
         today,

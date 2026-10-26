@@ -2,6 +2,7 @@
   "name": "tintero",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "description": "Servidor de pantallas e-ink para ESP32",
   "type": "module",
   "engines": {

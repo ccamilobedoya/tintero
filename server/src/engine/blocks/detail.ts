@@ -1,7 +1,8 @@
 // The detail of one event or task (used by the engine for the `<id>-d` views; it has no zones).
 import type { Source } from "../config.ts";
-import { eventStart, hhmm, MONTHS, shortDate } from "../dates.ts";
+import { eventStart, hhmm, shortDate } from "../dates.ts";
 import { html, type Raw } from "../html.ts";
+import type { Messages } from "../i18n/index.ts";
 import { fontCss, type FontChoice, type Metrics } from "../theme.ts";
 import { shortDay } from "./common.ts";
 
@@ -10,6 +11,7 @@ export interface DetailInput {
   w: number;
   h: number;
   timeZone: string;
+  msgs: Messages;
   source: Source | undefined;
   itemId: string;
   area: string;
@@ -28,7 +30,7 @@ function paragraph(text: string, font: FontChoice, bold: boolean, lines: number,
 }
 
 export function detailBody(input: DetailInput): Raw {
-  const { metrics, w, h, timeZone, source, itemId } = input;
+  const { metrics, w, h, timeZone, msgs, source, itemId } = input;
   const { font, gap } = metrics;
   const frame = (inner: Raw): Raw =>
     html`<div
@@ -40,7 +42,7 @@ export function detailBody(input: DetailInput): Raw {
     </div>`;
   const found = source?.items.find((item) => item.id === itemId);
   if (source === undefined || found === undefined) {
-    return frame(paragraph("No disponible", font.text, false, 1, gap));
+    return frame(paragraph(msgs.notAvailable, font.text, false, 1, gap));
   }
   const used = (lines: number, f: FontChoice): number => lines * lineHeight(f) + gap;
   const notesLines = (spent: number, f: FontChoice): number =>
@@ -50,8 +52,8 @@ export function detailBody(input: DetailInput): Raw {
     const event = source.items.find((item) => item.id === itemId);
     if (event === undefined) return frame(html``);
     const start = eventStart(event.start, timeZone);
-    let when = shortDate(start.day);
-    if (start.allDay) when += " · todo el día";
+    let when = shortDate(start.day, msgs);
+    if (start.allDay) when += msgs.allDaySuffix;
     else {
       const end = event.end === undefined ? undefined : eventStart(event.end, timeZone);
       const range =
@@ -86,7 +88,7 @@ export function detailBody(input: DetailInput): Raw {
   }
   parts.push(paragraph(task.title, font.title, true, 3, gap));
   if (task.due !== undefined) {
-    parts.push(paragraph(shortDay(task.due, MONTHS), font.detail, false, 1, gap));
+    parts.push(paragraph(shortDay(task.due, msgs.months), font.detail, false, 1, gap));
     spent += used(1, font.detail);
   }
   if (task.description !== undefined) {

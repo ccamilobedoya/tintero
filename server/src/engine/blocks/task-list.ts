@@ -1,6 +1,5 @@
 // `task-list`: checkable rows (or open-only for a read-only source), grouped by category.
 import type { Task } from "../config.ts";
-import { MONTHS } from "../dates.ts";
 import { html, type Raw } from "../html.ts";
 import { fontCss } from "../theme.ts";
 import {
@@ -34,7 +33,7 @@ function taskRow(context: BlockContext, task: Task, y: number, readonly: boolean
       ? html``
       : html`<span
           style="grid-column:3;margin-left:${metrics.gap}px;white-space:nowrap;line-height:${ih}px;${fontCss(metrics.font.detail)}"
-          >${shortDay(task.due, MONTHS)}</span
+          >${shortDay(task.due, context.msgs.months)}</span
         >`;
   const deco = task.done
     ? `text-decoration:line-through;text-decoration-thickness:${metrics.line}px;`
@@ -66,7 +65,7 @@ export const taskList: Block = (context) => {
     metrics.moreRow;
   if (isTooSmall(context, 30, minH)) return noFit(context);
   const fitted = fitList(
-    groupTasks(source.items, grouped),
+    groupTasks(source.items, grouped, context.msgs.noCategory),
     () => metrics.row,
     metrics.groupRow,
     metrics.moreRow,

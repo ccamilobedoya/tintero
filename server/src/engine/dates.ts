@@ -1,33 +1,7 @@
-// Local dates in a IANA zone, with fixed Spanish names (no relative texts, 24 h).
-const WEEKDAYS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"] as const;
-export const MONTHS = [
-  "ene",
-  "feb",
-  "mar",
-  "abr",
-  "may",
-  "jun",
-  "jul",
-  "ago",
-  "sep",
-  "oct",
-  "nov",
-  "dic",
-] as const;
-export const MONTHS_LONG = [
-  "ENERO",
-  "FEBRERO",
-  "MARZO",
-  "ABRIL",
-  "MAYO",
-  "JUNIO",
-  "JULIO",
-  "AGOSTO",
-  "SEPTIEMBRE",
-  "OCTUBRE",
-  "NOVIEMBRE",
-  "DICIEMBRE",
-] as const;
+// Local dates in a IANA zone; names and texts come from the i18n catalog (Spanish by default), 24 h.
+import { fill, messages, type Messages } from "./i18n/index.ts";
+
+const ES = messages("es");
 
 export interface DayParts {
   y: number;
@@ -131,18 +105,19 @@ export const hhmm = (minutes: number): string =>
   `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
 
 /** `vie 23 oct` */
-export const shortDate = (day: DayParts): string =>
-  `${WEEKDAYS[weekday(day)] ?? ""} ${day.d} ${MONTHS[day.m - 1] ?? ""}`;
+export const shortDate = (day: DayParts, msgs: Messages = ES): string =>
+  `${msgs.weekdays[weekday(day)] ?? ""} ${day.d} ${msgs.months[day.m - 1] ?? ""}`;
 
 /** `VIE 23 OCT` */
-export const upperDate = (day: DayParts): string => shortDate(day).toUpperCase();
+export const upperDate = (day: DayParts, msgs: Messages = ES): string =>
+  shortDate(day, msgs).toUpperCase();
 
 /** `Hoy`, `Mañana` (today + 1) or `Mié 28`. */
-export function dayLabel(day: DayParts, today: DayParts): string {
+export function dayLabel(day: DayParts, today: DayParts, msgs: Messages = ES): string {
   const key = dayKey(day);
-  if (key === dayKey(today)) return "Hoy";
-  if (key === dayKey(addDays(today, 1))) return "Mañana";
-  const name = WEEKDAYS[weekday(day)] ?? "";
+  if (key === dayKey(today)) return msgs.today;
+  if (key === dayKey(addDays(today, 1))) return msgs.tomorrow;
+  const name = msgs.weekdays[weekday(day)] ?? "";
   return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${day.d}`;
 }
 
@@ -153,13 +128,14 @@ export function staleLabel(
   readAt: Date | undefined,
   now: Date,
   timeZone: string,
+  msgs: Messages = ES,
 ): string | undefined {
   if (readAt === undefined || now.getTime() - readAt.getTime() <= STALE_AFTER_MS) return undefined;
   const local = localParts(readAt, timeZone);
   const time = hhmm(local.hour * 60 + local.minute);
   const today = localParts(now, timeZone).day;
-  if (dayKey(local.day) === dayKey(today)) return `sin datos desde ${time}`;
-  return `sin datos desde ${pad(local.day.d)}/${pad(local.day.m)} ${time}`;
+  if (dayKey(local.day) === dayKey(today)) return fill(msgs.staleToday, { time });
+  return fill(msgs.staleOther, { date: `${pad(local.day.d)}/${pad(local.day.m)}`, time });
 }
 
 export const daysInMonth = (y: number, m: number): number =>

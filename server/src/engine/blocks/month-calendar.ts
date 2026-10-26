@@ -1,6 +1,6 @@
 // `month-calendar`: the month of today, weeks from Monday; today inverted, Sundays and holidays in
 // bold, a 2 px rule (or a dot) under every day an event covers, and the next holiday by the title.
-import { dayKey, daysInMonth, eventDays, MONTHS_LONG, weekday } from "../dates.ts";
+import { dayKey, daysInMonth, eventDays, weekday } from "../dates.ts";
 import { holidayLabel } from "../holidays.ts";
 import { html, type Raw } from "../html.ts";
 import { fontCss } from "../theme.ts";
@@ -19,13 +19,20 @@ function monthHeader(context: BlockContext): { html: Raw; height: number } {
   const label = holidayLabel(
     [...context.holidays].map(([date, name]) => ({ date, name })),
     today,
+    context.msgs,
   );
   return {
     height: metrics.strip,
-    html: stripRow(context, `${MONTHS_LONG[today.m - 1] ?? ""} ${today.y}`, label ?? "", 0, {
-      dropRight: true,
-      plainRight: true,
-    }),
+    html: stripRow(
+      context,
+      `${context.msgs.monthsLong[today.m - 1] ?? ""} ${today.y}`,
+      label ?? "",
+      0,
+      {
+        dropRight: true,
+        plainRight: true,
+      },
+    ),
   };
 }
 

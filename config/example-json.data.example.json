@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "sources": {
+    "remote": {
+      "type": "tasks",
+      "readonly": true,
+      "items": []
+    }
+  }
+}

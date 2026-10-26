@@ -1,6 +1,40 @@
 # firmware
 
-Firmware del ESP32 (C++, PlatformIO). Lo escribe el dueño del proyecto; los agentes solo ayudan si él lo pide (ADR-0013).
+Firmware del ESP32 (C++, PlatformIO). Lo escribe el dueño del proyecto; los agentes solo ayudan si él lo pide (ADR-0013). Esta carpeta es la copia maestra del firmware.
+
+## Compilar y grabar
+
+Se necesita [PlatformIO](https://platformio.org/) (la línea de comandos `pio` basta), un ESP32 DevKit con el panel GDEY075T7 y el adaptador DESPI-C02, y una PKI propia (`npm run pki -- init`, `server` y `device`; ver la guía de certificados). Todo el firmware está en inglés en el código; esta guía está en español.
+
+1. **Wi-Fi.** Copia la plantilla y escribe tu red de 2,4 GHz (el archivo lo ignora git):
+   ```bash
+   cp firmware/include/secrets.h.example firmware/include/secrets.h
+   ```
+2. **Certificados de esta pantalla.** Genera `firmware/include/tintero_certs.h` con el nombre del servidor, el id de la pantalla (`p1`), la CA y la llave y el certificado **de esa pantalla solamente** (una pantalla por archivo: cada aparato lleva solo su llave):
+   ```bash
+   npm run pki -- firmware /path/to/pki --host tintero.example.ts.net p1
+   ```
+   El archivo queda con permisos 600, git lo ignora, y la herramienta se niega a escribir una llave en un archivo del repo que git no ignore. Nunca imprime una llave.
+3. **Compilar y grabar** (con el ESP32 conectado por USB):
+   ```bash
+   cd firmware
+   pio run -t upload
+   pio device monitor    # opcional: el monitor serie a 115200
+   ```
+   El firmware solo usa las constantes de ese archivo (`TINTERO_HOST`, `TINTERO_DEVICE_ID`, `TINTERO_CA_PEM`, `TINTERO_DEVICE_CERT_PEM`, `TINTERO_DEVICE_KEY_PEM`); el nombre del servidor no está en ningún otro archivo del repo. Para otra pantalla, vuelve a generar el archivo con su `pN` y graba.
+4. **Autorizar la pantalla.** La línea `<huella> pN` que imprime `npm run pki -- device` debe estar en la lista de aparatos del servidor; si no, todo responde 404 vacío.
+
+El cableado del panel y de los dos botones (Mover en GPIO32 y Aceptar en GPIO33, cada uno entre su pin y 3V3, con la *pull-down* interna) está en `src/panel.cpp` y `src/buttons.cpp`.
+
+## Licencia del binario
+
+El código fuente del firmware es MIT, como el resto del repo. **Pero un binario compilado enlaza GxEPD2, que es GPL-3.0, y entonces el binario entero queda bajo GPL-3.0.** Por eso este repo **no publica binarios**, solo código fuente; quien compile y distribuya un binario debe cumplir la GPL-3.0 (ofrecer su código fuente y esa licencia). ArduinoJson es MIT. Ver `NOTICE`.
+
+## Seguridad del aparato
+
+- **Validación del servidor.** El firmware valida al servidor **solo** con la CA de Tintero (`setCACert`): nunca desactiva la validación del certificado ni usa las CA públicas, y toda petición lleva tiempos de espera y límites de tamaño antes de leer (sección 3).
+- **Las llaves quedan legibles en la *flash*.** Mientras no haya cifrado de la flash (L6), quien robe el aparato puede leer la llave de esa pantalla. Por eso cada aparato lleva **solo su propia llave**: robar uno no compromete a otro.
+- **Revocar una pantalla.** Quita su línea de la lista de aparatos del servidor y reinicia el servidor: desde ese momento esa pantalla recibe 404 vacío, aunque conserve sus llaves. Para volver a usarla, emite un certificado nuevo con otro id.
 
 ## Qué necesita el ESP32 para hablar con Tintero
 
@@ -11,7 +45,7 @@ Esta guía no tiene datos reales: el nombre público, las rutas y las llaves de 
 - `pN.crt` y `pN.key`: el certificado y la llave de esa pantalla (ECDSA P-256, PEM). La llave **no sale del ESP32** (después, cifrado de la flash, L6).
 - La línea `<huella> pN` de la pantalla tiene que estar en la lista de aparatos del servidor; si no, todo responde 404 vacío.
 
-Con Arduino (`WiFiClientSecure`): `setCACert(ca)`, `setCertificate(crt)`, `setPrivateKey(key)`. Con ESP-IDF (`esp_http_client`): `cert_pem`, `client_cert_pem`, `client_key_pem`.
+Con Arduino (`WiFiClientSecure`): `setCACert(ca)`, `setCertificate(crt)`, `setPrivateKey(key)`. Con ESP-IDF (`esp_http_client`): `cert_pem`, `client_cert_pem`, `client_key_pem`. Este firmware recibe los tres, ya como texto, en `include/tintero_certs.h` (ver *Compilar y grabar*).
 
 ### 2. Antes del TLS: la hora
 El certificado del servidor se valida con fechas. Sin hora (el ESP32 arranca en 1970) el saludo TLS falla. Sincronizar por SNTP **antes** de conectar (o guardar la última hora buena en el RTC del ESP32 entre despertadas).

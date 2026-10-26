@@ -46,6 +46,18 @@ export const holidaysManifest: Manifest = {
   pollS: 3600,
 };
 
+/** The template integration (F-018, D8): one public JSON file over https, read with a GET. */
+export const exampleJsonManifest: Manifest = {
+  id: "example-json",
+  version: "1",
+  delivers: "tasks",
+  needsKey: false,
+  hosts: "configured",
+  routes: [{ method: "GET", prefix: "/tasks.json" }],
+  writes: false,
+  pollS: 300,
+};
+
 /** The owner's calendars by iCalendar address (F-014, ADR-0054): any HTTPS host the owner configures. */
 export const icalManifest: Manifest = {
   id: "ical-calendario",

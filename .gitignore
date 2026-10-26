@@ -6,3 +6,7 @@ coverage/
 reports/
 *.log
 .agentes/
+firmware/.pio/
+firmware/include/secrets.h
+firmware/include/tintero_certs.h
+firmware/include/*.tmp

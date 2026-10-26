@@ -5,6 +5,7 @@ import { BLOCKS, detailBody, type BlockContext } from "./blocks/index.ts";
 import type { Grid, Source, ViewDef, ViewsConfig } from "./config.ts";
 import { localParts, shortDate } from "./dates.ts";
 import { html, page, type Raw } from "./html.ts";
+import { messages } from "./i18n/index.ts";
 import { dividers, slotRects } from "./layout.ts";
 import { fontCss, themeMetrics } from "./theme.ts";
 
@@ -103,6 +104,7 @@ function newFocus(viewId: string, sourceId: string, zones: ZoneSpec[]) {
 export function buildView(def: ViewDef, input: Input): BuiltView {
   const { panel, config, sources, at, stale } = input;
   const metrics = themeMetrics(panel);
+  const msgs = messages(config.locale);
   const today = localParts(at, config.timezone).day;
   const grid = gridFor(def, panel);
   const rects = slotRects(grid, panel);
@@ -144,6 +146,7 @@ export function buildView(def: ViewDef, input: Input): BuiltView {
       slot,
       source,
       timeZone: config.timezone,
+      msgs,
       today,
       holidays: input.holidays ?? NO_HOLIDAYS,
       stale:
@@ -172,7 +175,7 @@ export function buildView(def: ViewDef, input: Input): BuiltView {
       </div>`,
     );
   }
-  const body = html`${bar(panel, def.title, shortDate(today))}${rules(grid, panel)}${[...parts.values()]}`;
+  const body = html`${bar(panel, def.title, shortDate(today, msgs))}${rules(grid, panel)}${[...parts.values()]}`;
   return {
     html: page(panel.w, panel.h, body),
     zones,
@@ -185,6 +188,7 @@ export function buildView(def: ViewDef, input: Input): BuiltView {
 export function buildDetailView(input: Input & { sourceId: string; itemId: string }): BuiltView {
   const { panel, config, sources, at } = input;
   const metrics = themeMetrics(panel);
+  const msgs = messages(config.locale);
   const today = localParts(at, config.timezone).day;
   const grid: Grid = { columns: [100], rows: [100], areas: [["detalle"]] };
   const rect = slotRects(grid, panel)[0];
@@ -197,11 +201,12 @@ export function buildDetailView(input: Input & { sourceId: string; itemId: strin
     w,
     h,
     timeZone: config.timezone,
+    msgs,
     source: found,
     itemId: input.itemId,
     area: "detalle",
   });
-  const body = html`${bar(panel, "Detalle", shortDate(today))}
+  const body = html`${bar(panel, msgs.detail, shortDate(today, msgs))}
     <div
       class="a"
       style="left:${column.x}px;top:${(rect?.y ?? 0) + metrics.margin}px;width:${w}px;height:${h}px"

@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "integrations": {
+    "example-json": {
+      "source": "remote",
+      "baseUrl": "https://example.com/tintero"
+    }
+  }
+}
