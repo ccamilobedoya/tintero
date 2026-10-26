@@ -121,8 +121,15 @@ describe("CA6 marcar y deshacer", () => {
 
     expect(e.apply("local", a1).status).toBe("duplicate");
 
+    // F-015 (D3): el segundo la lleva a Por hacer (ya no vuelve a En progreso); con un tercero vuelve
     const a2 = act6("hoy", zid("hoy", "b-01"), "toggle");
     expect(e.apply("local", a2)).toEqual({ status: "applied", changed: true });
+    await e.idle();
+    const second = await getViews(e, "local", P124);
+    expect(viewOf(second.views, "hoy").hash).not.toBe(hash0);
+    expect(viewOf(second.views, "hoy").zones[0]?.id).not.toBe(zid("hoy", "b-01"));
+    const a3 = act6("hoy", zid("hoy", "b-01"), "toggle");
+    expect(e.apply("local", a3)).toEqual({ status: "applied", changed: true });
     await e.idle();
     const back = await getViews(e, "local", P124);
     expect(viewOf(back.views, "hoy").hash).toBe(hash0);

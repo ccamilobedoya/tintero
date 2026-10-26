@@ -159,18 +159,19 @@ describe("CA4 hoy en P124", () => {
     expect(zid("hoy", "b-01")).toBe("z4ba4457e13");
     expect(zid("hoy", "b-02")).toBe("z5b74b95d24");
 
-    const todo = ["b-02", "b-04", "b-05", "b-06", "b-07"];
+    // F-015 (D2): `b-03` sin fecha mide 66; cabe una tarea más en Por hacer
+    const todo = ["b-02", "b-04", "b-05", "b-06", "b-07", "b-08"];
     const expected = [
       { id: zid("hoy", "b-01"), x: 8, y: 73, w: 480, h: 86 },
-      { id: zid("hoy", "b-03"), x: 8, y: 162, w: 480, h: 86 },
-      ...todo.map((id, i) => ({ id: zid("hoy", id), x: 8, y: 287 + 30 * i, w: 480, h: 30 })),
+      { id: zid("hoy", "b-03"), x: 8, y: 162, w: 480, h: 66 },
+      ...todo.map((id, i) => ({ id: zid("hoy", id), x: 8, y: 267 + 30 * i, w: 480, h: 30 })),
       { id: zid("hoy", "b-12"), x: 504, y: 70, w: 288, h: 30 },
       { id: zid("hoy", "b-13"), x: 504, y: 100, w: 288, h: 30 },
     ];
-    expect(hoy.zones).toHaveLength(9);
+    expect(hoy.zones).toHaveLength(10);
     expect(hoy.zones.map((z) => ({ id: z.id, ...rect(z) }))).toEqual(expected);
-    expect(hoy.zones[6]?.y).toBe(407);
-    expect(hoy.hidden).toEqual({ tareas: 4, hechas: 0, mes: 0 });
+    expect(hoy.zones[7]?.y).toBe(417);
+    expect(hoy.hidden).toEqual({ tareas: 3, hechas: 0, mes: 0 });
 
     const black = (x: number, y: number): boolean => isBlack(hoy.raw1, 800, x, y);
     for (const [x, y] of [
@@ -178,12 +179,12 @@ describe("CA4 hoy en P124", () => {
       [300, 69],
       [8, 50],
       [487, 50],
-      [200, 285],
-      [200, 286],
+      [200, 265],
+      [200, 266],
       [15, 92],
       [516, 84],
-      [481, 296],
-      [481, 309],
+      [481, 276],
+      [481, 289],
     ] as const)
       expect(black(x, y), `negro en (${String(x)}, ${String(y)})`).toBe(true);
     for (const [x, y] of [
@@ -191,10 +192,11 @@ describe("CA4 hoy en P124", () => {
       [300, 72],
       [7, 50],
       [488, 50],
-      [200, 287],
+      [200, 264],
+      [200, 267],
       [23, 92],
-      [481, 295],
-      [481, 310],
+      [481, 275],
+      [481, 290],
     ] as const)
       expect(black(x, y), `blanco en (${String(x)}, ${String(y)})`).toBe(false);
   }, 120_000);
@@ -230,13 +232,17 @@ describe("CA5 tablero en P124", () => {
     const v = view8(d.views, "tablero");
     expect(v.overflow).toEqual([]);
     expect(v.bandInk).toEqual([]);
-    const todo = ["b-02", "b-04", "b-05", "b-06", "b-07"];
+    // F-015 (D2): tarjetas sin fecha ni categoría miden 52; la fila que manda sin fecha, 66
     const expected = [
       { id: zid("tablero", "b-01"), x: 264, y: 73, w: 288, h: 86 },
-      { id: zid("tablero", "b-03"), x: 264, y: 162, w: 288, h: 86 },
-      ...todo.map((id, i) => ({ id: zid("tablero", id), x: 8, y: 73 + 75 * i, w: 240, h: 72 })),
-      { id: zid("tablero", "b-12"), x: 568, y: 73, w: 224, h: 72 },
-      { id: zid("tablero", "b-13"), x: 568, y: 148, w: 224, h: 72 },
+      { id: zid("tablero", "b-03"), x: 264, y: 162, w: 288, h: 66 },
+      { id: zid("tablero", "b-02"), x: 8, y: 73, w: 240, h: 72 },
+      { id: zid("tablero", "b-04"), x: 8, y: 148, w: 240, h: 52 },
+      { id: zid("tablero", "b-05"), x: 8, y: 203, w: 240, h: 72 },
+      { id: zid("tablero", "b-06"), x: 8, y: 278, w: 240, h: 72 },
+      { id: zid("tablero", "b-07"), x: 8, y: 353, w: 240, h: 52 },
+      { id: zid("tablero", "b-12"), x: 568, y: 73, w: 224, h: 52 },
+      { id: zid("tablero", "b-13"), x: 568, y: 128, w: 224, h: 52 },
     ];
     expect(v.zones.map((z) => ({ id: z.id, ...rect(z) }))).toEqual(expected);
     expect(v.hidden).toEqual({ por_hacer: 4, en_progreso: 0, hechas: 0 });
@@ -256,6 +262,19 @@ describe("CA6 el foco sigue a la tarea", () => {
       changed: true,
     });
     await e.idle();
+    // F-015 (D3): el primer toggle la lleva a En progreso, entre b-01 y b-03
+    const mid = view8((await index8(e, "local", P124)).views, "hoy");
+    expect(mid.zones.slice(0, 3).map((z) => ({ id: z.id, ...rect(z) }))).toEqual([
+      { id: zid("hoy", "b-01"), x: 8, y: 73, w: 480, h: 86 },
+      { id, x: 8, y: 162, w: 480, h: 86 },
+      { id: zid("hoy", "b-03"), x: 8, y: 251, w: 480, h: 66 },
+    ]);
+    // y hacen falta dos para llegar a Hecho hoy
+    expect(e.apply("local", act6("hoy", id, "toggle"))).toEqual({
+      status: "applied",
+      changed: true,
+    });
+    await e.idle();
     const hoy = view8((await index8(e, "local", P124)).views, "hoy");
 
     const hechas = hoy.zones.filter((z) => z.x === 504);
@@ -266,8 +285,8 @@ describe("CA6 el foco sigue a la tarea", () => {
     ]);
     const porHacer = hoy.zones.filter((z) => z.x === 8 && z.h === 30);
     expect(porHacer[0]?.id).toBe(zid("hoy", "b-04"));
-    expect(rect(porHacer[0] as never)).toEqual({ x: 8, y: 287, w: 480, h: 30 });
-    expect(hoy.hidden.tareas).toBe(3);
+    expect(rect(porHacer[0] as never)).toEqual({ x: 8, y: 267, w: 480, h: 30 });
+    expect(hoy.hidden.tareas).toBe(2);
     expect(hoy.bandInk).toEqual([]);
   }, 120_000);
 });
