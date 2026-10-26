@@ -1,6 +1,6 @@
 # F-013 · Calendario del mes con festivos y días con eventos
 
-**Estado:** aprobada · el dueño la aprobó el 2026-10-25 (D1 a D5; ADR-0051 y ADR-0052). La parte de conectar los calendarios (antes D6) pasa a **F-014**
+**Estado:** verificada (espera la puerta 2 y el cierre de F-008) · el dueño la aprobó el 2026-10-25 (D1 a D5; ADR-0051 y ADR-0052). La parte de conectar los calendarios (antes D6) pasa a **F-014**
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna.
 **Rama:** el trabajo sale de `ficha/F-013`, que ya trae el código de F-008 (`ver/F-008`) porque las dos fichas tocan `month-calendar.ts`. **No se une a `main` hasta que F-008 esté cerrada**; al cerrarla se une `main` en `ver/F-013` y se vuelven a correr todas las pruebas de aceptación.
@@ -187,9 +187,9 @@ Todo en px del panel y relativo a la caja de contenido del bloque (la de F-008).
 En `hoy`, domingos y festivos en negrita, hoy invertido, una raya de 2 px bajo cada día con eventos (también los del medio de un viaje) y, junto al mes, cuándo es el próximo festivo. Cambiar `holidays.country` cambia los festivos sin tocar código, y sin red el calendario sigue con lo último guardado.
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto).
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
+- [x] Todos los CA pasan en la verificación (informe adjunto; CA20 con el intermitente de F-005 CA27 explicado).
+- [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
+- [x] `tools/check-scope` limpio para cada rol.
 - [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
 - [ ] El dueño aprobó integrar.
 
@@ -205,7 +205,25 @@ En `hoy`, domingos y festivos en negrita, hoy invertido, una raya de 2 px bajo c
 ---
 
 ## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+- **Código** (programador, vuelta 1): `holidays.ts`, `eventDays`, `Engine.setHolidays`, `BlockContext.holidays`, marcas de `month-calendar` según las reglas 1 a 9, integración `festivos` (`holidays-nager.ts`, manifiesto `holidaysManifest`), `needsKey` en el cliente con guardia y `render --holidays`. Fuera de la lista: `view.ts` (pasa los festivos al contexto) y el README de `server/src/integrations`. Extra: `createHolidays` recibe la zona horaria para saber el año local.
+- **Verificación** (vuelta 1): **CA1 a CA19 cumplen**. El verificador corrigió tres pruebas suyas (no el código). **CA20:** F-006 y F-008 pasan; F-005 CA27 (`busy` con tres motores sobre un Chromium) falló en el lote del verificador mientras otras sesiones usaban la máquina. El arquitecto lo corrió 5 veces en `ficha/F-013` (sin F-013) y 5 en `ver/F-013`: **5 de 5 en las dos**. Es el intermitente ya conocido; se anota como mejora, no como falla de esta ficha.
+- **La imagen real** del motor coincide con la de la implementación de referencia en los dos casos medidos (octubre y el 2 de noviembre, mes de 6 semanas).
+- **Revisión:** `tools/revisar --base ficha/F-013` limpio con salida 3 (zona sensible `http.ts`); revisor en modo juicio: **sin bloqueantes**, 2 mejoras anotadas.
+- **Mejoras anotadas:** (1) `persist()` de `festivos` no deja registro si el caché pasara de 64 KiB (`code: "state-size"`); (2) el aviso «festivos integration is off» se decide en dos lugares de `main.ts`: juntarlos; (3) F-005 CA27 intermitente con carga; (4) Nager.Date escribe algunos nombres sin tilde (`Dia de los Santos`): se corrige con `add` (misma fecha, nombre nuevo).
+- **Pendiente para unir a `main`:** cerrar F-008, unir `main` en `ver/F-013` y correr otra vez todas las aceptaciones.
+- **Costo en agentes:** USD 3,71 (verificador 1,50, programador 2,08, revisor 0,12, integrador 0,02).
 
 ## Resumen para aprobar
-*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
+
+## Para aprobar · F-013 · Calendario del mes con festivos y días con eventos
+
+**Qué cambió:** el mes marca en negrita los domingos y los festivos del país (leídos de Nager.Date y guardados por año), deja hoy invertido y pone una raya de 2 px en cada día que cubre un evento. Junto al mes dice cuándo es el próximo festivo. El país se cambia en la configuración (`CO` en los ejemplos).
+
+**Criterios:** 19 de 20 pasan a la primera; CA20 solo por F-005 CA27, intermitente con carga (5 de 5 sin carga, con y sin esta ficha) · vueltas: verificación 1, revisión 1
+
+**Revisión:** 2 mejoras anotadas · zonas sensibles: `server/src/integrations/http.ts` (integraciones sin llave)
+**Dependencias nuevas:** ninguna
+
+**Riesgos o pendientes:** no se une a `main` hasta cerrar F-008. Al unirla, en el servidor hay que encender `festivos` en las integraciones y poner `holidays` en la configuración real.
+
+**Decisión que se pide:** integrar a `main` cuando cierre F-008

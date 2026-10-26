@@ -21,9 +21,18 @@ export interface TriliumTasksConfig {
   stateFile?: string;
 }
 
+export interface HolidaysIntegrationConfig {
+  /** Nager.Date by default; in tests, a local fake. */
+  baseUrl: string;
+  /** Absolute path of the cache file (F-013); without it everything lives in memory. */
+  stateFile?: string;
+}
+
+export const DEFAULT_HOLIDAYS_BASE = "https://date.nager.at";
+
 export interface IntegrationsFile {
   version: 1;
-  integrations: { "trilium-tareas"?: TriliumTasksConfig };
+  integrations: { "trilium-tareas"?: TriliumTasksConfig; festivos?: HolidaysIntegrationConfig };
 }
 
 export const DEFAULT_COLUMNS: Record<string, Stage> = {
@@ -133,12 +142,38 @@ export function parseIntegrations(raw: string): IntegrationsFile {
   }
   const root = object(parsed, "", ["version", "integrations"]);
   if (own(root, "version") !== 1) fail("/version", "must be 1");
-  const list = object(own(root, "integrations"), "/integrations", ["trilium-tareas"]);
+  const list = object(own(root, "integrations"), "/integrations", ["trilium-tareas", "festivos"]);
   const tasks = own(list, "trilium-tareas");
+  const holidays = own(list, "festivos");
   return {
     version: 1,
-    integrations: tasks === undefined ? {} : { "trilium-tareas": parseTasks(tasks) },
+    integrations: {
+      ...(tasks === undefined ? {} : { "trilium-tareas": parseTasks(tasks) }),
+      ...(holidays === undefined ? {} : { festivos: parseHolidays(holidays) }),
+    },
   };
+}
+
+function parseHolidays(value: unknown): HolidaysIntegrationConfig {
+  const p = "/integrations/festivos";
+  const obj = object(value, p, ["baseUrl", "stateFile"]);
+  const baseUrl =
+    own(obj, "baseUrl") === undefined
+      ? DEFAULT_HOLIDAYS_BASE
+      : text(own(obj, "baseUrl"), `${p}/baseUrl`, 1, 300);
+  try {
+    parseBase(baseUrl);
+  } catch (error) {
+    if (!(error instanceof IntegrationHttpError)) throw error;
+    fail(`${p}/baseUrl`, "must be https:// or http://127.0.0.1:<port>/…");
+  }
+  const result: HolidaysIntegrationConfig = { baseUrl };
+  if (own(obj, "stateFile") !== undefined) {
+    const stateFile = text(own(obj, "stateFile"), `${p}/stateFile`, 1, 4096);
+    if (!isAbsolute(stateFile)) fail(`${p}/stateFile`, "must be an absolute path");
+    result.stateFile = stateFile;
+  }
+  return result;
 }
 
 export function loadIntegrations(file: string): IntegrationsFile {

@@ -112,7 +112,7 @@ function matchesPrefix(path: string, prefix: string): boolean {
 
 export function guardedHttp(
   base: URL,
-  keyFile: string,
+  keyFile: string | undefined,
   manifest: Manifest,
   options: GuardedHttpOptions = {},
 ): GuardedHttp {
@@ -120,7 +120,12 @@ export function guardedHttp(
   if (manifest.hosts !== "configured" && !manifest.hosts.includes(checked.host)) {
     throw new IntegrationHttpError("host");
   }
-  const token = readKey(keyFile);
+  // A key is read only when the manifest needs one (F-013: Nager.Date is public and has none).
+  let token: string | undefined;
+  if (manifest.needsKey) {
+    if (keyFile === undefined) throw new IntegrationHttpError("key-missing");
+    token = readKey(keyFile);
+  }
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const log = options.log ?? ((): void => undefined);
@@ -173,7 +178,7 @@ export function guardedHttp(
         controller.abort();
       }, timeoutMs);
       try {
-        const headers: Record<string, string> = { Authorization: token };
+        const headers: Record<string, string> = token === undefined ? {} : { Authorization: token };
         if (body !== undefined) headers["Content-Type"] = "application/json";
         let response: Response;
         try {

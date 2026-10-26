@@ -1,0 +1,35 @@
+[
+  {
+    "date": "2027-01-01",
+    "localName": "Año Nuevo",
+    "name": "New Year's Day",
+    "countryCode": "CO",
+    "fixed": false,
+    "global": true,
+    "counties": null,
+    "launchYear": null,
+    "types": ["Public"]
+  },
+  {
+    "date": "2027-01-11",
+    "localName": "Día de los Reyes Magos",
+    "name": "Epiphany",
+    "countryCode": "CO",
+    "fixed": false,
+    "global": true,
+    "counties": null,
+    "launchYear": null,
+    "types": ["Public"]
+  },
+  {
+    "date": "2027-03-22",
+    "localName": "Día de San José",
+    "name": "Saint Joseph's Day",
+    "countryCode": "CO",
+    "fixed": false,
+    "global": true,
+    "counties": null,
+    "launchYear": null,
+    "types": ["Public"]
+  }
+]

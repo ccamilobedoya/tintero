@@ -22,7 +22,8 @@ import {
   type ViewsConfig,
 } from "./config.ts";
 import type { Renderer } from "./chromium.ts";
-import { dayKey, localParts, staleLabel } from "./dates.ts";
+import { dayKey, localParts, staleLabel, validDate } from "./dates.ts";
+import { applyCorrections, type Holiday } from "./holidays.ts";
 import { buildDetailView, buildView, zoneId, type BuiltView } from "./view.ts";
 import { checkThemeGlyphs, themeMetrics } from "./theme.ts";
 
@@ -86,6 +87,11 @@ export interface Engine {
     items: unknown,
     meta?: { readAt?: Date },
   ): { ok: true; changed: boolean } | { ok: false; error: string };
+  /** Replaces the public holidays of the country (F-013); the owner's corrections are applied here. */
+  setHolidays(
+    items: unknown,
+    meta?: { readAt?: Date },
+  ): { ok: true; changed: boolean } | { ok: false; error: string };
   prewarm(): Promise<void>;
   idle(): Promise<void>;
   renders(): number;
@@ -121,9 +127,13 @@ interface Job {
   panel: Panel;
   at: Date;
   sources: Record<string, Source>;
+  holidays: ReadonlyMap<string, string>;
   stale: Record<string, string>;
   finish(): void;
 }
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const panelKey = (panel: Panel): string => `${panel.w}x${panel.h}@${panel.dpi}`;
 const sha = (text: string): string => createHash("sha256").update(text).digest("hex");
@@ -162,6 +172,10 @@ export function createEngine(options: EngineOptions): Engine {
     sources = { ...sources, [id]: source };
     digests.delete(id);
   };
+
+  // Public holidays already corrected (F-013); replaced, never edited.
+  let holidays: ReadonlyMap<string, string> = new Map();
+  let holidaysDigest = sha(JSON.stringify([...holidays]));
 
   // Last good read of each source, and the stage a task had before it was marked done.
   const readAts = new Map<string, Date>();
@@ -222,6 +236,9 @@ export function createEngine(options: EngineOptions): Engine {
           ),
         ];
 
+  const usesCalendar = (d: Descriptor): boolean =>
+    !d.detail && Object.values(d.def.slots).some((slot) => slot.block === "month-calendar");
+
   /** The "sin datos desde" notice of each used source, as of `at`. */
   function staleFor(d: Descriptor, at: Date): Record<string, string> {
     const out = new Map<string, string>();
@@ -242,6 +259,7 @@ export function createEngine(options: EngineOptions): Engine {
         "base",
         config.timezone,
         used.map((id) => [id, digestOf(id), Object.hasOwn(stale, id) ? stale[id] : null]), // eslint-disable-line security/detect-object-injection -- guarded by hasOwn
+        usesCalendar(d) ? holidaysDigest : null,
         today,
         [panel.w, panel.h, panel.dpi],
       ]),
@@ -273,7 +291,14 @@ export function createEngine(options: EngineOptions): Engine {
     drawn++;
     const lastKey = `${d.id}|${panelKey(panel)}`;
     try {
-      const input = { panel, config, sources: job.sources, at: job.at, stale: job.stale };
+      const input = {
+        panel,
+        config,
+        sources: job.sources,
+        holidays: job.holidays,
+        at: job.at,
+        stale: job.stale,
+      };
       const built: BuiltView = d.detail
         ? buildDetailView({ ...input, ...d.detail })
         : buildView(d.def, input);
@@ -374,6 +399,7 @@ export function createEngine(options: EngineOptions): Engine {
         panel,
         at,
         sources,
+        holidays,
         stale: staleFor(d, at),
         finish: resolve,
       });
@@ -636,6 +662,42 @@ export function createEngine(options: EngineOptions): Engine {
       if (changed) replaceSource(id, { ...source, items: parsed } as Source);
       // Queues the views whose key changed (data or notice); a cached key draws nothing.
       enqueueWhere((d) => usesSource(d, id));
+      return { ok: true, changed };
+    },
+
+    setHolidays(items) {
+      const MAX_HOLIDAYS = 400;
+      if (!Array.isArray(items) || items.length > MAX_HOLIDAYS) {
+        return { ok: false, error: "invalid holidays" };
+      }
+      const list: Holiday[] = [];
+      for (const item of items as unknown[]) {
+        const date: unknown = isRecord(item) ? item.date : undefined;
+        const name: unknown = isRecord(item) ? item.name : undefined;
+        if (
+          typeof date !== "string" ||
+          !validDate(date) ||
+          typeof name !== "string" ||
+          name.length < 1 ||
+          name.length > 60
+        ) {
+          return { ok: false, error: "invalid holidays" };
+        }
+        list.push({ date, name });
+      }
+      const fixed = applyCorrections(
+        list,
+        config.holidays?.add ?? [],
+        config.holidays?.remove ?? [],
+      );
+      const digest = sha(JSON.stringify(fixed));
+      const changed = digest !== holidaysDigest;
+      if (changed) {
+        holidays = new Map(fixed.map((item) => [item.date, item.name]));
+        holidaysDigest = digest;
+        // Queues the views with a calendar; a cached key draws nothing.
+        enqueueWhere(usesCalendar);
+      }
       return { ok: true, changed };
     },
 

@@ -377,3 +377,64 @@ describe("close", () => {
     expect(engine.renders()).toBeLessThanOrEqual(3);
   });
 });
+
+describe("setHolidays (F-013)", () => {
+  const list = [
+    { date: "2026-10-12", name: "Día de la Raza" },
+    { date: "2026-11-02", name: "Dia de los Santos" },
+  ];
+
+  it("takes a list once, and the same list again changes nothing", async () => {
+    const { engine } = setup();
+    expect(engine.setHolidays([])).toEqual({ ok: true, changed: false });
+    expect(engine.setHolidays(list)).toEqual({ ok: true, changed: true });
+    expect(engine.setHolidays(list, { readAt: new Date() })).toEqual({ ok: true, changed: false });
+    await engine.close();
+  });
+
+  it("rejects bad lists and keeps the previous one", async () => {
+    const { engine } = setup();
+    engine.setHolidays(list);
+    for (const bad of [
+      [{ date: "2026-13-01", name: "x" }],
+      [{ date: "2026-10-12", name: "" }],
+      [{ date: "2026-10-12", name: "x".repeat(61) }],
+      [{ date: "2026-10-12" }],
+      ["2026-10-12"],
+      Array.from({ length: 401 }, () => list[0]),
+      "no",
+    ]) {
+      expect(engine.setHolidays(bad)).toMatchObject({ ok: false });
+    }
+    expect(engine.setHolidays(list)).toEqual({ ok: true, changed: false });
+    await engine.close();
+  });
+
+  it("changes the hash of the view with the calendar, and only when the list changes", async () => {
+    const { engine } = setup();
+    const before = await indexOk(engine);
+    engine.setHolidays(list);
+    await engine.idle();
+    const after = await indexOk(engine);
+    expect(after.views[0]?.hash).not.toBe(before.views[0]?.hash);
+    const drawn = engine.renders();
+    engine.setHolidays(list);
+    await engine.idle();
+    expect(engine.renders()).toBe(drawn);
+    expect((await indexOk(engine)).views[0]?.hash).toBe(after.views[0]?.hash);
+    await engine.close();
+  });
+
+  it("applies the corrections of the views file", async () => {
+    const config: ViewsConfig = {
+      ...baseConfig,
+      holidays: { country: "CO", add: [], remove: ["2026-10-12"] },
+    };
+    const { engine } = setup({ config });
+    expect(engine.setHolidays(list)).toEqual({ ok: true, changed: true });
+    const only = [{ date: "2026-10-12", name: "Día de la Raza" }];
+    expect(engine.setHolidays(only)).toEqual({ ok: true, changed: true });
+    expect(engine.setHolidays([])).toEqual({ ok: true, changed: false });
+    await engine.close();
+  });
+});

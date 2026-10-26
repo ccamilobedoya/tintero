@@ -33,6 +33,8 @@ const gridFor = (def: ViewDef, panel: Panel): Grid =>
 /** The stand-in source of a block that takes none (`calibration`). */
 const NO_SOURCE: Source = { type: "tasks", readonly: true, items: [] };
 
+const NO_HOLIDAYS: ReadonlyMap<string, string> = new Map();
+
 const ceil8 = (n: number): number => Math.ceil(n / LIMITS.zoneAlign) * LIMITS.zoneAlign;
 const floor8 = (n: number): number => Math.floor(n / LIMITS.zoneAlign) * LIMITS.zoneAlign;
 
@@ -80,6 +82,8 @@ interface Input {
   config: ViewsConfig;
   sources: Record<string, Source>;
   at: Date;
+  /** Public holidays already corrected (F-013). */
+  holidays?: ReadonlyMap<string, string>;
   /** Per source: the "sin datos desde" notice for this draw, when there is one. */
   stale?: Record<string, string>;
 }
@@ -141,6 +145,7 @@ export function buildView(def: ViewDef, input: Input): BuiltView {
       source,
       timeZone: config.timezone,
       today,
+      holidays: input.holidays ?? NO_HOLIDAYS,
       stale:
         stale !== undefined && sourceId !== undefined && Object.hasOwn(stale, sourceId)
           ? // eslint-disable-next-line security/detect-object-injection -- guarded by hasOwn

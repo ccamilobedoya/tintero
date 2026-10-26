@@ -51,6 +51,14 @@ export interface ViewsConfig {
   theme: "base";
   devices: Record<string, { views: string[] }>;
   views: ViewDef[];
+  /** Public holidays of a country, with the owner's corrections (F-013). */
+  holidays?: HolidaysConfig;
+}
+
+export interface HolidaysConfig {
+  country: string;
+  add: { date: string; name: string }[];
+  remove: string[];
 }
 
 export type Stage = "todo" | "doing" | "done";
@@ -323,6 +331,7 @@ export function parseViewsConfig(raw: string): ViewsConfig {
     "theme",
     "devices",
     "views",
+    "holidays",
   ]);
   if (own(root, "version") !== 1) r.fail("/version", "must be 1");
   const timezone = r.string(own(root, "timezone"), "/timezone", 1, 64);
@@ -356,7 +365,42 @@ export function parseViewsConfig(raw: string): ViewsConfig {
       return [key, { views }] as const;
     }),
   );
-  return { version: 1, timezone, theme: "base", devices, views };
+  const holidays =
+    own(root, "holidays") === undefined ? undefined : readHolidays(r, own(root, "holidays"));
+  return {
+    version: 1,
+    timezone,
+    theme: "base",
+    devices,
+    views,
+    ...(holidays === undefined ? {} : { holidays }),
+  };
+}
+
+const COUNTRY = /^[A-Z]{2}$/;
+
+function readHolidays(r: Reader, value: unknown): HolidaysConfig {
+  const obj = r.object(value, "/holidays", ["country", "add", "remove"]);
+  const country = r.pattern(own(obj, "country"), "/holidays/country", COUNTRY);
+  const add =
+    own(obj, "add") === undefined
+      ? []
+      : r.array(own(obj, "add"), "/holidays/add", 0, 50).map((entry, i) => {
+          const pointer = `/holidays/add/${i}`;
+          const item = r.object(entry, pointer, ["date", "name"]);
+          const date = r.string(own(item, "date"), `${pointer}/date`, 10, 10);
+          if (!validDate(date)) r.fail(`${pointer}/date`, "must be YYYY-MM-DD");
+          return { date, name: r.string(own(item, "name"), `${pointer}/name`, 1, 60) };
+        });
+  const remove =
+    own(obj, "remove") === undefined
+      ? []
+      : r.array(own(obj, "remove"), "/holidays/remove", 0, 50).map((entry, i) => {
+          const date = r.string(entry, `/holidays/remove/${i}`, 10, 10);
+          if (!validDate(date)) r.fail(`/holidays/remove/${i}`, "must be YYYY-MM-DD");
+          return date;
+        });
+  return { country, add, remove };
 }
 
 // ---- data ----
