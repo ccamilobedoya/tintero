@@ -8,6 +8,8 @@ export type Locale = "es" | "en";
 export interface Messages {
   /** Sunday first, as `Date#getUTCDay`. */
   weekdays: readonly string[];
+  /** Monday first (the month calendar's header), seven entries. */
+  weekdayLetters: readonly string[];
   months: readonly string[];
   monthsLong: readonly string[];
   today: string;

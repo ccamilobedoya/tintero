@@ -2,6 +2,7 @@ import type { Messages } from "./index.ts";
 
 export const en: Messages = {
   weekdays: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"],
+  weekdayLetters: ["M", "T", "W", "T", "F", "S", "S"],
   months: ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"],
   monthsLong: [
     "JANUARY",

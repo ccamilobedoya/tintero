@@ -29,6 +29,7 @@ describe("catalogs", () => {
         expect(strings(value).every((text) => text !== "")).toBe(true);
       }
       expect(catalog.weekdays).toHaveLength(7);
+      expect(catalog.weekdayLetters).toHaveLength(7);
       expect(catalog.months).toHaveLength(12);
       expect(catalog.monthsLong).toHaveLength(12);
     }
@@ -37,6 +38,8 @@ describe("catalogs", () => {
   it("en has the values R10b asks for", () => {
     const en = messages("en");
     expect(en.weekdays).toEqual(["sun", "mon", "tue", "wed", "thu", "fri", "sat"]);
+    expect(en.weekdayLetters.join(" ")).toBe("M T W T F S S");
+    expect(messages("es").weekdayLetters.join(" ")).toBe("L M M J V S D");
     expect(en.months.join(" ")).toBe("jan feb mar apr may jun jul aug sep oct nov dec");
     expect(en.monthsLong[0]).toBe("JANUARY");
     expect(en.monthsLong[11]).toBe("DECEMBER");

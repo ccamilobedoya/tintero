@@ -1,0 +1,26 @@
+Tintero
+Copyright (c) 2026 Tintero contributors
+Tintero's own code and documents are licensed under the MIT License (see LICENSE).
+
+This file lists the third-party software that Tintero distributes or that its firmware links.
+
+Firmware (firmware/)
+--------------------
+GxEPD2 - GPL-3.0
+  E-paper display library, linked by the firmware at build time (not copied into this repository).
+ArduinoJson - MIT
+  JSON library, linked by the firmware at build time (not copied into this repository).
+
+The firmware source code in this repository is MIT. A compiled firmware binary links GxEPD2,
+so a binary is distributed under GPL-3.0 as a whole. This repository publishes source code
+only and no binaries. Anyone who builds and distributes a binary must follow the GPL-3.0
+(provide the corresponding source code and the license text).
+
+Fonts (server/fonts/)
+---------------------
+DejaVu Sans and DejaVu Sans Bold - Bitstream Vera and Arev licenses; DejaVu changes are public domain
+  License text: server/fonts/LICENSE-DejaVu.txt
+Terminus (bitmap, normal and bold) - OFL-1.1 (SIL Open Font License 1.1)
+  License text: server/fonts/LICENSE-Terminus.txt
+
+The font files are not modified. More details: server/fonts/README.md.
