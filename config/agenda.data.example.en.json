@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "sources": {
+    "calendario": {
+      "type": "events",
+      "items": [
+        {
+          "id": "a1",
+          "title": "Team daily",
+          "start": "2026-10-26T09:00:00-05:00",
+          "icon": "maletin"
+        },
+        {
+          "id": "a2",
+          "title": "Gym",
+          "start": "2026-10-26T18:30:00-05:00",
+          "icon": "persona"
+        },
+        {
+          "id": "a3",
+          "title": "Fridge technician",
+          "start": "2026-10-27T10:00:00-05:00",
+          "icon": "casa"
+        },
+        {
+          "id": "a4",
+          "title": "Sprint review",
+          "start": "2026-10-27T15:00:00-05:00",
+          "icon": "maletin"
+        },
+        { "id": "a5", "title": "Grandma's birthday", "start": "2026-10-28", "icon": "pastel" },
+        {
+          "id": "a6",
+          "title": "Architecture committee",
+          "start": "2026-10-28T11:00:00-05:00",
+          "icon": "maletin"
+        },
+        {
+          "id": "a7",
+          "title": "Ceramics class",
+          "start": "2026-10-28T18:30:00-05:00",
+          "icon": "persona"
+        },
+        { "id": "a8", "title": "Pay the building fee", "start": "2026-10-29", "icon": "casa" },
+        {
+          "id": "a9",
+          "title": "1:1 with the lead",
+          "start": "2026-10-29T08:30:00-05:00",
+          "icon": "maletin"
+        },
+        { "id": "a10", "title": "Movies", "start": "2026-10-30T20:00:00-05:00", "icon": "persona" },
+        {
+          "id": "a11",
+          "title": "Farmers market",
+          "start": "2026-10-31T10:00:00-05:00",
+          "icon": "casa"
+        },
+        {
+          "id": "a12",
+          "title": "Family lunch",
+          "start": "2026-11-02T12:30:00-05:00",
+          "icon": "corazon"
+        },
+        {
+          "id": "a13",
+          "title": "Plan the week",
+          "start": "2026-11-01T19:00:00-05:00",
+          "icon": "persona"
+        }
+      ]
+    }
+  }
+}
