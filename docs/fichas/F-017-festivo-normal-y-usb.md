@@ -1,6 +1,6 @@
 # F-017 · Etiqueta del festivo en letra normal y despertar cada 10 min con USB
 
-**Estado:** verificada · el dueño pidió los dos cambios el 2026-10-25 y que no se esperara su aprobación (ni para la ficha ni para integrar si sale limpio); ADR-0057 y ajuste de ADR-0056
+**Estado:** cerrada · integrada a `main` el 2026-10-25 (preaprobado) · el dueño pidió los dos cambios el 2026-10-25 y que no se esperara su aprobación (ni para la ficha ni para integrar si sale limpio); ADR-0057 y ajuste de ADR-0056
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna.
 
@@ -94,8 +94,8 @@ La etiqueta del próximo festivo se ve como antes de F-015, en letra normal junt
 - [x] Todos los CA pasan en la verificación (informe adjunto).
 - [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
 - [x] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar (preaprobado si sale limpio).
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
+- [x] El dueño aprobó integrar (preaprobado si salía limpio; integrada el 2026-10-25 y servicio reiniciado).
 
 ## Listo para programar (se marca antes de pedir aprobación)
 - [x] Cada CA se puede comprobar con una prueba, con valores concretos.
