@@ -1,6 +1,6 @@
 # F-018 · El repositorio, listo para que otra persona lo use
 
-**Estado:** aprobada · el dueño aprobó la ficha el 2026-10-26 (D1 a D11; D10 cambiada por él) y dio libertad al arquitecto para decidir y desarrollar hasta completarla; **la unión final a `main` espera su aprobación** (puerta 2) · ADR-0058 a ADR-0062
+**Estado:** cerrada · integrada a `main` el 2026-10-26 (`3ade3d1`, puerta 2 aprobada por el dueño tras pedir lo público en inglés) · el dueño aprobó la ficha el 2026-10-26 (D1 a D11; D10 cambiada por él) y dio libertad al arquitecto para decidir y desarrollar hasta completarla; **la unión final a `main` espera su aprobación** (puerta 2) · ADR-0058 a ADR-0062
 **Modelo del programador:** sonnet (etapas C, D y E); las demás son documentos, herramientas y revisión
 **Dependencias nuevas permitidas:** ninguna en npm. Una imagen de Docker: `trufflesecurity/trufflehog@sha256:0d003fc3abc4e1565eca8462b992001314de51451e96e3c44de80d116794d5d1` (3.99.7), en `tools/images.conf` (D11). Solo si hace falta R23, una imagen de `git filter-repo` fijada por *digest*
 
@@ -218,9 +218,9 @@ Una persona que llega al repo por GitHub entiende en inglés qué es Tintero, lo
 - [x] Todos los CA pasan en la verificación (informe adjunto).
 - [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
 - [x] `tools/check-scope` limpio para cada rol.
-- [x] Las dos revisiones de seguridad de la etapa H, limpias (falta la mirada del dueño a la hoja de contactos).
-- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones se actualizan al cierre.
-- [ ] El dueño aprobó integrar y publicar.
+- [x] Las dos revisiones de seguridad de la etapa H, limpias (y el dueño aprobó tras ver la hoja de contactos).
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
+- [x] El dueño aprobó integrar y publicar (2026-10-26; servicio `tintero` reiniciado).
 
 ## Listo para programar (se marca antes de pedir aprobación)
 - [x] Cada CA se puede comprobar con una prueba, con valores concretos.
