@@ -204,6 +204,70 @@ describe("R16 a R20 contenido de la guía (en inglés y en español)", () => {
   });
 });
 
+describe("CA18b las imágenes de cada idioma", () => {
+  const CIRCUIT = "docs/hardware/tintero-buttons/out/";
+
+  /** Imágenes que enlaza un Markdown (`![]()` y `<img src>`), resueltas desde la raíz. */
+  function images(file: string): { raw: string; path: string }[] {
+    const text = read(file);
+    const raws = [
+      ...text.matchAll(/!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g),
+      ...text.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi),
+    ].map((m) => m[1] ?? "");
+    return raws
+      .filter((r) => !/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(r))
+      .map((raw) => ({
+        raw,
+        path: normalize(join(dirname(file), decodeURIComponent(raw.split("#")[0] ?? ""))),
+      }));
+  }
+
+  const md = (lang: string): string[] =>
+    walk(`docs/guide/${lang}`).filter((f) => f.endsWith(".md"));
+  const cases: [string, string[], RegExp][] = [
+    ["en", ["README.md", ...md("en")], /(-en\.png|\.en\.svg)$/],
+    ["es", ["README.es.md", ...md("es")], /(-es\.png|\.es\.svg)$/],
+  ];
+  for (const [lang, files, suffix] of cases) {
+    it(`${lang}: toda imagen termina en el sufijo del idioma o es el circuito, y existe`, () => {
+      const bad: string[] = [];
+      let total = 0;
+      for (const file of files) {
+        for (const img of images(file)) {
+          total++;
+          if (!suffix.test(img.path) && !img.path.startsWith(CIRCUIT)) {
+            bad.push(`${file} → ${img.raw}`);
+          }
+          if (!existsSync(join(ROOT, img.path))) bad.push(`${file} → ${img.raw} (no existe)`);
+        }
+      }
+      expect(total).toBeGreaterThan(2);
+      expect(bad).toEqual([]);
+    });
+  }
+
+  const section = (text: string, title: string): string => {
+    const lines = prose(text);
+    const start = lines.indexOf(`## ${title}`);
+    if (start < 0) return "";
+    const rest = lines.slice(start + 1);
+    const end = rest.findIndex((l) => l.startsWith("## "));
+    return (end < 0 ? rest : rest.slice(0, end)).join("\n");
+  };
+  for (const [file, title, lang, arch] of [
+    ["README.md", "How it works", "en", "architecture.en.svg"],
+    ["README.es.md", "Cómo funciona", "es", "architecture.es.svg"],
+  ] as const) {
+    it(`${file}: sección «## ${title}» con el diagrama y las tres vistas en ${lang}`, () => {
+      const body = section(read(file), title);
+      expect(body, `falta la sección ## ${title}`).not.toBe("");
+      for (const name of [arch, `hoy-${lang}.png`, `tablero-${lang}.png`, `agenda-${lang}.png`]) {
+        expect(body, name).toContain(name);
+      }
+    });
+  }
+});
+
 describe("CA19 tools/imagenes-guia es reproducible", () => {
   /** SHA-256 de cada archivo de docs/guide/images/ de la carpeta `base`. */
   const sums = (base: string): Record<string, string> => {

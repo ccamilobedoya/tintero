@@ -455,3 +455,31 @@ describe("CA10b y R10c ejemplos en inglés", () => {
     expect(hasNode(nodes, "HOLIDAY MON 2 NOV")).toBe(true);
   }, 60_000);
 });
+
+// --- CA18b: ejemplos en inglés de tablero y agenda ------------------------------------------
+
+describe("CA18b ejemplos en inglés de tablero y agenda", () => {
+  for (const view of ["tablero", "agenda"]) {
+    const v = view + ".views.example.en.json";
+    const d = view + ".data.example.en.json";
+
+    it(view + ": los ejemplos en pasan la validación, con locale en", () => {
+      const cfg = parseViewsConfig(config(v));
+      expect((JSON.parse(config(v)) as { locale?: string }).locale).toBe("en");
+      expect(() => parseDataFile(config(d), cfg)).not.toThrow();
+    });
+
+    it(
+      view + ": el HTML no trae textos del catálogo es",
+      async () => {
+        const html = await htmlOf({ views: config(v), data: config(d) });
+        expect(html.length).toBeGreaterThan(1000);
+        for (const text of ["Hoy", "Mañana", "FESTIVO", "sin datos desde", "más", "Todo el día"]) {
+          expect(html, text).not.toContain(text);
+        }
+        expect(spanishLeft(html, config(d))).toEqual([]);
+      },
+      60_000,
+    );
+  }
+});
