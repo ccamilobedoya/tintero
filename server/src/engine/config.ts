@@ -253,7 +253,7 @@ function readSlot(r: Reader, value: unknown, pointer: string): Slot {
       "task-list": ["group_by"],
       "task-board": ["stages", "lead", "group_by", "density"],
       "issue-list": ["description"],
-      agenda: ["days", "holidays"],
+      agenda: ["days", "holidays", "layout"],
       "month-calendar": [],
       calibration: [],
     };
@@ -287,6 +287,12 @@ function readSlot(r: Reader, value: unknown, pointer: string): Slot {
     }
     if (own(options, "days") !== undefined) {
       r.integer(own(options, "days"), `${pointer}/options/days`, 1, 14);
+    }
+    if (own(options, "layout") !== undefined) {
+      const layout = own(options, "layout");
+      if (layout !== "days" && layout !== "column") {
+        r.fail(`${pointer}/options/layout`, "must be days or column");
+      }
     }
     if (own(options, "holidays") !== undefined) {
       r.boolean(own(options, "holidays"), `${pointer}/options/holidays`);

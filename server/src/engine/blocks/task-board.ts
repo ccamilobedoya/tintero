@@ -13,6 +13,7 @@ import {
   moreRow,
   noFit,
   shortDay,
+  stripRow,
   titleRow,
 } from "./common.ts";
 import type { Block, BlockContext } from "./types.ts";
@@ -42,11 +43,15 @@ const stagesOf = (value: unknown): Stage[] => {
   return value.filter((s): s is Stage => s === "doing" || s === "todo" || s === "done");
 };
 
-function heights(context: BlockContext, kind: Kind): { h: number; gap: number } {
+/** D2 (ADR-0056): a big row without `due` and `category` has no detail line. */
+const hasMeta = (task: Task): boolean => task.due !== undefined || task.category !== undefined;
+
+function heights(context: BlockContext, kind: Kind, task: Task): { h: number; gap: number } {
   const m = context.metrics;
   const pad = 2 * m.focusPad;
-  if (kind === "lead") return { h: 2 * m.leadLine + m.metaLine + pad, gap: m.focusGap };
-  if (kind === "card") return { h: 2 * m.cardLine + m.metaLine + pad, gap: m.focusGap };
+  const meta = hasMeta(task) ? m.metaLine : 0;
+  if (kind === "lead") return { h: 2 * m.leadLine + meta + pad, gap: m.focusGap };
+  if (kind === "card") return { h: 2 * m.cardLine + meta + pad, gap: m.focusGap };
   return { h: m.row, gap: 0 };
 }
 
@@ -65,14 +70,15 @@ function plansOf(context: BlockContext, tasks: Task[]): Plan[] {
       if (task.doneAt === undefined) return false;
       return dayKey(localParts(new Date(task.doneAt), context.timeZone).day) === today;
     });
-    const { h, gap } = heights(context, kind);
     const headers = kind !== "lead" && byCategory && mine.some((t) => t.category !== undefined);
     const units: Unit[] = [];
     for (const group of groupTasks(mine, headers)) {
       if (group.header !== undefined) {
         units.push({ kind: "header", text: group.header, h: context.metrics.groupRow });
       }
-      for (const task of group.items) units.push({ kind: "task", task, h, gap });
+      for (const task of group.items) {
+        units.push({ kind: "task", task, ...heights(context, kind, task) });
+      }
     }
     return { stage, kind, count: mine.length, units };
   });
@@ -158,23 +164,9 @@ function bottomOf(context: BlockContext, item: Placed): number {
 // ---- drawing ----
 
 function stripHtml(context: BlockContext, plan: Plan, y: number): Raw {
-  const m = context.metrics;
   const lead = plan.kind === "lead";
   const right = lead && context.stale !== undefined ? context.stale : String(plan.count);
-  return html`<div
-      class="a"
-      style="left:0;top:${y}px;width:${context.w}px;height:${m.strip}px;padding:0 ${m.focusPad}px;display:grid;grid-template-columns:minmax(0,1fr) max-content;column-gap:${m.gap}px;line-height:${m.strip}px;letter-spacing:1px;${fontCss(m.font.detail, true)}${lead ? ";background:#000;color:#fff" : ""}"
-    >
-      <span class="t">${LABEL[plan.stage]}</span><span style="white-space:nowrap">${right}</span>
-    </div>
-    ${
-      lead
-        ? html``
-        : html`<div
-            class="a"
-            style="left:0;top:${y + m.strip - m.line}px;width:${context.w}px;height:${m.line}px;background:#000"
-          ></div>`
-    }`;
+  return stripRow(context, LABEL[plan.stage], right, y, { lead });
 }
 
 /** `top` is the offset of the box inside the zone, `focusPad` included. */
@@ -247,11 +239,15 @@ function bigRow(context: BlockContext, plan: Plan, task: Task, y: number, h: num
       style="left:${first}px;top:${pad}px;width:${textW}px;height:${2 * line}px;line-height:${line}px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;${deco}${fontCss(plan.kind === "lead" ? m.font.title : m.font.text)}"
       >${task.title}</span
     >
-    <span
-      class="a t"
-      style="left:${first}px;top:${pad + 2 * line}px;width:${textW}px;height:${m.metaLine}px;line-height:${m.metaLine}px;white-space:pre;${fontCss(m.font.detail)}"
-      >${meta}</span
-    >
+    ${
+      bits.length === 0
+        ? html``
+        : html`<span
+            class="a t"
+            style="left:${first}px;top:${pad + 2 * line}px;width:${textW}px;height:${m.metaLine}px;line-height:${m.metaLine}px;white-space:pre;${fontCss(m.font.detail)}"
+            >${meta}</span
+          >`
+    }
   </div>`;
 }
 

@@ -50,7 +50,9 @@ npm run render -- --views config/tablero.views.example.json --data config/tabler
 - Cada etapa tiene una franja con su nombre y su total (o, si manda y la fuente lleva más de 5 min sin lectura buena, `sin datos desde HH:MM`). En *Hecho hoy* solo entran las de `doneAt` del día local de la vista.
 - Casilla: *Por hacer* vacía, *En progreso* a medias, *Hecho* llena y con el título tachado; sin casilla si la fuente es `readonly`. `vence` anterior a hoy sale blanco sobre negro.
 - **Regla de «cabe»:** si todo cabe, se dibuja todo. Si no, se reserva `moreRow` al final y se recorre etapa por etapa: cada una conserva su franja y su primera fila (se reserva lo que necesitan las etapas que faltan) y sus filas entran mientras quepan; la primera que no cabe pasa a la etapa siguiente. «+N más» cuenta las tareas sin mostrar de todas las etapas. Mínimo: 30 mm de ancho y alto para franja + primera fila + «+N más»; si no, «No cabe».
-- Zonas: una por tarea (`toggle`, o `open` si la fuente es `readonly`). `toggle` pasa la tarea a *Hecho* (con `doneAt` = reloj del motor) y, otra vez, la devuelve a su etapa anterior.
+- Zonas: una por tarea (`toggle`, o `open` si la fuente es `readonly`). `toggle` (Aceptar) lleva la tarea a la **etapa siguiente, en ciclo** (F-015, ADR-0055): *Por hacer* → *En progreso* → *Hecho* → *Por hacer*. Al pasar a *Hecho* pone `doneAt` = reloj del motor; al pasar a las otras, lo quita. Una tarea sin etapa se toma con `stageOf` (`todo` o `done`).
+- **Sin línea de detalle (D2, ADR-0056):** una fila que manda o una tarjeta sin `due` ni `category` mide `metaLine` menos y no dibuja la línea de debajo (a 124 ppp: 66 en vez de 86, y 52 en vez de 72).
+- **Franja.** Todo encabezado de bloque usa `stripRow` (`blocks/common.ts`): etiqueta en mayúsculas a la izquierda, texto corto a la derecha y una raya de `line` (o fondo negro si manda). Con `title`, el bloque la dibuja con ese título y, a la derecha, `sin datos desde HH:MM` si la fuente lo tiene, o la cantidad de elementos (en `agenda`, de eventos sin festivos). El mes usa la franja `MES AAAA` con el próximo festivo a la derecha solo si cabe entero.
 - `setSource(id, items, { readAt })` recibe la hora de la última lectura buena.
 
 ### Foco, banda y alineación (F-008, ADR-0048 a ADR-0050)
@@ -66,6 +68,8 @@ Medidas del tema `base` (en `Metrics`; a 124 ppp / a 200 ppp): `focusRing` 0,6 m
 ### Bloque `agenda`: pictogramas y festivos (F-014, ADR-0053)
 
 Si al menos una fila dibujada tiene `icon`, el bloque gana una primera columna de `texto + 6` px con un `<svg>` de `texto` × `texto` px (`viewBox 0 0 16 16`, `crispEdges`) en `y = fila + focusPad + floor((ih − texto) / 2)`; si ninguna lo tiene, se dibuja como antes. Los seis dibujos viven en `server/src/engine/blocks/pictograms.ts`. Con `options.holidays: true`, cada festivo del rango es la primera fila de su día, con la `estrella`; no es zona y cuenta para «+N más».
+
+Opción `layout` (F-015, ADR-0056): `"days"` (por defecto) dibuja filas de día (`VIE 23 OCT`); `"column"` las quita y pone antes de cada fila una columna con `Hoy`, `Mañana` o `Mié 28` (`dayLabel` en `dates.ts`) solo en la primera fila de cada día, con el ancho del texto más ancho dibujado. Otro valor → `ConfigError` (`must be days or column`). Ejemplo: `config/hoy.views.example.json` con `config/hoy.data.example.json`.
 
 ### Bloque `calibration` (F-008)
 

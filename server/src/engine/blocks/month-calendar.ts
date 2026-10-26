@@ -5,7 +5,7 @@ import { holidayLabel } from "../holidays.ts";
 import { html, type Raw } from "../html.ts";
 import { fontCss } from "../theme.ts";
 import { mmToPx } from "../units.ts";
-import { innerW, isTooSmall, noFit, titleRow } from "./common.ts";
+import { innerW, isTooSmall, noFit, stripRow, titleRow } from "./common.ts";
 import type { Block, BlockContext } from "./types.ts";
 
 const LETTERS = ["L", "M", "M", "J", "V", "S", "D"];
@@ -16,29 +16,15 @@ const DOT_ROOM = 14;
 /** The title row of the month: the month on the left and, when it fits whole, the next holiday. */
 function monthHeader(context: BlockContext): { html: Raw; height: number } {
   const { metrics, today } = context;
-  const h = metrics.groupRow;
   const label = holidayLabel(
     [...context.holidays].map(([date, name]) => ({ date, name })),
     today,
   );
-  const detail = metrics.font.detail;
   return {
-    height: h,
-    html: html`<div
-      class="a"
-      style="left:${metrics.focusPad}px;top:0;width:${innerW(context)}px;height:${h}px;overflow:hidden;display:flex;flex-wrap:wrap;justify-content:space-between;column-gap:8px"
-    >
-      <div style="white-space:nowrap;line-height:${h}px;${fontCss(detail, true)}">
-        ${`${MONTHS_LONG[today.m - 1] ?? ""} ${today.y}`}
-      </div>
-      ${
-        label === undefined
-          ? ""
-          : html`<div style="white-space:nowrap;line-height:${h}px;${fontCss(detail)}">
-              ${label}
-            </div>`
-      }
-    </div>`,
+    height: metrics.strip,
+    html: stripRow(context, `${MONTHS_LONG[today.m - 1] ?? ""} ${today.y}`, label ?? "", 0, {
+      dropRight: true,
+    }),
   };
 }
 

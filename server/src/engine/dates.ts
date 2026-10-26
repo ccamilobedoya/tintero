@@ -137,6 +137,15 @@ export const shortDate = (day: DayParts): string =>
 /** `VIE 23 OCT` */
 export const upperDate = (day: DayParts): string => shortDate(day).toUpperCase();
 
+/** `Hoy`, `Mañana` (today + 1) or `Mié 28`. */
+export function dayLabel(day: DayParts, today: DayParts): string {
+  const key = dayKey(day);
+  if (key === dayKey(today)) return "Hoy";
+  if (key === dayKey(addDays(today, 1))) return "Mañana";
+  const name = WEEKDAYS[weekday(day)] ?? "";
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${day.d}`;
+}
+
 const STALE_AFTER_MS = 5 * 60 * 1000;
 
 /** `sin datos desde HH:MM` (local time of the last good read) when it is over 5 min old. */

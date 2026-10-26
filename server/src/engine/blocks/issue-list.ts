@@ -41,7 +41,7 @@ export const issueList: Block = (context) => {
   if (source.type !== "tasks") return noFit(context);
   const withDescription = slot.options.description === true;
   const rowH = (withDescription ? metrics.issueDescRow : metrics.issueRow) + 2 * metrics.focusPad;
-  const title = titleRow(context);
+  const title = titleRow(context, String(source.items.length));
   const minH = 2 * metrics.margin + title.height + rowH + metrics.moreRow;
   if (isTooSmall(context, 30, minH)) return noFit(context);
   const fitted = fitList(
