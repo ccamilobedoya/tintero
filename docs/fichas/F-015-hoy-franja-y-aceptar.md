@@ -1,6 +1,6 @@
 # F-015 · «Hoy» con un solo encabezado y Aceptar que avanza una etapa
 
-**Estado:** verificada · espera la puerta 2 · el dueño la aprobó el 2026-10-25 (puerta 1; D1 a D3, ADR-0055 y ADR-0056)
+**Estado:** cerrada · integrada a `main` el 2026-10-25 (el dueño aprobó la puerta 2) · el dueño la aprobó el 2026-10-25 (puerta 1; D1 a D3, ADR-0055 y ADR-0056)
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna.
 
@@ -168,8 +168,8 @@ En «hoy», los cuatro bloques tienen el mismo encabezado; los eventos muestran 
 - [x] Todos los CA pasan en la verificación (informe adjunto).
 - [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
 - [x] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
+- [x] El dueño aprobó integrar (2026-10-25).
 
 ## Listo para programar (se marca antes de pedir aprobación)
 - [x] Cada CA se puede comprobar con una prueba, con valores concretos.
@@ -205,4 +205,4 @@ En «hoy», los cuatro bloques tienen el mismo encabezado; los eventos muestran 
 
 **Riesgos o pendientes:** al integrar, el arquitecto pone `layout: "column"` en la vista `hoy` real y reinicia el servicio; no se probó en el panel. F-016 (Jira) sigue bloqueada.
 
-**Decisión que se pide:** integrar a `main`
+**Decisión que se pide:** integrar a `main` (aprobado el 2026-10-25). En vivo el mismo día: `layout: "column"` en la vista `hoy` real y servicio reiniciado.
