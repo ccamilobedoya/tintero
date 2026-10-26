@@ -9,7 +9,7 @@ import { parseItems, type CalendarEvent, type Icon } from "../engine/config.ts";
 import {
   addDays,
   dayKey,
-  eventDays,
+  eventSpan,
   localParts,
   validDateTime,
   type DayParts,
@@ -323,9 +323,8 @@ export function mergeCalendars(
   const todayKey = dayKey(today);
   const todayNumber = dayNumber(today);
   const ranked = all.map((event) => {
-    const days = eventDays(event.start, event.end, timeZone);
-    const first = days[0] ?? today;
-    const covers = days.some((day) => dayKey(day) === todayKey);
+    const { first, last } = eventSpan(event.start, event.end, timeZone);
+    const covers = dayKey(first) <= todayKey && todayKey <= dayKey(last);
     return { event, distance: covers ? 0 : Math.abs(dayNumber(first) - todayNumber) };
   });
   const kept = ranked
