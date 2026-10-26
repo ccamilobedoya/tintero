@@ -70,9 +70,10 @@ afterAll(async () => {
 const LABEL: Rect = { x0: 640, x1: 793, y0: 249, y1: 268 };
 const MONTH: Rect = { x0: 510, x1: 600, y0: 249, y1: 268 };
 // cajas de los domingos (columna x 748–779), una por fila de semana
-const SUNDAYS: Rect[] = [295, 330, 365, 400].map((y) => ({ x0: 748, x1: 779, y0: y, y1: y + 23 }));
-const BOX12: Rect = { x0: 514, x1: 545, y0: 365, y1: 388 };
-const BOX13: Rect = { x0: 553, x1: 584, y0: 365, y1: 388 };
+// F-015 (regla 4): la franja del mes mide 24 y no 22; todas las `y` de los días bajan 2 px
+const SUNDAYS: Rect[] = [297, 332, 367, 402].map((y) => ({ x0: 748, x1: 779, y0: y, y1: y + 23 }));
+const BOX12: Rect = { x0: 514, x1: 545, y0: 367, y1: 390 };
+const BOX13: Rect = { x0: 553, x1: 584, y0: 367, y1: 390 };
 
 describe("CA6 hoy en P124 (2026-10-25)", () => {
   it("hoy invertido en la caja del 25", () => {
@@ -80,16 +81,16 @@ describe("CA6 hoy en P124 (2026-10-25)", () => {
       a.view.raw1,
       P124.w,
       [
-        [748, 400],
-        [779, 400],
-        [748, 423],
-        [779, 423],
+        [748, 402],
+        [779, 402],
+        [748, 425],
+        [779, 425],
       ],
       [
-        [747, 410],
-        [780, 410],
-        [760, 399],
-        [760, 424],
+        [747, 412],
+        [780, 412],
+        [760, 401],
+        [760, 426],
       ],
     );
     expect(bad).toEqual([]);
@@ -100,15 +101,15 @@ describe("CA6 hoy en P124 (2026-10-25)", () => {
       a.view.raw1,
       P124.w,
       [
-        [561, 356],
-        [576, 357],
-        [568, 356],
+        [561, 358],
+        [576, 359],
+        [568, 358],
       ],
       [
-        [560, 356],
-        [577, 356],
-        [568, 355],
-        [568, 358],
+        [560, 358],
+        [577, 358],
+        [568, 357],
+        [568, 360],
       ],
     );
     expect(bad).toEqual([]);
@@ -119,11 +120,11 @@ describe("CA6 hoy en P124 (2026-10-25)", () => {
       a.view.raw1,
       P124.w,
       [
-        [646, 461],
-        [685, 461],
-        [724, 462],
+        [646, 463],
+        [685, 463],
+        [724, 464],
       ],
-      [[607, 461]],
+      [[607, 463]],
     );
     expect(bad).toEqual([]);
   });
@@ -174,17 +175,17 @@ describe("CA8 mes de 6 semanas (2026-11-02, festivo y hoy)", () => {
         c.view.raw1,
         w,
         [
-          [514, 322],
-          [545, 322],
-          [514, 343],
-          [545, 343],
-          [522, 346],
-          [537, 347],
+          [514, 324],
+          [545, 324],
+          [514, 345],
+          [545, 345],
+          [522, 348],
+          [537, 349],
         ],
         [
-          [513, 330],
-          [546, 330],
-          ...[344, 345, 348, 349, 350].map((y): [number, number] => [529, y]),
+          [513, 332],
+          [546, 332],
+          ...[346, 347, 350, 351, 352].map((y): [number, number] => [529, y]),
         ],
       ),
     ];
@@ -202,30 +203,30 @@ describe("CA9 vertical (V124, 2026-11-02)", () => {
         d.view.raw1,
         w,
         [
-          [32, 685],
-          [63, 685],
-          [32, 704],
-          [63, 704],
+          [32, 687],
+          [63, 687],
+          [32, 706],
+          [63, 706],
         ],
         [],
       ),
     ).toEqual([]);
-    expect(blackIn(d.view.raw1, w, { x0: 66, x1: 70, y0: 692, y1: 696 })).toBe(25);
+    expect(blackIn(d.view.raw1, w, { x0: 66, x1: 70, y0: 694, y1: 698 })).toBe(25);
     expect(
       pixelErrors(
         d.view.raw1,
         w,
         [],
         [
-          [65, 694],
-          [71, 694],
-          [68, 691],
-          [68, 697],
+          [65, 696],
+          [71, 696],
+          [68, 693],
+          [68, 699],
         ],
       ),
     ).toEqual([]);
-    expect(blackIn(d.view.raw1, w, { x0: 258, x1: 262, y0: 692, y1: 696 })).toBe(25);
-    const noStripe: Rect = { x0: 40, x1: 55, y0: 705, y1: 707 };
+    expect(blackIn(d.view.raw1, w, { x0: 258, x1: 262, y0: 694, y1: 698 })).toBe(25);
+    const noStripe: Rect = { x0: 40, x1: 55, y0: 707, y1: 709 };
     expect(blackIn(d.view.raw1, w, noStripe)).toBe(0);
     expect(area(noStripe)).toBe(48);
   });

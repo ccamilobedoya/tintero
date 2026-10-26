@@ -60,10 +60,11 @@ describe("CA7 marcar y deshacer de punta a punta", () => {
     await sc.refresh();
     expect(sc.toggle("tarjeta00001")).toEqual({ status: "applied", changed: true });
     await sc.tt.idle();
+    // F-015 (D3): el ciclo es Por hacer → En progreso → Hecho → Por hacer
     expect(sc.patches()).toEqual([
-      { path: "/etapi/attributes/atrstatus001", body: '{"value":"Hecho"}' },
+      { path: "/etapi/attributes/atrstatus001", body: '{"value":"En progreso"}' },
     ]);
-    expect(sc.fake.statusOf("tarjeta00001")).toBe("Hecho");
+    expect(sc.fake.statusOf("tarjeta00001")).toBe("En progreso");
 
     await sc.refresh();
     expect(sc.toggle("tarjeta00001")).toEqual({ status: "applied", changed: true });
@@ -71,12 +72,22 @@ describe("CA7 marcar y deshacer de punta a punta", () => {
     expect(sc.patches()).toHaveLength(2);
     expect(sc.patches()[1]).toEqual({
       path: "/etapi/attributes/atrstatus001",
+      body: '{"value":"Hecho"}',
+    });
+    expect(sc.fake.statusOf("tarjeta00001")).toBe("Hecho");
+
+    await sc.refresh();
+    expect(sc.toggle("tarjeta00001")).toEqual({ status: "applied", changed: true });
+    await sc.tt.idle();
+    expect(sc.patches()).toHaveLength(3);
+    expect(sc.patches()[2]).toEqual({
+      path: "/etapi/attributes/atrstatus001",
       body: '{"value":"Por hacer"}',
     });
     expect(sc.fake.statusOf("tarjeta00001")).toBe("Por hacer");
   }, 30_000);
 
-  it("toggle y deshacer seguidos con el falso lento: ≤ 2 PATCH, termina en Por hacer", async () => {
+  it("dos toggle seguidos con el falso lento: ≤ 2 PATCH, termina en Hecho", async () => {
     const sc = await start();
     await sc.tt.cycle();
     await sc.refresh();
@@ -86,10 +97,10 @@ describe("CA7 marcar y deshacer de punta a punta", () => {
     expect(sc.toggle("tarjeta00001").status).toBe("applied");
     await sc.tt.idle();
     expect(sc.patches().length).toBeLessThanOrEqual(2);
-    expect(sc.fake.statusOf("tarjeta00001")).toBe("Por hacer");
+    expect(sc.fake.statusOf("tarjeta00001")).toBe("Hecho");
     sc.fake.delayMs = 0;
     await sc.tt.cycle();
-    expect(lastTask(sc, "tarjeta00001")).toMatchObject({ stage: "todo", done: false });
+    expect(lastTask(sc, "tarjeta00001")).toMatchObject({ stage: "done", done: true });
   }, 30_000);
 
   it("un toggle de una tarea desconocida para la integración no escribe", async () => {
@@ -155,13 +166,14 @@ describe("CA9 sin conexión y 24 h", () => {
     expect(fresh).toHaveLength(4);
     expect(fresh[0]).toBe("GET /etapi/notes/tarjeta00001");
     expect(fresh[1]).toBe("PATCH /etapi/attributes/atrstatus001");
-    expect(sc.fake.requests[n + 1]?.body).toBe('{"value":"Hecho"}');
+    // F-015 (D3): la marca pendiente que se escribe al volver es la etapa siguiente, En progreso
+    expect(sc.fake.requests[n + 1]?.body).toBe('{"value":"En progreso"}');
     expect([...fresh.slice(2)].sort()).toEqual([
       "GET /etapi/notes",
       "GET /etapi/notes/tablero00001",
     ]);
     expect(writeLines(sc, "written")).toHaveLength(1);
-    expect(lastTask(sc, "tarjeta00001")).toMatchObject({ stage: "done", done: true });
+    expect(lastTask(sc, "tarjeta00001")).toMatchObject({ stage: "doing", done: false });
   }, 30_000);
 
   it("pasadas 24 h el pendiente caduca sin escribir", async () => {

@@ -64,12 +64,12 @@ describe("CA3 hoy en P124", () => {
     for (const o of overflow) expect(o).toEqual([]);
 
     const todo = ["b-02", "b-04", "b-05", "b-06", "b-07", "b-08", "b-09"];
-    // F-008: valores nuevos de `hoy` en P124 (los de CA4 de F-008)
-    const todoY = [287, 317, 347, 377, 407];
-    const todoNew = todo.slice(0, 5);
+    // F-015 (D2): `b-03` (sin fecha) mide 66 y cabe una tarea más en Por hacer
+    const todoY = [267, 297, 327, 357, 387, 417];
+    const todoNew = todo.slice(0, 6);
     const expected = [
       { id: zid("hoy", "b-01"), act: "toggle", x: 8, y: 73, w: 480, h: 86 },
-      { id: zid("hoy", "b-03"), act: "toggle", x: 8, y: 162, w: 480, h: 86 },
+      { id: zid("hoy", "b-03"), act: "toggle", x: 8, y: 162, w: 480, h: 66 },
       ...todoNew.map((id, i) => ({
         id: zid("hoy", id),
         act: "toggle",
@@ -81,10 +81,10 @@ describe("CA3 hoy en P124", () => {
       { id: zid("hoy", "b-12"), act: "toggle", x: 504, y: 70, w: 288, h: 30 },
       { id: zid("hoy", "b-13"), act: "toggle", x: 504, y: 100, w: 288, h: 30 },
     ];
-    expect(hoy.zones).toHaveLength(9);
+    expect(hoy.zones).toHaveLength(10);
     expect(hoy.zones.map((z) => ({ id: z.id, act: z.act, ...rect(z) }))).toEqual(expected);
-    expect(hoy.zones[6]?.y).toBe(407);
-    expect(hoy.hidden).toEqual({ tareas: 4, hechas: 0, mes: 0 });
+    expect(hoy.zones[7]?.y).toBe(417);
+    expect(hoy.hidden).toEqual({ tareas: 3, hechas: 0, mes: 0 });
 
     const img = hoy.raw1;
     const black = (x: number, y: number): boolean => isBlack(img, 800, x, y);
@@ -93,8 +93,8 @@ describe("CA3 hoy en P124", () => {
       [300, 69],
       [8, 50],
       [487, 50],
-      [200, 285],
-      [200, 286],
+      [200, 265],
+      [200, 266],
       [15, 92],
       [516, 84],
     ] as const)
@@ -104,7 +104,8 @@ describe("CA3 hoy en P124", () => {
       [300, 72],
       [7, 50],
       [488, 50],
-      [200, 287],
+      [200, 264],
+      [200, 267],
       [23, 92],
     ] as const)
       expect(black(x, y), `blanco en (${String(x)}, ${String(y)})`).toBe(false);
@@ -119,12 +120,12 @@ describe("CA4 vencida", () => {
   it("b-02 invertida; b-06 y b-04 sin invertir", async () => {
     const { views } = await drawn(P124, { views: ["hoy"] });
     const img = viewOf(views, "hoy").raw1;
-    // F-008: etiqueta de 14 px (row − 2·focusPad − 4) centrada en la fila de b-02 (y = 287); b-04 (317) y b-06 (377) sin ella
-    expect(isBlack(img, 800, 481, 296)).toBe(true);
-    expect(isBlack(img, 800, 481, 309)).toBe(true);
-    expect(isBlack(img, 800, 481, 295)).toBe(false);
-    expect(isBlack(img, 800, 481, 310)).toBe(false);
-    for (const y of [326, 339, 386, 399])
+    // F-015 (D2): etiqueta de 14 px centrada en la fila de b-02 (y = 267); b-04 (297) y b-06 (357) sin ella
+    expect(isBlack(img, 800, 481, 276)).toBe(true);
+    expect(isBlack(img, 800, 481, 289)).toBe(true);
+    expect(isBlack(img, 800, 481, 275)).toBe(false);
+    expect(isBlack(img, 800, 481, 290)).toBe(false);
+    for (const y of [306, 319, 366, 379])
       expect(isBlack(img, 800, 481, y), `y=${String(y)}`).toBe(false);
   }, 90_000);
 });
@@ -155,14 +156,17 @@ describe("CA8 tablero en P124", () => {
     const v = viewOf(views, "tablero");
     expect(v.overflow).toEqual([]);
     expect(v.tooSmall).toEqual([]);
-    const todo = ["b-02", "b-04", "b-05", "b-06", "b-07"];
-    // F-008: valores nuevos de `tablero` en P124 (los de CA5 de F-008)
+    // F-015 (D2): tarjetas sin fecha ni categoría miden 52 y la fila que manda sin fecha, 66
     const expected = [
       { id: zid("tablero", "b-01"), x: 264, y: 73, w: 288, h: 86 },
-      { id: zid("tablero", "b-03"), x: 264, y: 162, w: 288, h: 86 },
-      ...todo.map((id, i) => ({ id: zid("tablero", id), x: 8, y: 73 + 75 * i, w: 240, h: 72 })),
-      { id: zid("tablero", "b-12"), x: 568, y: 73, w: 224, h: 72 },
-      { id: zid("tablero", "b-13"), x: 568, y: 148, w: 224, h: 72 },
+      { id: zid("tablero", "b-03"), x: 264, y: 162, w: 288, h: 66 },
+      { id: zid("tablero", "b-02"), x: 8, y: 73, w: 240, h: 72 },
+      { id: zid("tablero", "b-04"), x: 8, y: 148, w: 240, h: 52 },
+      { id: zid("tablero", "b-05"), x: 8, y: 203, w: 240, h: 72 },
+      { id: zid("tablero", "b-06"), x: 8, y: 278, w: 240, h: 72 },
+      { id: zid("tablero", "b-07"), x: 8, y: 353, w: 240, h: 52 },
+      { id: zid("tablero", "b-12"), x: 568, y: 73, w: 224, h: 52 },
+      { id: zid("tablero", "b-13"), x: 568, y: 128, w: 224, h: 52 },
     ];
     expect(v.zones.map((z) => ({ id: z.id, ...rect(z) }))).toEqual(expected);
     expect(v.hidden).toEqual({ por_hacer: 4, en_progreso: 0, hechas: 0 });
@@ -181,7 +185,7 @@ describe("CA9 vertical y otros ppp", () => {
     for (const z of hoy.zones) {
       expect(z.x % 8, z.id).toBe(0);
       expect(z.w % 8, z.id).toBe(0);
-      expect([30, 86], z.id).toContain(z.h);
+      expect([30, 66, 86], z.id).toContain(z.h);
     }
     const hechas = hoy.zones.filter((z) => [zid("hoy", "b-12"), zid("hoy", "b-13")].includes(z.id));
     for (const z of hechas) expect(z.h).toBe(30);

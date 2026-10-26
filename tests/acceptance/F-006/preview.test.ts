@@ -44,7 +44,7 @@ describe("CA13 vista previa", () => {
       expect(checkImage("png1", bytes, P124).ok, id).toBe(true);
       const v = validateZones(readFileSync(join(out, `${id}.zones.json`), "utf8"), P124);
       expect(v.ok, id).toBe(true);
-      if (v.ok && id === "hoy") expect(v.value.zones).toHaveLength(9); // F-008: hoy tiene 9 zonas
+      if (v.ok && id === "hoy") expect(v.value.zones).toHaveLength(10); // F-015: hoy tiene 10 zonas
     }
   });
 });
