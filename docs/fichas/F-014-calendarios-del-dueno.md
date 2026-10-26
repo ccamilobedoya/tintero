@@ -1,6 +1,6 @@
 # F-014 · Los calendarios del dueño en la pantalla, con un símbolo por calendario
 
-**Estado:** verificada (espera la puerta 2, después de F-013) · el dueño la aprobó el 2026-10-25 (D1 a D7; ADR-0053 y ADR-0054)
+**Estado:** cerrada · integrada a `main` el 2026-10-25 (el dueño aprobó la puerta 2) · el dueño la aprobó el 2026-10-25 (D1 a D7; ADR-0053 y ADR-0054)
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** `ical.js@2.2.1` exacta (MPL-2.0, sin dependencias propias, firma del registro verificada, 1,4 MB): lee iCalendar con repeticiones, excepciones y zonas horarias (ADR-0054). Se instala con `npm install --save-exact ical.js@2.2.1`.
 **Rama:** sale de `ficha/F-014`, que trae `ver/F-013` (y con ella F-008). No entra a `main` antes que F-013.
@@ -207,8 +207,8 @@ En la agenda de pantalla completa salen los eventos de iCloud, del Google person
 - [x] Todos los CA pasan en la verificación (informe adjunto).
 - [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
 - [x] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
+- [x] El dueño aprobó integrar (2026-10-25).
 
 ## Listo para programar (se marca antes de pedir aprobación)
 - [x] Cada CA se puede comprobar con una prueba, con valores concretos.
@@ -243,4 +243,4 @@ En la agenda de pantalla completa salen los eventos de iCloud, del Google person
 
 **Riesgos o pendientes:** no entra a `main` antes que F-013 (que espera a F-008). Para usarlo, el dueño crea el archivo de calendarios (600) con sus direcciones, sin pasarlas por el chat.
 
-**Decisión que se pide:** integrar a `main` después de F-013
+**Decisión que se pide:** integrar a `main` después de F-013 (aprobado el 2026-10-25)

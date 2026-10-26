@@ -45,6 +45,11 @@
 
 **Recordatorio:** el nombre `*.ts.net` del servidor es público (registro de certificados). Nada se apoya en que no lo encuentren.
 
+## Integraciones de solo lectura sin llave (F-013, F-014; ADR-0052 y ADR-0054)
+- **`festivos`** solo pide `GET /api/v3/PublicHolidays/<año>/<país>` a su `baseUrl` (por defecto `https://date.nager.at`). Manda solo el país y el año, sin cabecera `Authorization` (`needsKey: false`); respuesta de 64 KiB como máximo y caché por año en un archivo 600.
+- **`ical-calendario`** lee las direcciones iCalendar del dueño. **Cada dirección es un secreto** (quien la tenga lee el calendario): viven en un archivo 600 fuera del repo, tratado como una llave, y se parten en origen y ruta al arrancar. La ruta nunca llega a registros, errores, `state.json`, el archivo de estado ni el motor; cada calendario se nombra por su `id`. Solo `https:` (`webcal://` se toma como `https://`), sin redirecciones, 8 MiB como máximo **antes** de parsear, el conteo de `VEVENT` antes de `ical.js` y topes de 2 000 repeticiones en la ventana y 100 000 pasos por calendario.
+- El archivo de estado de `ical-calendario` guarda títulos de eventos (privado, 600). Si una dirección se filtra, se cambia desde el calendario y se actualiza el archivo.
+
 ## Secretos del repo y del servidor
 - `.claude/settings.json` niega `Read` sobre `.env*` y `~/.config/**` (Claude Code lo aplica también a Grep y Glob, en la medida de lo posible).
 - Los agentes lanzados con `tools/lanzar-agente` solo tienen una **lista cerrada de comandos** de Bash: no pueden correr `cat`, `less` ni similares. Este es el control real.

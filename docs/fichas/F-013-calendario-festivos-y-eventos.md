@@ -1,6 +1,6 @@
 # F-013 · Calendario del mes con festivos y días con eventos
 
-**Estado:** verificada (espera la puerta 2 y el cierre de F-008) · el dueño la aprobó el 2026-10-25 (D1 a D5; ADR-0051 y ADR-0052). La parte de conectar los calendarios (antes D6) pasa a **F-014**
+**Estado:** cerrada · integrada a `main` el 2026-10-25 (el dueño aprobó la puerta 2) · el dueño la aprobó el 2026-10-25 (D1 a D5; ADR-0051 y ADR-0052). La parte de conectar los calendarios (antes D6) pasa a **F-014**
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna.
 **Rama:** el trabajo sale de `ficha/F-013`, que ya trae el código de F-008 (`ver/F-008`) porque las dos fichas tocan `month-calendar.ts`. **No se une a `main` hasta que F-008 esté cerrada**; al cerrarla se une `main` en `ver/F-013` y se vuelven a correr todas las pruebas de aceptación.
@@ -190,8 +190,8 @@ En `hoy`, domingos y festivos en negrita, hoy invertido, una raya de 2 px bajo c
 - [x] Todos los CA pasan en la verificación (informe adjunto; CA20 con el intermitente de F-005 CA27 explicado).
 - [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
 - [x] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
+- [x] El dueño aprobó integrar (2026-10-25).
 
 ## Listo para programar (se marca antes de pedir aprobación)
 - [x] Cada CA se puede comprobar con una prueba, con valores concretos.
@@ -226,4 +226,4 @@ En `hoy`, domingos y festivos en negrita, hoy invertido, una raya de 2 px bajo c
 
 **Riesgos o pendientes:** no se une a `main` hasta cerrar F-008. Al unirla, en el servidor hay que encender `festivos` en las integraciones y poner `holidays` en la configuración real.
 
-**Decisión que se pide:** integrar a `main` cuando cierre F-008
+**Decisión que se pide:** integrar a `main` cuando cierre F-008 (aprobado el 2026-10-25)
