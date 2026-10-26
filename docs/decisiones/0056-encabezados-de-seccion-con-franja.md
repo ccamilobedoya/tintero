@@ -11,3 +11,5 @@ Todo encabezado de bloque es la **franja** de `task-board`: texto de detalle en 
 
 ## Consecuencias
 Un encabezado se ve igual en cualquier bloque nuevo. En «hoy» caben 4 eventos en vez de 3 y una tarea más en *Por hacer*. La agenda de pantalla completa conserva las filas de día (opción `layout` del bloque `agenda`).
+
+**Ajuste (F-017, 2026-10-25, dueño):** en la franja del mes, la etiqueta del próximo festivo vuelve a la letra de detalle **normal** (sin negrita ni espaciado), como antes de F-015; el mes y la raya no cambian.
