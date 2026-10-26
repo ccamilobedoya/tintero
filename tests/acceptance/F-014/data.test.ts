@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- JSON de prueba */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access -- JSON de prueba */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -274,6 +274,49 @@ describe("CA3 límites y errores", () => {
     expect(r.truncated).toBeGreaterThan(0);
   });
 
+  it("diario 09:00 Bogotá desde 2019-01-01 → 94 repeticiones de la ventana y truncated = 0", () => {
+    const text = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Tintero//Prueba//ES",
+      "BEGIN:VTIMEZONE",
+      "TZID:America/Bogota",
+      "BEGIN:STANDARD",
+      "DTSTART:19700101T000000",
+      "TZOFFSETFROM:-0500",
+      "TZOFFSETTO:-0500",
+      "TZNAME:-05",
+      "END:STANDARD",
+      "END:VTIMEZONE",
+      "BEGIN:VEVENT",
+      "UID:viejo@p",
+      "DTSTART;TZID=America/Bogota:20190101T090000",
+      "RRULE:FREQ=DAILY",
+      "SUMMARY:Cada día desde 2019",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ]
+      .map((l) => `${l}\r\n`)
+      .join("");
+    const r = parseCalendar(text, cal, WINDOW, LIMA);
+    expect(r.events).toHaveLength(94);
+    expect(r.truncated).toBe(0);
+    expect(r.events[0]?.start).toBe("2026-09-24T14:00:00Z");
+    expect(r.events[93]?.start).toBe("2026-12-26T14:00:00Z");
+  });
+
+  it("FREQ=MINUTELY desde 2019-01-01 → truncated > 0 y termina en menos de 3 s", () => {
+    const text = icsOf([
+      ["UID:m@p", "DTSTART:20190101T000000Z", "RRULE:FREQ=MINUTELY", "SUMMARY:Cada minuto"],
+    ]);
+    const t0 = performance.now();
+    const r = parseCalendar(text, cal, WINDOW, LIMA);
+    const ms = performance.now() - t0;
+    expect(r.truncated).toBeGreaterThan(0);
+    expect(r.events.length).toBeLessThanOrEqual(2000);
+    expect(ms).toBeLessThan(3000);
+  });
+
   it("texto que no es iCalendar → bad-ical", () => {
     for (const text of ["esto no es un calendario", "", "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\n"]) {
       let error: unknown;
@@ -354,11 +397,9 @@ describe("CA4 mergeCalendars", () => {
       calendar: "a",
       icon: "casa",
     };
-    const far = list("b", 16).map((e, i) => ({ ...e, start: day(i + 1, 16) }));
-    const lists = [
-      [covering],
-      far.concat(list("c", 17).map((e, i) => ({ ...e, start: day(-i - 1, 17) }))),
-    ];
+    const far: Loose[] = list("b", 16).map((e, i): Loose => ({ ...e, start: day(i + 1, 16) }));
+    const near: Loose[] = list("c", 17).map((e, i): Loose => ({ ...e, start: day(-i - 1, 17) }));
+    const lists: Loose[][] = [[covering], far.concat(near)];
     const r = mergeCalendars(lists as never, TODAY, LIMA, 5);
     expect(r.events.map((e) => e.id)).toContain("largo");
     expect(r.events).toHaveLength(5);

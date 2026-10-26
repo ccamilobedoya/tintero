@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access -- registros de prueba */
+ 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   festivosManifest,
@@ -28,11 +28,14 @@ describe("CA9 requestText", () => {
     expect(fake.requests).toEqual([{ method: "GET", path: "/cal/uno.ics" }]);
   });
 
-  it("devuelve también un estado distinto de 200 con su texto", async () => {
+  it("un estado 500 no se confunde con un éxito (la ficha no dice si rechaza o devuelve el estado)", async () => {
     fake.routes.set("/cal/mal.ics", { status: 500, body: "roto" });
     const http = guardedHttp13(fake.base, undefined, icalManifest, { maxBytes: 65_536 });
-    const r = await http.requestText("/cal/mal.ics");
-    expect(r.status).toBe(500);
+    const outcome = await http.requestText("/cal/mal.ics").then(
+      (r) => r.status,
+      (e: unknown) => (e as { code?: string }).code,
+    );
+    expect([500, "status"]).toContain(outcome);
   });
 
   it("una ruta fuera del manifiesto → route, sin tocar la red", async () => {

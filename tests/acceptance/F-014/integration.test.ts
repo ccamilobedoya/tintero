@@ -1,4 +1,4 @@
-/* eslint-disable security/detect-non-literal-fs-filename, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- carpetas temporales propias y JSON de prueba */
+/* eslint-disable security/detect-non-literal-fs-filename, @typescript-eslint/no-unsafe-member-access -- carpetas temporales propias y JSON de prueba */
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -93,12 +93,12 @@ function rig(
   const ical = createIcalCalendars({
     calendars,
     source: "calendario",
-    engine: engine as never,
+    engine: engine,
     timeZone: "America/Lima",
     stateFile,
     clock: () => new Date(now.t),
-    log: (l) => logs.push(l),
-  } as never);
+    log: (l: Loose) => logs.push(l),
+  });
   return { ical, calls, logs, now, stateFile };
 }
 
@@ -142,7 +142,8 @@ describe("CA6 dos calendarios, una fuente", () => {
     r.now.t = new Date(new Date(T1).getTime() + 240_000);
     await r.ical.cycle();
     const second = last(r);
-    expect(second.items.map((e) => e.id).sort()).toEqual(first.items.map((e) => e.id).sort());
+    const ids = (c: Call): string[] => c.items.map((e) => String(e.id)).sort();
+    expect(ids(second)).toEqual(ids(first));
     expect(second.items.filter((e) => e.calendar === "trabajo")).toHaveLength(11);
     // casa se leyó a T1 + 240 s, trabajo quedó en T1: la más vieja manda
     expect(second.readAt?.getTime()).toBe(new Date(T1).getTime());
@@ -271,7 +272,9 @@ describe("CA8 estado en archivo", () => {
     const first = r.calls[0];
     expect(first, "start() no entregó nada").toBeDefined();
     expect(first?.requestsSoFar).toBe(0);
-    expect(first?.items.map((e) => e.id).sort()).toEqual(items.map((e) => e.id).sort());
+    const idsOf = (list: Loose[] | undefined): string[] | undefined =>
+      list?.map((e) => String(e.id)).sort();
+    expect(idsOf(first?.items)).toEqual(idsOf(items));
   }, 30_000);
 
   it("un calendario que ya no está en el archivo de calendarios no se entrega", async () => {
