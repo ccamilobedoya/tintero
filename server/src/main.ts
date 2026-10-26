@@ -5,14 +5,19 @@
 import { accessSync, constants, statSync } from "node:fs";
 import { dirname } from "node:path";
 import { parseOptions, UsageError } from "./args.ts";
-import { checkAgainstData, loadIntegrations } from "./integrations/config.ts";
+import { checkAgainstData, loadCalendars, loadIntegrations } from "./integrations/config.ts";
+import {
+  createIcalCalendars,
+  ICAL_HTTP_LIMITS,
+  type IcalCalendars,
+} from "./integrations/ical-calendar.ts";
 import {
   createHolidays,
   HOLIDAYS_HTTP_LIMITS,
   type Holidays,
 } from "./integrations/holidays-nager.ts";
 import { guardedHttp, IntegrationHttpError, parseBase } from "./integrations/http.ts";
-import { holidaysManifest, triliumTasksManifest } from "./integrations/manifest.ts";
+import { holidaysManifest, icalManifest, triliumTasksManifest } from "./integrations/manifest.ts";
 import { createTriliumTasks, type TriliumTasks } from "./integrations/trilium-tasks.ts";
 import {
   ConfigError,
@@ -67,10 +72,12 @@ let engine: Engine | undefined;
 let stopChromium: (() => Promise<void>) | undefined;
 let tasks: TriliumTasks | undefined;
 let holidays: Holidays | undefined;
+let calendars: IcalCalendars | undefined;
 // Integrations, then the engine, then the container: the container always gets its turn.
 const steps = (): ShutdownStep[] => [
   { name: "integrations", run: () => tasks?.stop(), timeoutMs: 6000 },
   { name: "holidays", run: () => holidays?.stop(), timeoutMs: 6000 },
+  { name: "calendars", run: () => calendars?.stop(), timeoutMs: 6000 },
   { name: "engine", run: () => engine?.close(), timeoutMs: 5000 },
   { name: "chromium", run: () => stopChromium?.(), timeoutMs: 25_000 },
 ];
@@ -98,6 +105,7 @@ if (options.views !== undefined && options.data !== undefined) {
   // Integrations are checked before Chromium starts: their errors need no Docker.
   let integration;
   let festivos;
+  let ical;
   const country = loaded.config.holidays?.country;
   if (options.integrations === undefined && country !== undefined) {
     logEngine({ ts: new Date().toISOString(), msg: "holidays: festivos integration is off" });
@@ -130,6 +138,26 @@ if (options.views !== undefined && options.data !== undefined) {
           log: logEngine,
         });
         festivos = { config: nager, http, country };
+      }
+      const owned = file.integrations["ical-calendario"];
+      if (owned !== undefined) {
+        if (owned.stateFile !== undefined) {
+          checkStateFolder(owned.stateFile, "/integrations/ical-calendario/stateFile");
+        }
+        // Each address is a secret: it is split into origin and path here and goes no further.
+        const list = loadCalendars(owned.calendarsFile).map((entry) => {
+          const url = new URL(entry.url);
+          return {
+            id: entry.id,
+            icon: entry.icon,
+            path: url.pathname,
+            http: guardedHttp(new URL(url.origin), undefined, icalManifest, {
+              ...ICAL_HTTP_LIMITS,
+              log: logEngine,
+            }),
+          };
+        });
+        ical = { config: owned, list };
       }
     } catch (error) {
       if (error instanceof ConfigError) console.error(error.message);
@@ -178,6 +206,17 @@ if (options.views !== undefined && options.data !== undefined) {
         log: logEngine,
       });
       holidays.start();
+    }
+    if (ical !== undefined) {
+      calendars = createIcalCalendars({
+        calendars: ical.list,
+        source: ical.config.source,
+        engine,
+        timeZone: loaded.config.timezone,
+        ...(ical.config.stateFile === undefined ? {} : { stateFile: ical.config.stateFile }),
+        log: logEngine,
+      });
+      calendars.start();
     }
   } catch {
     await shutdown(steps());

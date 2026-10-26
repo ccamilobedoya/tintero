@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "timezone": "America/Lima",
+  "theme": "base",
+  "holidays": { "country": "CO" },
+  "devices": {
+    "*": { "views": ["agenda"] }
+  },
+  "views": [
+    {
+      "id": "agenda",
+      "title": "Agenda",
+      "grid": {
+        "columns": [62, 38],
+        "rows": [100],
+        "areas": [["eventos", "mes"]]
+      },
+      "slots": {
+        "eventos": {
+          "block": "agenda",
+          "source": "calendario",
+          "title": "Próximos eventos",
+          "options": { "days": 7, "holidays": true }
+        },
+        "mes": { "block": "month-calendar", "source": "calendario" }
+      }
+    }
+  ]
+}

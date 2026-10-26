@@ -12,6 +12,11 @@
     "festivos": {
       "baseUrl": "https://date.nager.at",
       "stateFile": "/ruta/privada/festivos.json"
+    },
+    "ical-calendario": {
+      "source": "calendario",
+      "calendarsFile": "/ruta/privada/calendarios.json",
+      "stateFile": "/ruta/privada/calendarios.estado.json"
     }
   }
 }

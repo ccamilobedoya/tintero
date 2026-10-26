@@ -36,6 +36,8 @@ export interface GuardedHttp {
     path: string,
     body?: unknown,
   ): Promise<{ status: number; json: unknown }>;
+  /** F-014: a GET with the same guards as `request`; the body comes back as text, not parsed. */
+  requestText(path: string): Promise<{ status: number; text: string }>;
 }
 
 export interface GuardedHttpOptions {
@@ -156,72 +158,82 @@ export function guardedHttp(
     return Buffer.concat(chunks).toString("utf8");
   }
 
+  async function perform(
+    method: "GET" | "PATCH",
+    path: string,
+    body?: unknown,
+  ): Promise<{ status: number; text: string }> {
+    checkPath(path);
+    const allowed = manifest.routes.some(
+      (route) => route.method === method && matchesPrefix(path, route.prefix),
+    );
+    if (!allowed) throw new IntegrationHttpError("route");
+    if (method === "PATCH" && !(manifest.writes && options.allowWrite === true)) {
+      throw new IntegrationHttpError("write-denied");
+    }
+    const url = new URL(`${checked.origin}${basePath}${path}`);
+    if (url.origin !== checked.origin) throw new IntegrationHttpError("bad-path");
+
+    const started = performance.now();
+    let status = 0;
+    const controller = new AbortController();
+    const state = { timedOut: false };
+    const timer = setTimeout(() => {
+      state.timedOut = true;
+      controller.abort();
+    }, timeoutMs);
+    try {
+      const headers: Record<string, string> = token === undefined ? {} : { Authorization: token };
+      if (body !== undefined) headers["Content-Type"] = "application/json";
+      let response: Response;
+      try {
+        // nosemgrep: react-insecure-request -- integración local (docs/seguridad.md)
+        response = await fetch(url, {
+          method,
+          headers,
+          redirect: "error",
+          signal: controller.signal,
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        });
+      } catch {
+        throw new IntegrationHttpError(state.timedOut ? "timeout" : "network");
+      }
+      status = response.status;
+      if (status < 200 || status > 299) {
+        response.body?.cancel().catch(() => undefined); // body never read; a failed cancel changes nothing
+        throw new IntegrationHttpError("status", status);
+      }
+      let text: string;
+      try {
+        text = await readBody(response);
+      } catch (error) {
+        if (error instanceof IntegrationHttpError) throw error;
+        throw new IntegrationHttpError(state.timedOut ? "timeout" : "network");
+      }
+      return { status, text };
+    } finally {
+      clearTimeout(timer);
+      log({
+        ts: clock().toISOString(),
+        integration: manifest.id,
+        host: checked.host,
+        method,
+        status,
+        ms: Math.round(performance.now() - started),
+      });
+    }
+  }
+
   return {
     async request(method, path, body) {
-      checkPath(path);
-      const allowed = manifest.routes.some(
-        (route) => route.method === method && matchesPrefix(path, route.prefix),
-      );
-      if (!allowed) throw new IntegrationHttpError("route");
-      if (method === "PATCH" && !(manifest.writes && options.allowWrite === true)) {
-        throw new IntegrationHttpError("write-denied");
-      }
-      const url = new URL(`${checked.origin}${basePath}${path}`);
-      if (url.origin !== checked.origin) throw new IntegrationHttpError("bad-path");
-
-      const started = performance.now();
-      let status = 0;
-      const controller = new AbortController();
-      const state = { timedOut: false };
-      const timer = setTimeout(() => {
-        state.timedOut = true;
-        controller.abort();
-      }, timeoutMs);
+      const { status, text } = await perform(method, path, body);
+      if (text.trim() === "") return { status, json: null };
       try {
-        const headers: Record<string, string> = token === undefined ? {} : { Authorization: token };
-        if (body !== undefined) headers["Content-Type"] = "application/json";
-        let response: Response;
-        try {
-          // nosemgrep: react-insecure-request -- integración local (docs/seguridad.md)
-          response = await fetch(url, {
-            method,
-            headers,
-            redirect: "error",
-            signal: controller.signal,
-            ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-          });
-        } catch {
-          throw new IntegrationHttpError(state.timedOut ? "timeout" : "network");
-        }
-        status = response.status;
-        if (status < 200 || status > 299) {
-          response.body?.cancel().catch(() => undefined); // body never read; a failed cancel changes nothing
-          throw new IntegrationHttpError("status", status);
-        }
-        let text: string;
-        try {
-          text = await readBody(response);
-        } catch (error) {
-          if (error instanceof IntegrationHttpError) throw error;
-          throw new IntegrationHttpError(state.timedOut ? "timeout" : "network");
-        }
-        if (text.trim() === "") return { status, json: null };
-        try {
-          return { status, json: JSON.parse(text) as unknown };
-        } catch {
-          throw new IntegrationHttpError("bad-json");
-        }
-      } finally {
-        clearTimeout(timer);
-        log({
-          ts: clock().toISOString(),
-          integration: manifest.id,
-          host: checked.host,
-          method,
-          status,
-          ms: Math.round(performance.now() - started),
-        });
+        return { status, json: JSON.parse(text) as unknown };
+      } catch {
+        throw new IntegrationHttpError("bad-json");
       }
     },
+    requestText: (path) => perform("GET", path),
   };
 }

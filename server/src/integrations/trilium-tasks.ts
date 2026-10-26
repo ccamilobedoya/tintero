@@ -222,6 +222,10 @@ export function createTriliumTasks(options: {
       flags.stopped
         ? Promise.reject(new IntegrationHttpError("network"))
         : options.http.request(method, path, body),
+    requestText: (path) =>
+      flags.stopped
+        ? Promise.reject(new IntegrationHttpError("network"))
+        : options.http.requestText(path),
   };
 
   const columnOf = (stage: Stage): string | undefined =>

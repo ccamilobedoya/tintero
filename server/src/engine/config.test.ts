@@ -375,3 +375,67 @@ describe("holidays in the views file (F-013)", () => {
     expect(errorFor({ country: "CO", other: 1 })).toContain("/holidays/other");
   });
 });
+
+describe("icon and calendar of an event (F-014)", () => {
+  const config: ViewsConfig = parseViewsConfig(
+    JSON.stringify({
+      ...baseViews,
+      views: [{ ...baseView, slots: { a: { block: "agenda", source: "calendario" } } }],
+    }),
+  );
+  const parse = (item: object): string => {
+    try {
+      parseDataFile(
+        JSON.stringify({
+          version: 1,
+          sources: {
+            calendario: {
+              type: "events",
+              items: [{ id: "e-1", title: "x", start: "2026-10-25", ...item }],
+            },
+          },
+        }),
+        config,
+      );
+    } catch (error) {
+      return (error as ConfigError).message;
+    }
+    return "";
+  };
+
+  it("accepts the six pictograms and a calendar id", () => {
+    for (const icon of ["persona", "maletin", "casa", "pastel", "corazon", "estrella"]) {
+      expect(parse({ icon, calendar: "mi-cal-1" })).toBe("");
+    }
+  });
+
+  it("points at the field when it is not valid", () => {
+    expect(parse({ icon: "gato" })).toContain("/0/icon");
+    expect(parse({ calendar: "Mi Cal" })).toContain("/0/calendar");
+  });
+
+  it("accepts the option holidays of the agenda only as a boolean", () => {
+    const slot = (holidays: unknown): string => {
+      try {
+        parseViewsConfig(
+          JSON.stringify({
+            ...baseViews,
+            views: [
+              {
+                ...baseView,
+                slots: {
+                  a: { block: "agenda", source: "calendario", options: { holidays } },
+                },
+              },
+            ],
+          }),
+        );
+      } catch (error) {
+        return (error as ConfigError).message;
+      }
+      return "";
+    };
+    expect(slot(true)).toBe("");
+    expect(slot("yes")).toContain("/options/holidays");
+  });
+});
