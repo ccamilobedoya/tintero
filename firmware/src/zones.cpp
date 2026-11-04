@@ -66,7 +66,8 @@ bool parseZones(const uint8_t *json, size_t len, const char *view, const char *h
     } else if (strcmp(act, "toggle") == 0) {
       zone.open = false;
     } else {
-      return fail("unknown act");
+      Serial.printf("Zones: zone \"%s\" left out (unknown act)\n", zone.id);
+      continue;  // the next zone overwrites this slot (R10)
     }
     z.count++;
   }

@@ -1,7 +1,7 @@
 // Test double: a small server on 127.0.0.1 (ephemeral port) that follows the v1 contract.
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { crc32Hex, type Action, type Panel } from "../../contract/src/index.ts";
+import { crc32Hex, packBits, type Action, type Panel } from "../../contract/src/index.ts";
 
 export const PANEL: Panel = { w: 800, h: 480, dpi: 124, depth: 1 };
 const IMAGE_BYTES = 48_000;
@@ -34,6 +34,8 @@ export class FakeServer {
   tamper = new Set<string>();
   oversize = new Set<string>();
   staleLeft = 0;
+  /** Serve the images as pb1 (PackBits) instead of raw1. */
+  packed = false;
   actionStatus: "applied" | "duplicate" = "applied";
   indexChanged = false;
   onAction: (actions: Action[]) => void = () => undefined;
@@ -89,8 +91,8 @@ export class FakeServer {
     const views = [...this.views].map(([id, view]) => ({
       id,
       hash: this.hash(id),
-      format: "raw1",
-      bytes: view.raw1.length,
+      format: this.packed ? "pb1" : "raw1",
+      bytes: this.packed ? packBits(view.raw1).length : view.raw1.length,
       crc32: crc32Hex(view.raw1),
       ...(view.parent === undefined ? {} : { parent: view.parent }),
     }));
@@ -144,7 +146,7 @@ export class FakeServer {
         let raw = Buffer.from(view.raw1);
         if (this.tamper.has(parts[4] ?? "")) raw[10] = (raw[10] ?? 0) ^ 0xff;
         if (this.oversize.has(parts[4] ?? "")) raw = Buffer.concat([raw, Buffer.alloc(10)]);
-        this.send(res, 200, raw);
+        this.send(res, 200, this.packed ? Buffer.from(packBits(raw)) : raw);
       }
     } else if (method === "GET" && parts[3] === "views" && parts[5] === "zones") {
       const id = parts[4] ?? "";

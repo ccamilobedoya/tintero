@@ -55,16 +55,18 @@ The server certificate is validated against dates. Without a clock (the ESP32 bo
 ### 3. Connection
 - `https://<public-name>/` on port **443**. The name (SNI) must be the one in the server certificate.
 - **One request at a time** (never in parallel); the connection may be reused within a wake-up.
-- **Timeouts on every request** (connect and read; e.g. 10 s and 20 s): if the server does not answer, sleep and try again on the next wake-up.
+- **Deadlines on every request** (F-019): the answer is read by `http_reader` (no Arduino), never with `HTTPClient`. It gives up after **10 s without a single byte** (`stalled`) and after a total of **15 s** (30 s for an image, `timeout`). Writing the request has a socket timeout of at most 10 s. The connection is reused within a wake-up only if the last answer ended well (HTTP/1.1, `Content-Length`, no `Connection: close`); if a reused connection fails before the first byte, the request is retried once on a new one. Then sleep and try again, with a growing wait: 30 s, 60 s, 120 s… up to 15 min after consecutive failures.
+- **Header limits:** a line ≤ 512 bytes, ≤ 48 headers, the whole block ≤ 4096 bytes; `Content-Length` is required on a 200; `Transfer-Encoding` is rejected. `Retry-After` is digits only, clamped to 0–3600 s.
+- **Self-healing:** a 60 s task watchdog on `loop()` restarts the ESP32 if it hangs anyway; 8 failed syncs in a row, or a largest free heap block under 45 000 bytes before opening TLS, cause a controlled restart (at most one per hour). The last failure and the boot reason are sent with `POST /api/v1/log` after the next good sync.
 - **Limits before reading** (external input): reject a `Content-Length` larger than expected (index ≤ 2048 bytes, zones ≤ 4096, image = the index's `bytes`) and clamp `next_wake_s` to 30–86 400 s.
 
 ### 4. Headers on **every** request
 | Header | Value |
 |--------|-------|
 | `Tintero-Protocol` | `1` |
-| `Tintero-Firmware` | text, 1–32 characters (e.g. `esp32-0.1`) |
+| `Tintero-Firmware` | text, 1–32 characters (e.g. `esp32-0.2`) |
 | `Tintero-Power` | `battery` or `usb` |
-| `Tintero-Formats` | `raw1` |
+| `Tintero-Formats` | `pb1,raw1` (the server ignores names it does not know; at least one must be known) |
 | `Tintero-Panel` | `w=800,h=480,dpi=124,depth=1` (GDEY075T7) |
 | `Tintero-Battery-mV`, `Tintero-RSSI` | optional |
 | `Tintero-View` | optional: the id of the view the device shows now (see *Focus and actions*) |
@@ -72,7 +74,7 @@ The server certificate is validated against dates. Without a clock (the ESP32 bo
 ### 5. One wake-up
 1. `GET /api/v1/index` → `current`, `views[]` (with `hash`, `bytes`, `crc32`), `panel`, `next_wake_s` (it changes with `Tintero-Power`: 600 with `usb`, 1800 with `battery`, by default).
 2. If the response's `panel` is not the one declared, show nothing new and come back in `next_wake_s`.
-3. For each view whose `hash` changed (starting with `current`): `GET /api/v1/views/{id}/image?h={hash}` and `GET /api/v1/views/{id}/zones?h={hash}`. Check that the image has **exactly** `bytes` (48 000 on the current panel) and its **CRC-32** (zlib's) before storing or showing it.
+3. For each view whose `hash` changed (starting with `current`): `GET /api/v1/views/{id}/image?h={hash}` and `GET /api/v1/views/{id}/zones?h={hash}`. Check that the body has **exactly** `bytes` (48 000 for `raw1` on the current panel; the packed length for `pb1`) and the **CRC-32** (zlib's) of the `raw1` image (decoded, for `pb1`) before storing or showing it. A view in a format the firmware does not know is skipped (with the views that have it as `parent`), and so is a zone with an unknown `act`.
 4. Show `current`; the ESP32 draws the focus (ring) with a partial refresh over the zones (ADR-0006, see *Focus and actions*). If `full_refresh` is `true`, that image is shown with the slow full refresh.
 5. The actions taken (also offline) go together in `POST /api/v1/actions` (1–8, each with a unique `id`: the server ignores repeats).
 6. Optional: `POST /api/v1/log` with short notices.
@@ -80,6 +82,8 @@ The server certificate is validated against dates. Without a clock (the ESP32 bo
 
 ### 6. The `raw1` format
 `ceil(width / 8) × height` bytes; rows from top to bottom, pixels from left to right, **most significant bit first**, **1 = black**. If the panel controller uses 1 = white, invert the bytes when sending them.
+
+The `pb1` format is that same `raw1` stream coded with PackBits, as one stream (runs cross row ends). Control byte `n`: `0…127` copies the next `n+1` bytes; `129…255` repeats the next byte `257−n` times; `128` is invalid. The index gives `bytes` = the length of the `pb1` body and `crc32` = the CRC-32 of the decoded `raw1`. About four times fewer bytes than `raw1`. The firmware decodes straight into the image buffer (`PackBitsSink`).
 
 ### 7. Buttons (ADR-0005)
 - **Move:** short = next zone (in the order of `zones`); long = next view (in the order of `views`).

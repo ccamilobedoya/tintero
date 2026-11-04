@@ -8,8 +8,9 @@ constexpr size_t MAX_VIEWS = 16;  // cap of protocol v1
 struct View {
   char id[17];      // ^[a-z0-9_-]{1,16}$
   char hash[17];    // ^[0-9a-f]{8,16}$
-  uint32_t bytes;   // size of the image; with this panel, 48 000
-  uint32_t crc32;   // CRC-32 of the image (the zlib one)
+  uint32_t bytes;   // size of the body to download: raw1 = 48 000; pb1 = its packed length
+  uint32_t crc32;   // CRC-32 of the raw1 image (decoded, if pb1; the zlib one)
+  bool packed;      // format pb1 (PackBits) instead of raw1
   char parent[17];  // empty if it is not a detail
 };
 

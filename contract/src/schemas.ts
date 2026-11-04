@@ -15,7 +15,7 @@ export const PanelSchema = Type.Object({
 const ViewSummarySchema = Type.Object({
   id: Type.String({ pattern: ID_PATTERN }),
   hash: Type.String({ pattern: HASH_PATTERN }),
-  format: Type.Union([Type.Literal("raw1"), Type.Literal("png1")]),
+  format: Type.Union([Type.Literal("raw1"), Type.Literal("png1"), Type.Literal("pb1")]),
   bytes: int(1, LIMITS.maxImageBytes),
   crc32: Type.String({ pattern: CRC_PATTERN }),
   parent: Type.Optional(Type.String({ pattern: ID_PATTERN })),
@@ -109,7 +109,10 @@ export const DeviceHeadersSchema = Type.Object({
   power: Type.Union([Type.Literal("battery"), Type.Literal("usb")]),
   batteryMv: Type.Optional(int(2500, 4500)),
   rssi: Type.Optional(int(-120, 0)),
-  formats: Type.Array(Type.Union([Type.Literal("raw1"), Type.Literal("png1")]), { minItems: 1 }),
+  formats: Type.Array(
+    Type.Union([Type.Literal("raw1"), Type.Literal("png1"), Type.Literal("pb1")]),
+    { minItems: 1 },
+  ),
   panel: PanelSchema,
   view: Type.Optional(Type.String({ pattern: ID_PATTERN })),
 });

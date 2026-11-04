@@ -5,7 +5,7 @@ export interface EmulatorConfig {
   server: string; // base URL, http or https
   store: string; // folder that simulates the flash (outside the repo)
   panel: Panel;
-  formats: ("raw1" | "png1")[];
+  formats: ("raw1" | "pb1" | "png1")[];
   power: "battery" | "usb";
   batteryMv?: number;
   rssi?: number;

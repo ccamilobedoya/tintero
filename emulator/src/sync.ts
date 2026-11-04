@@ -2,6 +2,8 @@
 import {
   checkImage,
   LIMITS,
+  raw1Bytes,
+  unpackBits,
   validateActionsResponse,
   validateIndex,
   validateZones,
@@ -123,7 +125,7 @@ export async function downloadView(
     ctx.errors.push({ code, view });
     return "failed";
   };
-  if (summary.format !== "raw1") return fail("bad_image");
+  if (summary.format !== "raw1" && summary.format !== "pb1") return fail("bad_image");
   const query = `?h=${summary.hash}`;
   let image;
   try {
@@ -141,7 +143,16 @@ export async function downloadView(
     ctx.errors.push({ code: "network", view });
     return "abort";
   }
-  const checked = checkImage("raw1", image.body, panel, summary.crc32);
+  // pb1: decode first; the crc32 of the index is that of the decoded raw1 (F-019).
+  let body: Uint8Array = image.body;
+  if (summary.format === "pb1") {
+    try {
+      body = unpackBits(image.body, raw1Bytes(panel));
+    } catch {
+      return fail("bad_image");
+    }
+  }
+  const checked = checkImage("raw1", body, panel, summary.crc32);
   if (!checked.ok) {
     const codes = checked.errors.map((error) => error.code);
     return fail(
@@ -165,9 +176,9 @@ export async function downloadView(
   if (!zones.ok) return fail("zones_invalid");
   const saved = await ctx.flash.saveView(
     view,
-    image.body,
+    body,
     zones.value,
-    { hash: summary.hash, crc32: summary.crc32, bytes: summary.bytes },
+    { hash: summary.hash, crc32: summary.crc32, bytes: body.length },
     distancesFrom(index, center),
   );
   return saved ? "ok" : fail("flash_full");
