@@ -27,6 +27,7 @@ struct Saved {
   int rssi;
   bool hasBoot;
   char bootReason[12];
+  bool lastNoClock;  // the last controlled restart happened with no valid clock
 };
 
 RTC_NOINIT_ATTR Saved saved;
@@ -58,6 +59,12 @@ void begin() {
     memset(&saved, 0, sizeof saved);
     saved.magic = MAGIC;
   }
+  // The magic does not prove the texts are intact: a corrupt one must not reach the JSON.
+  const bool okStep = safeText(saved.step, sizeof saved.step);
+  const bool okOutcome = safeText(saved.outcome, sizeof saved.outcome);
+  const bool okBoot = safeText(saved.bootReason, sizeof saved.bootReason);
+  if (!okStep || !okOutcome) saved.hasFailure = false;
+  if (!okBoot) saved.hasBoot = false;
   saved.hasBoot = true;
   copyText(saved.bootReason, sizeof saved.bootReason, resetName(esp_reset_reason()));
   Serial.printf("Boot reason: %s\n", saved.bootReason);
@@ -120,20 +127,18 @@ void sendPending() {
 void restartIfAllowed(const char *why) {
   const time_t now = time(nullptr);
   const bool nowValid = now > VALID_AFTER;
-  bool allowed;
-  if (saved.magic != MAGIC || saved.lastRestartAt == 0) {
-    allowed = true;
-  } else if (nowValid && static_cast<uint32_t>(now) >= saved.lastRestartAt) {
-    allowed = static_cast<uint32_t>(now) - saved.lastRestartAt >= MIN_RESTART_GAP_S;
-  } else {
-    allowed = millis() >= MIN_RESTART_GAP_S * 1000UL;  // no usable clock: use the uptime
-  }
+  const bool allowed =
+      restartAllowed(saved.magic == MAGIC, saved.lastRestartAt, saved.lastNoClock, nowValid,
+                     nowValid ? static_cast<uint32_t>(now) : 0, millis());
   if (!allowed) {
     Serial.printf("Restart (%s) not allowed: one already happened in the last hour\n", why);
     return;
   }
   Serial.printf("Controlled restart: %s\n", why);
-  if (saved.magic == MAGIC) saved.lastRestartAt = nowValid ? static_cast<uint32_t>(now) : 0;
+  if (saved.magic == MAGIC) {
+    saved.lastRestartAt = nowValid ? static_cast<uint32_t>(now) : 0;
+    saved.lastNoClock = !nowValid;
+  }
   Serial.flush();
   ESP.restart();
 }
