@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Compila el firmware (F-019, A3) sin grabarlo: copia firmware/ a una carpeta temporal fuera del repo, le pone
+# un secrets.h de la plantilla y un tintero_certs.h de relleno (sin llaves reales: solo sirve para compilar)
+# y corre `pio run` en un contenedor con PlatformIO fijado. Imprime el uso de flash y RAM.
+# Uso: tools/compilar-firmware [carpeta-del-firmware]   (por defecto, firmware/ del repo)
+# La caché de PlatformIO (varios GB) vive en $TINTERO_PIO_CACHE o ~/.cache/tintero-pio.
+# Salida: 0 compila; 1 no compila; 2 error de uso.
+set -euo pipefail
+REPO="$(git rev-parse --show-toplevel)"
+SRC="$(realpath "${1:-$REPO/firmware}")"
+[ -f "$SRC/platformio.ini" ] || { echo "No hay platformio.ini en $SRC" >&2; exit 2; }
+CACHE="${TINTERO_PIO_CACHE:-$HOME/.cache/tintero-pio}"
+PY_IMAGE="python@sha256:d98cc29d3266e535dd9da1099688d9cb3ca4753813571e071763d17725460962"  # 3.13-slim
+PIO_VERSION="6.1.18"
+mkdir -p "$CACHE/core" "$CACHE/pip"
+
+WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
+cp -r "$SRC/." "$WORK/"
+rm -rf "$WORK/.pio"
+cp "$WORK/include/secrets.h.example" "$WORK/include/secrets.h"
+cat >"$WORK/include/tintero_certs.h" <<'EOF'
+// Placeholder written by tools/compilar-firmware: no real names or keys, only to compile.
+#pragma once
+constexpr char TINTERO_HOST[] = "tintero.example.invalid";
+constexpr char TINTERO_DEVICE_ID[] = "p1";
+constexpr char TINTERO_CA_PEM[] = "-----BEGIN CERTIFICATE-----\nplaceholder\n-----END CERTIFICATE-----\n";
+constexpr char TINTERO_DEVICE_CERT_PEM[] = "-----BEGIN CERTIFICATE-----\nplaceholder\n-----END CERTIFICATE-----\n";
+constexpr char TINTERO_DEVICE_KEY_PEM[] = "placeholder";
+EOF
+
+set +e
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/cache -e PLATFORMIO_CORE_DIR=/cache/core \
+  -e PIP_CACHE_DIR=/cache/pip -v "$CACHE:/cache" -v "$WORK:/proj" -w /proj "$PY_IMAGE" \
+  sh -c "test -x /cache/venv/bin/pio || (python -m venv /cache/venv && /cache/venv/bin/pip install -q platformio==$PIO_VERSION); /cache/venv/bin/pio run" \
+  >"$WORK/build.log" 2>&1
+code=$?
+set -e
+# Solo los avisos y errores de nuestras fuentes, y el resumen de memoria.
+grep -E "^src/.*(warning|error)|^(RAM|Flash):|SUCCESS|FAILED|Error" "$WORK/build.log" || true
+[ "$code" -eq 0 ] || { echo "No compila (pio salió con $code). Últimas líneas:" >&2; tail -30 "$WORK/build.log" >&2; exit 1; }

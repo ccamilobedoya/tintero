@@ -12,7 +12,7 @@ LOG="$OUT/$STAMP-$ROLE.json"
 
 READ_TOOLS=(Read Grep Glob "Bash(git status:*)" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" "Bash(ls:*)")
 WRITE_TOOLS=(Edit Write "Bash(npm run:*)" "Bash(npm test:*)" "Bash(npx vitest:*)" "Bash(npx tsc:*)" \
-  "Bash(tools/check-scope:*)" "Bash(mkdir:*)")
+  "Bash(tools/check-scope:*)" "Bash(mkdir:*)" "Bash(tools/probar-firmware:*)" "Bash(tools/compilar-firmware:*)")
 # Servicios locales del propio repo (simulador, visor): solo 127.0.0.1 y Docker para mirar o detener.
 LOCAL_TOOLS=("Bash(curl -s http://127.0.0.1:*)" "Bash(curl -sS http://127.0.0.1:*)" "Bash(docker ps:*)" "Bash(docker logs:*)" "Bash(docker stop:*)")
 case "$ROLE" in

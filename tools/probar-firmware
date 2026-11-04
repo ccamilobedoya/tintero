@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Pruebas nativas del firmware (F-019, A1): compila en el PC, dentro de un contenedor gcc fijado por digest y
+# sin red, las fuentes del firmware que no dependen del ESP32 junto con las pruebas que se le pasan, y corre
+# el binario. Usa ArduinoJson (versión fijada, comprobada con sha256) y un Arduino.h mínimo propio.
+# Uso: tools/probar-firmware <prueba.cpp>... [-- <argumentos del binario>]
+# Salida: la del binario (0 = todo pasó). 2 = error de uso; 3 = no compila o falta algo (falla cerrado).
+set -euo pipefail
+REPO="$(git rev-parse --show-toplevel)"
+SELF="$REPO/tools/probar-firmware.d"
+GCC_IMAGE="gcc@sha256:c84ee277183a56c8302ca9a83a91535d46eeb549fd1bee958045dbf9f5e50b7f"  # gcc 14
+AJ_VERSION="7.4.2"
+AJ_URL="https://github.com/bblanchon/ArduinoJson/releases/download/v${AJ_VERSION}/ArduinoJson-v${AJ_VERSION}.h"
+AJ_SHA256="a05ac98f4481d2398c103ca5ffcce8e2fcd7fa2fa1d8d9f38d5757454f448d97"
+# Las fuentes del firmware que se prueban en el PC (no incluyen nada del ESP32).
+SOURCES=(http_reader.cpp packbits.cpp recovery.cpp index.cpp zones.cpp)
+
+TESTS=(); ARGS=()
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--" ]; then shift; ARGS=("$@"); break; fi
+  TESTS+=("$1"); shift
+done
+[ "${#TESTS[@]}" -gt 0 ] || { echo "Uso: tools/probar-firmware <prueba.cpp>... [-- <args>]" >&2; exit 2; }
+
+for src in "${SOURCES[@]}"; do
+  [ -f "$REPO/firmware/src/$src" ] || { echo "Falta firmware/src/$src" >&2; exit 3; }
+done
+
+# ArduinoJson: en la caché del usuario, descargado una vez y comprobado siempre.
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/tintero/arduinojson-$AJ_VERSION"
+mkdir -p "$CACHE"
+if [ ! -f "$CACHE/ArduinoJson.h" ]; then
+  curl -sSfL --max-time 60 --max-filesize 1048576 -o "$CACHE/ArduinoJson.h.part" "$AJ_URL" || { echo "No se pudo bajar ArduinoJson" >&2; exit 3; }
+  mv "$CACHE/ArduinoJson.h.part" "$CACHE/ArduinoJson.h"
+fi
+echo "$AJ_SHA256  $CACHE/ArduinoJson.h" | sha256sum -c --quiet - || { echo "ArduinoJson no coincide con su sha256" >&2; rm -f "$CACHE/ArduinoJson.h"; exit 3; }
+
+# Todo se arma en una carpeta temporal fuera del repo, que se borra al salir.
+WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
+mkdir -p "$WORK/fw" "$WORK/tests" "$WORK/include"
+cp "$REPO"/firmware/src/*.h "$WORK/fw/"
+for src in "${SOURCES[@]}"; do cp "$REPO/firmware/src/$src" "$WORK/fw/"; done
+cp "$SELF/Arduino.h" "$WORK/include/Arduino.h"
+cp "$CACHE/ArduinoJson.h" "$WORK/include/ArduinoJson.h"
+TEST_FILES=()
+for t in "${TESTS[@]}"; do
+  [ -f "$t" ] || { echo "No existe: $t" >&2; exit 2; }
+  base="$(basename "$t")"
+  cp "$t" "$WORK/tests/$base"; TEST_FILES+=("tests/$base")
+  # Las cabeceras de apoyo de las pruebas (mismo directorio) también van.
+  find "$(dirname "$t")" -maxdepth 1 -name '*.h' -exec cp {} "$WORK/tests/" \;
+done
+# El binario corre en la carpeta de la primera prueba; su carpeta madre se monta de solo lectura,
+# así las pruebas leen sus datos con rutas relativas (p. ej. ../fixtures/hoy.raw1).
+TDIR="$(cd "$(dirname "${TESTS[0]}")" && pwd)"
+FIX="$(dirname "$TDIR")"; RUNDIR="/fix/$(basename "$TDIR")"
+
+CXXFLAGS="-std=c++17 -O0 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all"
+set +e
+docker run --rm --network none --user "$(id -u):$(id -g)" -v "$WORK:/w" -v "$FIX:/fix:ro" -w /w \
+  -e ASAN_OPTIONS=detect_leaks=1 "$GCC_IMAGE" sh -c \
+  "g++ $CXXFLAGS -isystem include -Ifw -Itests fw/*.cpp ${TEST_FILES[*]} -o prueba || exit 103; cd \"$RUNDIR\" && /w/prueba \"\$@\"" \
+  sh "${ARGS[@]}"
+code=$?
+set -e
+[ "$code" -eq 103 ] && { echo "No compila" >&2; exit 3; }
+exit "$code"
