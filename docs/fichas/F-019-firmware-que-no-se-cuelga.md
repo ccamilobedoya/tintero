@@ -227,7 +227,7 @@ Criterio: un caso **normal** (la red falla, crecen las tareas, cambia la configu
 El panel sigue actualizándose aunque la red se trabe a mitad de una descarga: a lo sumo pierde una vuelta, se recupera solo y el registro del servidor dice qué pasó (`image stalled 20000/11873 B …`). Cada cambio de vista baja unos 12 KB en vez de 48 KB. El servidor nunca manda un índice o unas zonas que el firmware tenga que rechazar, y el firmware se salta lo que no conoce en vez de quedarse sin pantalla.
 
 ## Terminado (se marca al cerrar)
-- [x] Todos los CA pasan en la verificación (informe adjunto); CA22 queda para el dueño en el panel.
+- [x] Todos los CA pasan en la verificación (informe adjunto); CA22 (a) y (c) en el panel; (b) no se hizo, por decisión del dueño.
 - [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
 - [x] `tools/check-scope` limpio para cada rol.
 - [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
@@ -243,6 +243,7 @@ El panel sigue actualizándose aunque la red se trabe a mitad de una descarga: a
 - **Revisión:** `tools/revisar` con 11 ❌ de `npm audit`/`osv-scanner` por `minimatch` en la cadena de eslint (solo desarrollo, **anterior** a la ficha: `package-lock.json` no cambió y `npm audit --omit=dev` da 0). Juicio del revisor (Sonnet): sin bloqueantes, 4 mejoras.
 - **Código, vuelta 2:** las 4 mejoras hechas: `snprintf` encadenado con tope (`appendf`); textos de la memoria RTC saneados antes de ir al JSON del aviso; R6 sin reloj no permite otro reinicio antes de 1 h; el 409 se distingue con un indicador y no por la espera de 5 s. F-019 otra vez 66/66, unitarias 564, nativas y compilación bien.
 - **Mejoras anotadas:** actualizar eslint por el aviso de `minimatch` (ficha aparte); zlib si `pb1` no alcanza; OTA, portal de Wi-Fi y CA de respaldo (casos borde 20 a 22); Mover largo con la vista mostrada fuera del índice (caso 19); `tools/probar-firmware` compila un solo `main()` por llamada.
+- **CA22 en el panel (dueño, 2026-11-04):** (a) ✅ la imagen de `hoy` llega en `pb1` con **10 982 bytes en 715 ms** (antes 48 000 bytes en ~3 s) y las zonas (865 bytes) detrás; (c) ✅ llega `boot poweron` al registro del servidor (`POST /api/v1/log` → 204). De paso se vio la recuperación real: el primer SNTP no respondió, el firmware contó la falla, esperó 30 s y la siguiente vuelta anduvo. (b) (el *router* apagado a mitad de una descarga) no se hizo: el dueño dio la ficha por cerrada y avisará si ve algo.
 - **Costo en agentes:** USD 5,89 (programador 2,69 + 0,35; verificador 2,19 + 0,31; revisor 0,34; integrador ~0,02).
 
 ## Resumen para aprobar
@@ -251,7 +252,7 @@ El panel sigue actualizándose aunque la red se trabe a mitad de una descarga: a
 
 **Qué cambió:** el firmware ya no espera para siempre: si los datos se detienen 10 s (o un pedido pasa de 30 s) corta, reintenta con espera creciente hasta 15 min, y si algo igual lo traba, el *watchdog* lo reinicia a los 60 s; la próxima vez que conecta le cuenta al servidor qué pasó. La imagen baja comprimida (`pb1`, ~12 KB en vez de 48 KB). Lo que el firmware no conoce se salta en vez de dejar la pantalla congelada, y el servidor nunca manda un índice más grande que el tope.
 
-**Criterios:** 21 de 22 pasan; CA22 es del dueño en el panel · vueltas: programación 2, verificación 1
+**Criterios:** 22 de 22 (CA22: (a) y (c) en el panel; (b) no se hizo) · vueltas: programación 2, verificación 1
 
 **Revisión:** 4 mejoras, hechas en la vuelta 2 · zonas sensibles: el contrato (formato nuevo) y el cliente TLS del firmware
 **Dependencias nuevas:** ninguna (ArduinoJson fijado en 7.4.2; contenedor `gcc` fijado para las pruebas nativas)
