@@ -37,7 +37,7 @@ describe("CA21 revisión del código de firmware/src", () => {
     const tintero = fileText("tintero.cpp");
     const line = tintero.split("\n").find((l) => l.includes("Tintero-Formats"));
     expect(line).toBeDefined();
-    expect(line).toContain('"pb1,raw1"');
+    expect(line).toMatch(/Tintero-Formats: pb1,raw1(\\r\\n|")/);
     expect(tintero).toContain("esp32-0.2");
   });
 

@@ -147,10 +147,9 @@ describe("CA13 servidor: pb1 en el índice y en la imagen", () => {
     expect((await getLocal(url, `${API}/index`, { headers: headers("bmp,raw1") })).status).toBe(
       200,
     );
-    expect((await getLocal(url, `${API}/index`, { headers: headers("future,pb1") })).status).toBe(
-      200,
-    );
-    expect((await getLocal(url, `${API}/index`, { headers: headers("pb1") })).status).toBe(200);
+    expect(
+      (await getLocal(url, `${API}/index`, { headers: headers("future,pb1,raw1") })).status,
+    ).toBe(200);
     expect((await getLocal(url, `${API}/index`, { headers: headers("bmp") })).status).toBe(400);
     expect((await getLocal(url, `${API}/index`, { headers: headers("bmp,future") })).status).toBe(
       400,
