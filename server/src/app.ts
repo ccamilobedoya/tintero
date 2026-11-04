@@ -6,6 +6,8 @@ import type { TLSSocket } from "node:tls";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import {
   crc32Hex,
+  LIMITS,
+  packBits,
   raw1Bytes,
   validateActionsRequest,
   validateDeviceHeaders,
@@ -19,7 +21,7 @@ import {
 } from "../../contract/src/index.ts";
 import { DeviceList } from "./devices.ts";
 import type { Engine, RenderedView } from "./engine/index.ts";
-import { logDevice, logRequest } from "./log.ts";
+import { logDevice, logEngine, logRequest } from "./log.ts";
 import { DemoState } from "./state.ts";
 import { fingerprint, tlsOptions, type TlsConfig } from "./tls.ts";
 import { contentKey, makeViews, type DemoView } from "./views.ts";
@@ -48,9 +50,50 @@ const PREWARM_EVERY_MS = 30_000;
 
 interface Rendered {
   image: Buffer;
+  /** The image coded with PackBits (F-019); absent when it is not smaller. */
+  pb1?: Buffer;
   zones: Zone[];
   hash: string;
   crc32: string;
+}
+
+const NOTICE_MEMORY = 1000;
+
+/**
+ * Takes views off the end of the index until its JSON fits `LIMITS.maxIndexBytes` (R12). Never
+ * `current`, nor its parent, nor a view another kept view points to. Returns how many it took.
+ */
+export function trimIndex(body: IndexResponse): number {
+  const size = (): number => Buffer.byteLength(JSON.stringify(body), "utf8");
+  const currentParent = body.views.find((view) => view.id === body.current)?.parent;
+  let removed = 0;
+  while (size() > LIMITS.maxIndexBytes) {
+    let victim = -1;
+    for (let i = body.views.length - 1; i >= 0; i--) {
+      const view = body.views.at(i);
+      if (view === undefined || view.id === body.current || view.id === currentParent) continue;
+      if (body.views.some((other) => other.parent === view.id)) continue;
+      victim = i;
+      break;
+    }
+    if (victim < 0) break;
+    body.views.splice(victim, 1);
+    removed++;
+  }
+  return removed;
+}
+
+/** Takes zones off the end until the JSON fits `LIMITS.maxZonesBytes` (R12). Returns how many. */
+export function trimZones(body: ZonesResponse): number {
+  let removed = 0;
+  while (
+    body.zones.length > 0 &&
+    Buffer.byteLength(JSON.stringify(body), "utf8") > LIMITS.maxZonesBytes
+  ) {
+    body.zones.pop();
+    removed++;
+  }
+  return removed;
 }
 
 // The latest app's state, so demoViews() can show "the current state of the demonstration".
@@ -185,6 +228,20 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
 
   /** `Tintero-View` of a request whose headers already passed `deviceOf` (F-008, ADR-0036). */
   const shownView = new WeakMap<FastifyRequest, string>();
+  /** Requests whose device declared `pb1` in `Tintero-Formats` (F-019). */
+  const wantsPb1 = new WeakSet<FastifyRequest>();
+  /** Trim notices already logged (one per draw: the key is the content that was trimmed). */
+  const trimLogged = new Set<string>();
+  function noteTrim(event: string, key: string, removed: number): void {
+    if (removed === 0) return;
+    const id = `${event}|${key}`;
+    if (trimLogged.has(id)) return;
+    if (trimLogged.size >= NOTICE_MEMORY) trimLogged.clear();
+    trimLogged.add(id);
+    logEngine({ ts: new Date().toISOString(), event, removed });
+  }
+  const indexKey = (body: IndexResponse): string =>
+    body.views.map((view) => `${view.id}:${view.hash}`).join(",");
 
   /** Validates the device headers; replies 400 and returns undefined when they fail. */
   function deviceOf(request: FastifyRequest, reply: FastifyReply): Panel | undefined {
@@ -216,6 +273,7 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
     known.add(key);
     panelsOf.set(id, known);
     if (result.value.view !== undefined) shownView.set(request, result.value.view);
+    if (result.value.formats.includes("pb1")) wantsPb1.add(request);
     return panel;
   }
 
@@ -229,13 +287,20 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
     }
     renderCount++;
     const image = Buffer.from(view.raw1(panel));
+    const packed = packBits(image);
     const zones = view.zones(panel);
     const hash = createHash("sha256")
       .update(image)
       .update(JSON.stringify(zones))
       .digest("hex")
       .slice(0, 16);
-    const entry: Rendered = { image, zones, hash, crc32: crc32Hex(image) };
+    const entry: Rendered = {
+      image,
+      ...(packed.length < image.length ? { pb1: Buffer.from(packed) } : {}),
+      zones,
+      hash,
+      crc32: crc32Hex(image),
+    };
     if (cache.size >= CACHE_LIMIT) {
       const oldest = cache.keys().next();
       if (!oldest.done) cache.delete(oldest.value);
@@ -322,12 +387,15 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
         views: result.value.views.map((view) => ({
           id: view.id,
           hash: view.hash,
-          format: "raw1",
-          bytes: raw1Bytes(panel),
+          // pb1 only if the device asked for it and it is smaller; the crc32 is of the raw1.
+          ...(wantsPb1.has(request) && view.pb1 !== undefined
+            ? { format: "pb1" as const, bytes: view.pb1.length }
+            : { format: "raw1" as const, bytes: raw1Bytes(panel) }),
           crc32: view.crc32,
           ...(view.parent === undefined ? {} : { parent: view.parent }),
         })),
       };
+      noteTrim("index-trimmed", indexKey(body), trimIndex(body));
       return reply.type("application/json").send(JSON.stringify(body));
     }
     const summaries: ViewSummary[] = views.map((view) => {
@@ -335,8 +403,9 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
       return {
         id: view.id,
         hash: rendered.hash,
-        format: "raw1",
-        bytes: raw1Bytes(panel),
+        ...(wantsPb1.has(request) && rendered.pb1 !== undefined
+          ? { format: "pb1" as const, bytes: rendered.pb1.length }
+          : { format: "raw1" as const, bytes: raw1Bytes(panel) }),
         crc32: rendered.crc32,
         ...(view.parent === undefined ? {} : { parent: view.parent }),
       };
@@ -350,6 +419,7 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
       current: state.current,
       views: summaries,
     };
+    noteTrim("index-trimmed", indexKey(body), trimIndex(body));
     return reply.type("application/json").send(JSON.stringify(body));
   });
 
@@ -362,14 +432,16 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
       const etag = `"${view.hash}"`;
       reply.header("etag", etag);
       if (header(request, "if-none-match") === etag) return reply.code(304).send();
-      return reply.type("application/octet-stream").send(Buffer.from(view.raw1));
+      const body = wantsPb1.has(request) && view.pb1 !== undefined ? view.pb1 : view.raw1;
+      return reply.type("application/octet-stream").send(Buffer.from(body));
     }
     const found = viewOf(request, reply, panel);
     if (!found) return reply;
     const etag = `"${found.rendered.hash}"`;
     reply.header("etag", etag);
     if (header(request, "if-none-match") === etag) return reply.code(304).send();
-    return reply.type("application/octet-stream").send(found.rendered.image);
+    const packed = wantsPb1.has(request) ? found.rendered.pb1 : undefined;
+    return reply.type("application/octet-stream").send(packed ?? found.rendered.image);
   });
 
   app.get("/api/v1/views/:id/zones", (request, reply) => {
@@ -381,9 +453,10 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
       const body: ZonesResponse = {
         view: view.id,
         hash: view.hash,
-        zones: view.zones,
+        zones: [...view.zones],
         focus: view.focus,
       };
+      noteTrim("zones-trimmed", `${view.id}:${view.hash}`, trimZones(body));
       return reply.type("application/json").send(JSON.stringify(body));
     }
     const found = viewOf(request, reply, panel);
@@ -391,8 +464,9 @@ export function createApp(config: ServerConfig): { app: FastifyInstance; renders
     const body: ZonesResponse = {
       view: found.view.id,
       hash: found.rendered.hash,
-      zones: found.rendered.zones,
+      zones: [...found.rendered.zones],
     };
+    noteTrim("zones-trimmed", `${found.view.id}:${found.rendered.hash}`, trimZones(body));
     return reply.type("application/json").send(JSON.stringify(body));
   });
 

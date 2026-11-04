@@ -76,23 +76,37 @@ bool parseIndex(const uint8_t *json, size_t len, Index &out) {
   if (views.isNull() || views.size() == 0) return fail("empty views");
   if (views.size() > MAX_VIEWS) return fail("too many views");
 
+  bool skip[MAX_VIEWS] = {};  // views in a format this firmware does not know
   for (JsonVariantConst v : views) {
-    View &view = idx.views[idx.viewCount];
+    const size_t at = idx.viewCount;
+    View &view = idx.views[at];
     if (!copyText(v["id"], view.id, 1, 16, isIdChar)) return fail("view id");
     if (findView(idx, view.id) >= 0) return fail("repeated view id");
     if (!copyText(v["hash"], view.hash, 8, 16, isHexChar)) return fail("hash");
 
-    const char *format = v["format"].as<const char *>();
-    if (format == nullptr || strcmp(format, "raw1") != 0) return fail("format (raw1 only)");
-    if (!readUint(v["bytes"], view.bytes) || view.bytes != raw1Bytes) return fail("bytes");
-
-    char crcText[9];
-    if (!copyText(v["crc32"], crcText, 8, 8, isHexChar)) return fail("crc32");
-    view.crc32 = strtoul(crcText, nullptr, 16);
-
     view.parent[0] = '\0';
     if (!v["parent"].isNull() && !copyText(v["parent"], view.parent, 1, 16, isIdChar)) {
       return fail("parent");
+    }
+
+    const char *format = v["format"].as<const char *>();
+    if (format == nullptr) return fail("format");
+    if (strcmp(format, "raw1") == 0) {
+      view.packed = false;
+      if (!readUint(v["bytes"], view.bytes) || view.bytes != raw1Bytes) return fail("bytes");
+    } else if (strcmp(format, "pb1") == 0) {
+      view.packed = true;
+      if (!readUint(v["bytes"], view.bytes) || view.bytes < 1 || view.bytes > raw1Bytes) {
+        return fail("bytes");
+      }
+    } else {
+      skip[at] = true;  // unknown format: the view is left out (R11)
+    }
+
+    if (!skip[at]) {
+      char crcText[9];
+      if (!copyText(v["crc32"], crcText, 8, 8, isHexChar)) return fail("crc32");
+      view.crc32 = strtoul(crcText, nullptr, 16);
     }
     idx.viewCount++;
   }
@@ -105,7 +119,32 @@ bool parseIndex(const uint8_t *json, size_t len, Index &out) {
     if (p < 0 || static_cast<size_t>(p) == i) return fail("unknown parent");
   }
   if (!copyText(doc["current"], idx.current, 1, 16, isIdChar)) return fail("current");
-  if (findView(idx, idx.current) < 0) return fail("current is not a view");
+  const int cur = findView(idx, idx.current);
+  if (cur < 0) return fail("current is not a view");
+
+  // Views whose parent is left out are left out too (repeat until nothing changes).
+  for (bool changed = true; changed;) {
+    changed = false;
+    for (size_t i = 0; i < idx.viewCount; i++) {
+      if (skip[i] || idx.views[i].parent[0] == '\0') continue;
+      if (skip[findView(idx, idx.views[i].parent)]) {
+        skip[i] = true;
+        changed = true;
+      }
+    }
+  }
+  if (skip[cur]) return fail("current is in an unknown format");
+
+  size_t kept = 0;
+  for (size_t i = 0; i < idx.viewCount; i++) {
+    if (skip[i]) {
+      Serial.printf("Index: view \"%s\" left out (unknown format)\n", idx.views[i].id);
+      continue;
+    }
+    if (kept != i) idx.views[kept] = idx.views[i];
+    kept++;
+  }
+  idx.viewCount = kept;
 
   out = idx;
   return true;

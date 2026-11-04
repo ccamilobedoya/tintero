@@ -10,7 +10,7 @@ import type { EmulatorConfig, Key } from "./types.ts";
 import { runWake } from "./wake.ts";
 
 const USAGE = `usage: emulator --server <url> [--store <folder>] [--panel w=800,h=480,dpi=124,depth=1]
-  [--formats raw1] [--power battery|usb] [--battery-mv N] [--rssi N] [--firmware txt]
+  [--formats raw1|pb1,raw1] [--power battery|usb] [--battery-mv N] [--rssi N] [--firmware txt]
   [--extra-views N] [--flash-bytes N] [--timeout-ms N] [--wakes N] [--keys tab,long-tab,ok,long-ok]
   [--ca F --cert F --key F]   (https only; the three together)`;
 
@@ -94,10 +94,12 @@ function parse(argv: string[]): { config: EmulatorConfig; wakes: number; keys: K
   }
   if (values.formats !== undefined) {
     const formats = values.formats.split(",");
-    if (!formats.every((format) => format === "raw1" || format === "png1")) {
-      throw new UsageError("--formats accepts raw1 and png1");
-    }
-    config.formats = formats;
+    const known = (format: string): format is EmulatorConfig["formats"][number] =>
+      format === "raw1" || format === "png1" || format === "pb1";
+    const list = formats.filter(known);
+    if (list.length !== formats.length)
+      throw new UsageError("--formats accepts raw1, pb1 and png1");
+    config.formats = list;
   }
   if (values.power !== undefined) {
     if (values.power !== "battery" && values.power !== "usb") {

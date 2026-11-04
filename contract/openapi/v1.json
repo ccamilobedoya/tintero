@@ -56,9 +56,9 @@
             "name": "Tintero-Formats",
             "in": "header",
             "required": true,
-            "description": "Comma separated image formats the device accepts (raw1, png1).",
-            "schema": { "type": "string", "pattern": "^(raw1|png1)(,(raw1|png1))*$" },
-            "example": "raw1"
+            "description": "Comma separated image formats the device accepts (raw1, pb1, png1). Names the server does not know are ignored; at least one must be known.",
+            "schema": { "type": "string", "pattern": "^[a-z0-9]{1,16}(,[a-z0-9]{1,16})*$" },
+            "example": "pb1,raw1"
           },
           {
             "name": "Tintero-Panel",
@@ -171,7 +171,7 @@
     "/api/v1/views/{id}/image": {
       "get": {
         "operationId": "getViewImage",
-        "summary": "Image of a view (raw1 or png1)",
+        "summary": "Image of a view (raw1, pb1 or png1)",
         "parameters": [
           {
             "name": "id",
@@ -230,9 +230,9 @@
             "name": "Tintero-Formats",
             "in": "header",
             "required": true,
-            "description": "Comma separated image formats the device accepts (raw1, png1).",
-            "schema": { "type": "string", "pattern": "^(raw1|png1)(,(raw1|png1))*$" },
-            "example": "raw1"
+            "description": "Comma separated image formats the device accepts (raw1, pb1, png1). Names the server does not know are ignored; at least one must be known.",
+            "schema": { "type": "string", "pattern": "^[a-z0-9]{1,16}(,[a-z0-9]{1,16})*$" },
+            "example": "pb1,raw1"
           },
           {
             "name": "Tintero-Panel",
@@ -256,7 +256,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Image bytes; raw1 is ceil(w/8)*h bytes, 1 = black, MSB first.",
+            "description": "Image bytes; raw1 is ceil(w/8)*h bytes, 1 = black, MSB first. pb1 is the raw1 stream coded with PackBits (control 0..127 copies n+1 bytes, 129..255 repeats the next byte 257-n times, 128 is invalid); its crc32 in the index is that of the decoded raw1.",
             "headers": { "ETag": { "schema": { "type": "string" }, "example": "\"9f2c1a7b\"" } },
             "content": {
               "image/png": { "schema": { "type": "string", "format": "binary" } },
@@ -396,9 +396,9 @@
             "name": "Tintero-Formats",
             "in": "header",
             "required": true,
-            "description": "Comma separated image formats the device accepts (raw1, png1).",
-            "schema": { "type": "string", "pattern": "^(raw1|png1)(,(raw1|png1))*$" },
-            "example": "raw1"
+            "description": "Comma separated image formats the device accepts (raw1, pb1, png1). Names the server does not know are ignored; at least one must be known.",
+            "schema": { "type": "string", "pattern": "^[a-z0-9]{1,16}(,[a-z0-9]{1,16})*$" },
+            "example": "pb1,raw1"
           },
           {
             "name": "Tintero-Panel",
@@ -555,9 +555,9 @@
             "name": "Tintero-Formats",
             "in": "header",
             "required": true,
-            "description": "Comma separated image formats the device accepts (raw1, png1).",
-            "schema": { "type": "string", "pattern": "^(raw1|png1)(,(raw1|png1))*$" },
-            "example": "raw1"
+            "description": "Comma separated image formats the device accepts (raw1, pb1, png1). Names the server does not know are ignored; at least one must be known.",
+            "schema": { "type": "string", "pattern": "^[a-z0-9]{1,16}(,[a-z0-9]{1,16})*$" },
+            "example": "pb1,raw1"
           },
           {
             "name": "Tintero-Panel",
@@ -712,9 +712,9 @@
             "name": "Tintero-Formats",
             "in": "header",
             "required": true,
-            "description": "Comma separated image formats the device accepts (raw1, png1).",
-            "schema": { "type": "string", "pattern": "^(raw1|png1)(,(raw1|png1))*$" },
-            "example": "raw1"
+            "description": "Comma separated image formats the device accepts (raw1, pb1, png1). Names the server does not know are ignored; at least one must be known.",
+            "schema": { "type": "string", "pattern": "^[a-z0-9]{1,16}(,[a-z0-9]{1,16})*$" },
+            "example": "pb1,raw1"
           },
           {
             "name": "Tintero-Panel",
@@ -847,7 +847,8 @@
                 "format": {
                   "anyOf": [
                     { "type": "string", "const": "raw1" },
-                    { "type": "string", "const": "png1" }
+                    { "type": "string", "const": "png1" },
+                    { "type": "string", "const": "pb1" }
                   ]
                 },
                 "bytes": { "type": "integer", "minimum": 1, "maximum": 1048576 },

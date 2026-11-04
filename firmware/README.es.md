@@ -55,16 +55,18 @@ El certificado del servidor se valida con fechas. Sin hora (el ESP32 arranca en 
 ### 3. Conexión
 - `https://<nombre-público>/` en el puerto **443**. El nombre (SNI) tiene que ser el del certificado del servidor.
 - **Una petición a la vez** (nunca en paralelo); se puede reusar la conexión dentro de una despertada.
-- **Tiempos de espera en toda petición** (conexión y lectura; p. ej. 10 s y 20 s): si el servidor no responde, dormir y probar en la próxima despertada.
+- **Plazos en toda petición** (F-019): la respuesta la lee `http_reader` (sin Arduino), nunca `HTTPClient`. Se rinde a los **10 s sin un solo byte** (`stalled`) y a los **15 s** en total (30 s para una imagen, `timeout`). Escribir el pedido tiene un tiempo de socket de 10 s como máximo. La conexión se reutiliza dentro de una despertada solo si la respuesta anterior terminó bien (HTTP/1.1, `Content-Length`, sin `Connection: close`); si una conexión reutilizada falla antes del primer byte, el pedido se reintenta una vez con una nueva. Después, dormir y probar de nuevo con espera creciente: 30 s, 60 s, 120 s… hasta 15 min tras fallas seguidas.
+- **Topes de cabeceras:** una línea ≤ 512 bytes, ≤ 48 cabeceras, todo el bloque ≤ 4096 bytes; `Content-Length` es obligatorio en un 200; `Transfer-Encoding` se rechaza. `Retry-After` es solo dígitos, acotado a 0–3600 s.
+- **Se cura solo:** un *watchdog* de tareas de 60 s sobre `loop()` reinicia el ESP32 si se traba de todas formas; 8 sincronizaciones fallidas seguidas, o un bloque libre del *heap* menor de 45 000 bytes antes de abrir TLS, provocan un reinicio controlado (máximo uno por hora). La última falla y el motivo del arranque se mandan con `POST /api/v1/log` tras la siguiente sincronización buena.
 - **Límites antes de leer** (entrada externa): rechazar un `Content-Length` mayor que el esperado (índice ≤ 2048 bytes, zonas ≤ 4096, imagen = `bytes` del índice) y acotar `next_wake_s` a 30–86 400 s.
 
 ### 4. Cabeceras en **cada** petición
 | Cabecera | Valor |
 |----------|-------|
 | `Tintero-Protocol` | `1` |
-| `Tintero-Firmware` | texto, 1–32 caracteres (p. ej. `esp32-0.1`) |
+| `Tintero-Firmware` | texto, 1–32 caracteres (p. ej. `esp32-0.2`) |
 | `Tintero-Power` | `battery` o `usb` |
-| `Tintero-Formats` | `raw1` |
+| `Tintero-Formats` | `pb1,raw1` (el servidor ignora los nombres que no conoce; al menos uno debe conocerlo) |
 | `Tintero-Panel` | `w=800,h=480,dpi=124,depth=1` (GDEY075T7) |
 | `Tintero-Battery-mV`, `Tintero-RSSI` | opcionales |
 | `Tintero-View` | opcional: el id de la vista que muestra el aparato ahora (ver *Foco y acciones*) |
@@ -72,7 +74,7 @@ El certificado del servidor se valida con fechas. Sin hora (el ESP32 arranca en 
 ### 5. Una despertada
 1. `GET /api/v1/index` → `current`, `views[]` (con `hash`, `bytes`, `crc32`), `panel`, `next_wake_s` (cambia con `Tintero-Power`: 600 con `usb`, 1800 con `battery`, por defecto).
 2. Si el `panel` de la respuesta no es el que se declaró, no mostrar nada nuevo y volver en `next_wake_s`.
-3. Por cada vista cuya `hash` cambió (empezando por `current`): `GET /api/v1/views/{id}/image?h={hash}` y `GET /api/v1/views/{id}/zones?h={hash}`. Comprobar que la imagen tiene **exactamente** `bytes` (48 000 en el panel actual) y su **CRC-32** (el de zlib) antes de guardarla o mostrarla.
+3. Por cada vista cuya `hash` cambió (empezando por `current`): `GET /api/v1/views/{id}/image?h={hash}` y `GET /api/v1/views/{id}/zones?h={hash}`. Comprobar que el cuerpo tiene **exactamente** `bytes` (48 000 para `raw1` en el panel actual; el largo empaquetado para `pb1`) y el **CRC-32** (el de zlib) de la imagen `raw1` (ya decodificada, en `pb1`) antes de guardarla o mostrarla. Una vista en un formato que el firmware no conoce se salta (con las vistas que la tengan de `parent`), igual que una zona con un `act` desconocido.
 4. Mostrar `current`; el foco (anillo) lo dibuja el ESP32 con refresco parcial sobre las zonas (ADR-0006, ver *Foco y acciones*). Si `full_refresh` es `true`, esa imagen se muestra con el refresco completo lento.
 5. Las acciones hechas (también sin red) van juntas en `POST /api/v1/actions` (1–8, cada una con un `id` único: el servidor ignora repetidas).
 6. Opcional: `POST /api/v1/log` con avisos cortos.
@@ -80,6 +82,8 @@ El certificado del servidor se valida con fechas. Sin hora (el ESP32 arranca en 
 
 ### 6. Formato `raw1`
 `ceil(ancho / 8) × alto` bytes; filas de arriba abajo, píxeles de izquierda a derecha, **bit más significativo primero**, **1 = negro**. Si el controlador del panel usa 1 = blanco, invertir los bytes al volcar.
+
+El formato `pb1` es ese mismo flujo `raw1` codificado con PackBits, como un solo flujo (las corridas cruzan los fines de fila). Byte de control `n`: `0…127` copia los `n+1` bytes siguientes; `129…255` repite `257−n` veces el byte siguiente; `128` es inválido. El índice da `bytes` = el largo del cuerpo `pb1` y `crc32` = el CRC-32 del `raw1` decodificado. Unas cuatro veces menos bytes que `raw1`. El firmware decodifica directo en el búfer de la imagen (`PackBitsSink`).
 
 ### 7. Botones (ADR-0005)
 - **Mover:** corto = siguiente zona (en el orden de `zones`); largo = siguiente vista (en el orden de `views`).

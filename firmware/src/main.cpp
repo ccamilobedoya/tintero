@@ -11,17 +11,23 @@
 //   Accept long   → in a detail, go back; in a view, refresh now
 
 #include <Arduino.h>
+#include <esp_task_wdt.h>
 
 #include "actions.h"
 #include "buttons.h"
 #include "crc32.h"
+#include "health.h"
 #include "index.h"
 #include "net.h"
+#include "packbits.h"
 #include "panel.h"
+#include "recovery.h"
 #include "tintero.h"
 #include "zones.h"
 
-constexpr uint32_t RETRY_MS = 30000;      // wait after a network failure
+constexpr uint32_t WATCHDOG_MS = 60000;   // loop() must run at least this often, or the ESP32 restarts
+constexpr uint32_t MAX_FAILURES = 8;      // consecutive failed syncs before a controlled restart
+constexpr uint32_t RETRY_MS = 30000;      // wait after a network failure (before the backoff)
 constexpr uint32_t STALE_MS = 5000;       // 409: the index changed in the meantime
 constexpr uint32_t DEFAULT_WAKE_S = 60;   // while there is no valid index
 constexpr uint32_t IDLE_MS = 30000;       // still for this long → cleanup (ADR-0050)
@@ -45,6 +51,20 @@ bool slowNext = false;    // full_refresh: the next full refresh is the slow one
 uint32_t lastSync = 0;
 uint32_t waitMs = 0;      // the first sync happens right away
 uint32_t lastButton = 0;
+uint32_t failures = 0;    // syncs in a row that ended neither in a valid index nor in a whole new view
+
+// A sync failed: counts it and returns how long to wait, the longer of the
+// growing backoff and what the server asked. After MAX_FAILURES, a controlled restart.
+// A 409 (STALE_MS) is not a failure and does not come through here.
+uint32_t failedSync(uint32_t serverWaitMs) {
+  failures++;
+  Serial.printf("Failed syncs in a row: %lu\n", (unsigned long)failures);
+  if (failures >= MAX_FAILURES) health::restartIfAllowed("too many failed syncs");
+  const uint32_t backoff = backoffMs(failures);
+  return backoff > serverWaitMs ? backoff : serverWaitMs;
+}
+
+uint32_t afterRetry(uint32_t retry) { return retry == STALE_MS ? retry : failedSync(retry); }
 
 const View *findView(const char *id) {
   for (size_t i = 0; i < lastIndex.viewCount; i++) {
@@ -116,17 +136,23 @@ uint32_t fetchView(const View &view) {
 
   char path[64];
   snprintf(path, sizeof path, "/api/v1/views/%s/image?h=%s", view.id, view.hash);
-  const tintero::Response r = tintero::get(path, image, sizeof image);
+  esp_task_wdt_reset();
+  // The body goes straight into `image`: as is (raw1) or decoded on the fly (pb1).
+  http::BufferSink rawSink(image, sizeof image);
+  PackBitsSink packedSink(image, sizeof image);
+  http::Sink &sink = view.packed ? static_cast<http::Sink &>(packedSink) : rawSink;
+  const tintero::Response r = tintero::getInto(path, sink, view.bytes);
   // From here `image` may be half written: if anything fails, what was shown is
   // forgotten so the next check downloads it again, and with no zones there is no focus.
   imageValid = false;
-  if (r.status != 200 || r.length != view.bytes) {
+  if (r.outcome != http::Outcome::Ok || r.status != 200 || r.length != view.bytes ||
+      (view.packed && !packedSink.complete())) {
     shownHash[0] = '\0';
     haveZones = false;
     if (r.status == 200) Serial.printf("Incomplete image: %u bytes\n", (unsigned)r.length);
     return r.status == 409 ? STALE_MS : RETRY_MS;
   }
-  const uint32_t crc = crc32(image, r.length);
+  const uint32_t crc = crc32(image, sizeof image);  // of the raw1 image, decoded
   if (crc != view.crc32) {
     Serial.printf("CRC-32 mismatch: %08lx, the index says %08lx\n", (unsigned long)crc,
                   (unsigned long)view.crc32);
@@ -138,6 +164,7 @@ uint32_t fetchView(const View &view) {
   imageValid = true;
 
   snprintf(path, sizeof path, "/api/v1/views/%s/zones?h=%s", view.id, view.hash);
+  esp_task_wdt_reset();
   const tintero::Response z = tintero::get(path, netBuf, MAX_ZONES_BYTES);
   haveZones = z.status == 200 && !z.tooLarge &&
               parseZones(netBuf, z.length, view.id, view.hash, panel::WIDTH, panel::HEIGHT, zones);
@@ -185,24 +212,31 @@ uint32_t fetchIndex() {
 // view if it changed. The server returns as current the view reported in
 // Tintero-View (or the detail that was just opened).
 uint32_t syncOnce() {
-  if (!net::ensureOnline()) return RETRY_MS;
+  esp_task_wdt_reset();
+  if (!net::ensureOnline()) return failedSync(RETRY_MS);
+  esp_task_wdt_reset();
   if (actions::pending() > 0) actions::flush();
 
   uint32_t retry = fetchIndex();
+  bool show = false;
   if (retry == 0) {
     const View *view = findView(lastIndex.current);  // parseIndex guarantees it exists
     if (!lastIndex.panelOk) {
       Serial.println("The server thinks the panel is a different one: nothing new is shown");
     } else if (strcmp(view->id, shownView) != 0 || strcmp(view->hash, shownHash) != 0) {
       retry = fetchView(*view);
-      tintero::end();  // close before the refresh, which takes seconds
-      if (retry == 0) showImage();  // new or changed view: no focus
+      show = retry == 0;  // new or changed view: no focus
     } else {
       Serial.printf("View \"%s\" did not change\n", view->id);
     }
   }
-  tintero::end();
-  return retry != 0 ? retry : lastIndex.nextWakeS * 1000;
+  if (retry == 0) {
+    failures = 0;  // a valid index (and, if it changed, the whole new view)
+    health::sendPending();
+  }
+  tintero::end();  // close before the refresh, which takes seconds
+  if (show) showImage();
+  return retry == 0 ? lastIndex.nextWakeS * 1000 : afterRetry(retry);
 }
 
 // Show another view right now (Move long, going back from a detail).
@@ -214,7 +248,7 @@ void showNow(const View &view) {
     showImage();
   } else {
     lastSync = millis();
-    waitMs = retry;
+    waitMs = afterRetry(retry);
   }
 }
 
@@ -276,7 +310,7 @@ void acceptZone() {
   }
   tintero::end();
   lastSync = millis();
-  waitMs = retry != 0 ? retry : lastIndex.nextWakeS * 1000;
+  waitMs = retry != 0 ? afterRetry(retry) : lastIndex.nextWakeS * 1000;
 }
 
 // ---------- Buttons ----------
@@ -338,12 +372,22 @@ void setup() {
   delay(200);
   Serial.println();
   Serial.printf("Tintero ESP32 · device %s\n", tintero::deviceId());
+  health::begin();
   buttons::begin();
   panel::begin();
   tintero::begin();
+
+  // Last resort: if loop() stops running for 60 s, the ESP32 restarts by itself.
+  // No step of loop() goes 30 s without feeding it (Wi-Fi 20 s, SNTP 15 s, full
+  // refresh ~3 s, requests feed it while they wait).
+  const esp_task_wdt_config_t wdt = {
+      .timeout_ms = WATCHDOG_MS, .idle_core_mask = 0, .trigger_panic = true};
+  if (esp_task_wdt_reconfigure(&wdt) != ESP_OK) esp_task_wdt_init(&wdt);
+  esp_task_wdt_add(nullptr);  // this task (loop)
 }
 
 void loop() {
+  esp_task_wdt_reset();
   const buttons::Event e = buttons::poll();
   if (e != buttons::Event::None) handleButton(e);
 

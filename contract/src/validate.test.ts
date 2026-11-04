@@ -264,12 +264,44 @@ describe("panel header and device headers", () => {
     expect(codes(validateDeviceHeaders({ ...headers, "Tintero-Battery-mV": "9000" }))).toEqual([
       "schema",
     ]);
-    for (const formats of ["", "bmp", "raw1,bmp"]) {
+    for (const formats of ["", "bmp", ",", "bmp,gif"]) {
       expect(codes(validateDeviceHeaders({ ...headers, "Tintero-Formats": formats }))).toContain(
         "schema",
       );
     }
     expect(validateDeviceHeaders({ ...headers, "Tintero-Formats": "raw1,png1" }).ok).toBe(true);
+  });
+
+  it("accepts pb1 and ignores format names it does not know (F-019, R8)", () => {
+    const ok = (formats: string) =>
+      validateDeviceHeaders({ ...headers, "Tintero-Formats": formats });
+    const pb1 = ok("pb1,raw1");
+    expect(pb1.ok && pb1.value.formats).toEqual(["pb1", "raw1"]);
+    const mixed = ok("bmp,raw1");
+    expect(mixed.ok && mixed.value.formats).toEqual(["raw1"]);
+    expect(ok("bmp").ok).toBe(false);
+  });
+
+  it("accepts pb1 views no larger than raw1 and rejects larger ones (F-019)", () => {
+    const base = {
+      protocol: 1,
+      server_time: 1,
+      next_wake_s: 60,
+      full_refresh: false,
+      panel: P800,
+      current: "a",
+    };
+    const view = (bytes: number) => ({
+      id: "a",
+      hash: "aaaaaaaa",
+      format: "pb1",
+      bytes,
+      crc32: "deadbeef",
+    });
+    expect(validateIndex(JSON.stringify({ ...base, views: [view(11_000)] })).ok).toBe(true);
+    expect(codes(validateIndex(JSON.stringify({ ...base, views: [view(48_001)] })))).toContain(
+      "raw1_size",
+    );
   });
 });
 

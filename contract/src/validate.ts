@@ -114,7 +114,11 @@ export function validateIndex(raw: string): Validation<IndexResponse> {
     }
     const expected = raw1Bytes(index.panel);
     index.views.forEach((view, i) => {
-      if (view.format === "raw1" && view.bytes !== expected) {
+      // pb1: the packed body is never larger than the raw1 image it stands for.
+      if (
+        (view.format === "raw1" && view.bytes !== expected) ||
+        (view.format === "pb1" && view.bytes > expected)
+      ) {
         errors.push({ path: `/views/${i}/bytes`, code: "raw1_size" });
       }
       if (
@@ -188,6 +192,8 @@ export function formatPanelHeader(panel: Panel): string {
 
 // --- Device headers -----------------------------------------------------------------------------
 
+const KNOWN_FORMATS: ReadonlySet<string> = new Set(["raw1", "png1", "pb1"]);
+
 export function validateDeviceHeaders(
   headers: Record<string, string | undefined>,
 ): Validation<DeviceHeaders> {
@@ -215,7 +221,11 @@ export function validateDeviceHeaders(
     protocol: protocol === "1" ? 1 : undefined,
     firmware,
     power,
-    formats: formatsRaw?.split(",").map((item) => item.trim()),
+    // Names the server does not know are ignored; if none is known, the schema rejects it (R8).
+    formats: formatsRaw
+      ?.split(",")
+      .map((item) => item.trim())
+      .filter((item) => KNOWN_FORMATS.has(item)),
   };
   const optionalInt = (name: string, pattern: RegExp): number | undefined => {
     const value = lower.get(name.toLowerCase());

@@ -5,6 +5,7 @@ import {
   checkFocusBand,
   crc32Hex,
   LIMITS,
+  packBits,
   type Action,
   type Panel,
   type Zone,
@@ -54,6 +55,8 @@ export interface RenderedView {
   id: string;
   parent?: string;
   raw1: Uint8Array;
+  /** The raw1 image coded with PackBits (F-019); absent when it is not smaller than raw1. */
+  pb1?: Uint8Array;
   zones: Zone[];
   hash: string;
   crc32: string;
@@ -335,10 +338,13 @@ export function createEngine(options: EngineOptions): Engine {
         .update(JSON.stringify(zones))
         .digest("hex")
         .slice(0, 16);
+      // pb1 is made once per draw and kept with the image; only kept if it is smaller.
+      const packed = packBits(out.raw1);
       const entry: Entry = {
         bandInk,
         focus: { ring: metrics.focusRing, pad: metrics.focusPad, dash: metrics.focusDash },
         raw1: out.raw1,
+        ...(packed.length < out.raw1.length ? { pb1: packed } : {}),
         zones,
         hash,
         crc32: crc32Hex(out.raw1),

@@ -15,6 +15,7 @@ export type {
   Zone,
   ZonesResponse,
 } from "./schemas.ts";
+export { packBits, unpackBits } from "./packbits.ts";
 export {
   checkFocusBand,
   checkImage,

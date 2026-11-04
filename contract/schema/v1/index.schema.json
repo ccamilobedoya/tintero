@@ -38,7 +38,8 @@
           "format": {
             "anyOf": [
               { "type": "string", "const": "raw1" },
-              { "type": "string", "const": "png1" }
+              { "type": "string", "const": "png1" },
+              { "type": "string", "const": "pb1" }
             ]
           },
           "bytes": { "type": "integer", "minimum": 1, "maximum": 1048576 },

@@ -58,10 +58,10 @@ const deviceHeaders = [
   ),
   headerParam(
     "Tintero-Formats",
-    "Comma separated image formats the device accepts (raw1, png1).",
-    { type: "string", pattern: "^(raw1|png1)(,(raw1|png1))*$" },
+    "Comma separated image formats the device accepts (raw1, pb1, png1). Names the server does not know are ignored; at least one must be known.",
+    { type: "string", pattern: "^[a-z0-9]{1,16}(,[a-z0-9]{1,16})*$" },
     true,
-    "raw1",
+    "pb1,raw1",
   ),
   headerParam(
     "Tintero-Panel",
@@ -187,11 +187,12 @@ export const openApiDocument: object = {
     "/api/v1/views/{id}/image": {
       get: {
         operationId: "getViewImage",
-        summary: "Image of a view (raw1 or png1)",
+        summary: "Image of a view (raw1, pb1 or png1)",
         parameters: [viewId, hashParam, ...deviceHeaders],
         responses: {
           "200": {
-            description: "Image bytes; raw1 is ceil(w/8)*h bytes, 1 = black, MSB first.",
+            description:
+              "Image bytes; raw1 is ceil(w/8)*h bytes, 1 = black, MSB first. pb1 is the raw1 stream coded with PackBits (control 0..127 copies n+1 bytes, 129..255 repeats the next byte 257-n times, 128 is invalid); its crc32 in the index is that of the decoded raw1.",
             headers: { ETag: { schema: { type: "string" }, example: '"9f2c1a7b"' } },
             content: {
               "image/png": { schema: { type: "string", format: "binary" } },
