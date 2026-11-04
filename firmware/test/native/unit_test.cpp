@@ -289,10 +289,40 @@ static void testRecovery() {
   CHECK(formatFailure(f, untouched, 0) == 0 && untouched[0] == 'a');
 }
 
+static void testSelfHealingHelpers() {
+  char a[6] = {'a', 'b', '-', '_', '9', 'x'};  // no '\0': it is forced
+  CHECK(safeText(a, sizeof a) && a[5] == '\0' && std::strcmp(a, "ab-_9") == 0);
+  char b[8] = "ab\"c";
+  CHECK(!safeText(b, sizeof b));
+  char c[4] = "Ab";
+  CHECK(!safeText(c, sizeof c));
+  char d[4] = "";
+  CHECK(safeText(d, sizeof d) && !safeText(d, 0));
+
+  char buf[10];
+  size_t n = 0;
+  CHECK(appendf(buf, sizeof buf, n, "%s", "abcd") && n == 4);
+  CHECK(appendf(buf, sizeof buf, n, "%s", "efgh") && n == 8);
+  CHECK(!appendf(buf, sizeof buf, n, "%s", "xyz") && n == sizeof buf);
+  CHECK(!appendf(buf, sizeof buf, n, "%s", "") && std::strlen(buf) < sizeof buf);
+
+  const uint32_t H = 3600, T = 1800000000;
+  CHECK(restartAllowed(false, T, true, true, T, 0));         // fresh memory
+  CHECK(restartAllowed(true, 0, false, false, 0, 0));        // never restarted
+  CHECK(!restartAllowed(true, 0, true, false, 0, 1000));     // no clock after a no-clock restart
+  CHECK(restartAllowed(true, 0, true, false, 0, H * 1000));  // 1 h of uptime
+  CHECK(restartAllowed(true, 0, true, true, T, 0));          // got a clock
+  CHECK(!restartAllowed(true, T, false, true, T + H - 1, 0));
+  CHECK(restartAllowed(true, T, false, true, T + H, 0));
+  CHECK(!restartAllowed(true, T, false, false, 0, 1000));    // lost the clock
+  CHECK(restartAllowed(true, T, false, false, 0, H * 1000));
+}
+
 int main() {
   testReader();
   testPackBits();
   testRecovery();
+  testSelfHealingHelpers();
   if (failures == 0) std::printf("all passed\n");
   return failures == 0 ? 0 : 1;
 }

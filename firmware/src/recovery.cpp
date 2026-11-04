@@ -2,6 +2,7 @@
 
 #include "recovery.h"
 
+#include <cstdarg>
 #include <cstdio>
 
 namespace {
@@ -34,4 +35,40 @@ size_t formatFailure(const Failure &f, char *out, size_t cap) {
     return 0;
   }
   return static_cast<size_t>(n) < room ? static_cast<size_t>(n) : room - 1;
+}
+
+bool safeText(char *s, size_t cap) {
+  if (cap == 0) return false;
+  s[cap - 1] = '\0';
+  for (size_t i = 0; s[i] != '\0'; i++) {
+    const char c = s[i];
+    if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-')) return false;
+  }
+  return true;
+}
+
+bool appendf(char *buf, size_t cap, size_t &n, const char *fmt, ...) {
+  if (n >= cap) return false;
+  va_list ap;
+  va_start(ap, fmt);
+  const int w = vsnprintf(buf + n, cap - n, fmt, ap);
+  va_end(ap);
+  if (w < 0 || static_cast<size_t>(w) >= cap - n) {
+    n = cap;
+    return false;
+  }
+  n += static_cast<size_t>(w);
+  return true;
+}
+
+bool restartAllowed(bool memoryValid, uint32_t lastAt, bool lastNoClock, bool nowValid,
+                    uint32_t now, uint32_t uptimeMs) {
+  constexpr uint32_t GAP_S = 3600;
+  if (!memoryValid) return true;
+  if (lastAt == 0) {
+    if (!lastNoClock) return true;                // never restarted
+    return nowValid || uptimeMs >= GAP_S * 1000;  // it did without a clock: wait for one or 1 h
+  }
+  if (nowValid && now >= lastAt) return now - lastAt >= GAP_S;
+  return uptimeMs >= GAP_S * 1000;
 }

@@ -64,7 +64,15 @@ uint32_t failedSync(uint32_t serverWaitMs) {
   return backoff > serverWaitMs ? backoff : serverWaitMs;
 }
 
-uint32_t afterRetry(uint32_t retry) { return retry == STALE_MS ? retry : failedSync(retry); }
+bool stale409 = false;  // the last fetchView ended in a 409 (not a failure)
+
+uint32_t afterRetry(uint32_t retry) {
+  if (stale409) {
+    stale409 = false;
+    return retry;
+  }
+  return failedSync(retry);
+}
 
 const View *findView(const char *id) {
   for (size_t i = 0; i < lastIndex.viewCount; i++) {
@@ -132,6 +140,7 @@ void setRingSolid(bool solid) {
 // goes well, it leaves the new image in `image` (not shown yet) and returns 0;
 // if not, how long to wait before retrying.
 uint32_t fetchView(const View &view) {
+  stale409 = false;
   dropFocus();  // the old image no longer matters: the ring is put back afterwards
 
   char path[64];
@@ -150,7 +159,8 @@ uint32_t fetchView(const View &view) {
     shownHash[0] = '\0';
     haveZones = false;
     if (r.status == 200) Serial.printf("Incomplete image: %u bytes\n", (unsigned)r.length);
-    return r.status == 409 ? STALE_MS : RETRY_MS;
+    stale409 = r.status == 409;
+    return stale409 ? STALE_MS : RETRY_MS;
   }
   const uint32_t crc = crc32(image, sizeof image);  // of the raw1 image, decoded
   if (crc != view.crc32) {
@@ -179,6 +189,7 @@ uint32_t fetchView(const View &view) {
 // Asks for the index over the open connection. On 503 it waits Retry-After and
 // retries once. Returns 0 if a valid index was left in lastIndex.
 uint32_t fetchIndex() {
+  stale409 = false;
   for (int attempt = 0; attempt < 2; attempt++) {
     const tintero::Response r = tintero::get("/api/v1/index", netBuf, MAX_INDEX_BYTES);
     if (r.status == 200 && !r.tooLarge) {

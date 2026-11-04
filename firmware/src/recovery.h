@@ -20,3 +20,16 @@ struct Failure {
 // (at most 200 characters, always ends in '\0'). Returns the length without the
 // '\0'; with cap = 0 it returns 0 and writes nothing.
 size_t formatFailure(const Failure &f, char *out, size_t cap);
+
+// Forces a '\0' at the end of s[cap] and checks it only has [a-z0-9_-] characters
+// (what the notices carry). false = corrupt text.
+bool safeText(char *s, size_t cap);
+
+// printf into buf[n..cap) and advances n. false (and n = cap) if it did not fit.
+bool appendf(char *buf, size_t cap, size_t &n, const char *fmt, ...)
+    __attribute__((format(printf, 4, 5)));
+
+// May a controlled restart happen now (rule R6: never two in less than 1 h)?
+// lastAt: Unix time of the last one (0 = unknown); lastNoClock: it happened with no valid clock.
+bool restartAllowed(bool memoryValid, uint32_t lastAt, bool lastNoClock, bool nowValid,
+                    uint32_t now, uint32_t uptimeMs);
