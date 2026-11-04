@@ -1,6 +1,6 @@
 # F-019 · El firmware no se cuelga, se cura solo y baja la imagen comprimida
 
-**Estado:** aprobada
+**Estado:** cerrada
 **Modelo del programador:** sonnet
 **Dependencias nuevas permitidas:** ninguna en npm ni en el firmware. Para las pruebas nativas del firmware, una imagen de contenedor `gcc` fijada por *digest* (la pone el arquitecto en A1, fuera de `package.json`).
 
@@ -227,16 +227,38 @@ Criterio: un caso **normal** (la red falla, crecen las tareas, cambia la configu
 El panel sigue actualizándose aunque la red se trabe a mitad de una descarga: a lo sumo pierde una vuelta, se recupera solo y el registro del servidor dice qué pasó (`image stalled 20000/11873 B …`). Cada cambio de vista baja unos 12 KB en vez de 48 KB. El servidor nunca manda un índice o unas zonas que el firmware tenga que rechazar, y el firmware se salta lo que no conoce en vez de quedarse sin pantalla.
 
 ## Terminado (se marca al cerrar)
-- [ ] Todos los CA pasan en la verificación (informe adjunto).
-- [ ] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
-- [ ] `tools/check-scope` limpio para cada rol.
-- [ ] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
-- [ ] El dueño aprobó integrar.
+- [x] Todos los CA pasan en la verificación (informe adjunto); CA22 queda para el dueño en el panel.
+- [x] `tools/revisar` limpio, o hallazgos resueltos o anotados como mejora.
+- [x] `tools/check-scope` limpio para cada rol.
+- [x] Resultado obtenido y resumen para aprobar escritos; métricas y lecciones actualizadas.
+- [x] El dueño aprobó integrar (2026-11-04).
 
 ---
 
 ## Resultado obtenido
-*(Lo llena el arquitecto al cerrar.)*
+- **Confirmación del diagnóstico** (dueño, monitor serie): el firmware imprime el índice y nunca la línea del `GET …/image`, que se imprime al terminar el pedido: se traba dentro de la descarga de la imagen, como decía el Contexto.
+- **Código, vuelta 1** (programador): lector `http_reader` con plazos y topes; `tintero.cpp` sobre `NetworkClientSecure` sin `HTTPClient`, con `Tintero-Formats: pb1,raw1` y `esp32-0.2`; *watchdog* de 60 s; espera creciente; reinicio controlado; avisos por `/api/v1/log` desde la memoria RTC (módulo `health.{h,cpp}`, fuera de la lista de archivos: separa lo del aparato de `tintero.cpp`); `pb1` en el contrato, el servidor (guardado con cada dibujo) y el emulador (`--formats`); índice y zonas tolerantes; recortes `index-trimmed`/`zones-trimmed`. Pruebas unitarias nativas en `firmware/test/native/`. Firmware: RAM 107 548 B y *flash* 1 173 814 B (antes 108 808 y 1 214 444).
+- **Pruebas** (verificador, fase pruebas): 66 en `tests/acceptance/F-019/`, 5 archivos nativos en C++ con `FakeSource`/`FakeClock` y 5 pares `raw1`/`pb1` (`hoy.pb1` = 12 098 bytes). Las pruebas nativas compilaron a la primera cuando llegó el código.
+- **Verificación 1:** **CUMPLE** CA1 a CA21; CA22 queda para el dueño en el panel. El verificador corrigió dos pruebas suyas que pedían más que la ficha (la comilla en CA21; `future,pb1` sin `raw1` en CA13, que da 400 porque el servidor exige `raw1` desde F-003; se deja así). Toda la aceptación: 962 pasan; las 7 que fallan son las conocidas por carga (F-005 CA27 y CA24, F-008 CA4, F-015 CA5, y F-013 CA20 y F-014 CA14 que las relanzan) y F-007 CA6, que necesita `.revisar/` antes. Ninguna toca `pb1` ni `Tintero-Formats`.
+- **Revisión:** `tools/revisar` con 11 ❌ de `npm audit`/`osv-scanner` por `minimatch` en la cadena de eslint (solo desarrollo, **anterior** a la ficha: `package-lock.json` no cambió y `npm audit --omit=dev` da 0). Juicio del revisor (Sonnet): sin bloqueantes, 4 mejoras.
+- **Código, vuelta 2:** las 4 mejoras hechas: `snprintf` encadenado con tope (`appendf`); textos de la memoria RTC saneados antes de ir al JSON del aviso; R6 sin reloj no permite otro reinicio antes de 1 h; el 409 se distingue con un indicador y no por la espera de 5 s. F-019 otra vez 66/66, unitarias 564, nativas y compilación bien.
+- **Mejoras anotadas:** actualizar eslint por el aviso de `minimatch` (ficha aparte); zlib si `pb1` no alcanza; OTA, portal de Wi-Fi y CA de respaldo (casos borde 20 a 22); Mover largo con la vista mostrada fuera del índice (caso 19); `tools/probar-firmware` compila un solo `main()` por llamada.
+- **Costo en agentes:** USD 5,89 (programador 2,69 + 0,35; verificador 2,19 + 0,31; revisor 0,34; integrador ~0,02).
 
 ## Resumen para aprobar
-*(Una pantalla, con `docs/plantillas/resumen-aprobacion.md`.)*
+
+## Para aprobar · F-019 · El firmware no se cuelga, se cura solo y baja la imagen comprimida
+
+**Qué cambió:** el firmware ya no espera para siempre: si los datos se detienen 10 s (o un pedido pasa de 30 s) corta, reintenta con espera creciente hasta 15 min, y si algo igual lo traba, el *watchdog* lo reinicia a los 60 s; la próxima vez que conecta le cuenta al servidor qué pasó. La imagen baja comprimida (`pb1`, ~12 KB en vez de 48 KB). Lo que el firmware no conoce se salta en vez de dejar la pantalla congelada, y el servidor nunca manda un índice más grande que el tope.
+
+**Criterios:** 21 de 22 pasan; CA22 es del dueño en el panel · vueltas: programación 2, verificación 1
+
+**Revisión:** 4 mejoras, hechas en la vuelta 2 · zonas sensibles: el contrato (formato nuevo) y el cliente TLS del firmware
+**Dependencias nuevas:** ninguna (ArduinoJson fijado en 7.4.2; contenedor `gcc` fijado para las pruebas nativas)
+
+**Riesgos o pendientes:**
+- **Orden obligatorio:** primero integrar y reiniciar el servicio, **después** grabar el firmware. Un servidor viejo responde 400 a `Tintero-Formats: pb1,raw1`.
+- CA22 en el panel: un día normal; el *router* apagado 2 min a mitad de una descarga; desconectar y conectar el USB.
+- Aviso de `minimatch` en eslint (solo desarrollo, anterior): ficha aparte.
+
+**Decisión que se pide:** integrar a `main`
