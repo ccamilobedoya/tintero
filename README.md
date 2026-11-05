@@ -75,6 +75,8 @@ Then open `/tmp/tintero-emu/screen.png`. The full steps, with explanations, are 
 
 The security policy is in [SECURITY.md](SECURITY.md); how to contribute is in [CONTRIBUTING.md](CONTRIBUTING.md). Internal project documents (decisions, work cards) are in Spanish under `docs/`.
 
+Tintero is one of the open-source projects on [ohmio.dev](https://ohmio.dev/projects).
+
 ## License
 
 MIT, see [LICENSE](LICENSE). Third-party software is listed in [NOTICE](NOTICE). Note that a compiled firmware binary links GxEPD2 (GPL-3.0); this repository publishes source code only.

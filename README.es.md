@@ -75,6 +75,8 @@ Después abre `/tmp/tintero-emu/screen.png`. Los pasos completos, con explicacio
 
 La política de seguridad está en [SECURITY.es.md](SECURITY.es.md); cómo contribuir, en [CONTRIBUTING.es.md](CONTRIBUTING.es.md). Los documentos internos del proyecto (decisiones, fichas de trabajo) están en español dentro de `docs/`.
 
+Tintero es uno de los proyectos de código abierto de [ohmio.dev](https://ohmio.dev/es/projects).
+
 ## Licencia
 
 MIT, ver [LICENSE](LICENSE). El *software* de terceros está en [NOTICE](NOTICE). Ojo: un binario compilado del firmware enlaza GxEPD2 (GPL-3.0); este repositorio publica solo código fuente.
